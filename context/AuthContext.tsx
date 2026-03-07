@@ -1,0 +1,108 @@
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
+import { supabase } from '@/lib/supabase';
+import type { KycRecord, UserProfile, Subscription } from '@/lib/types';
+
+type AuthContextType = {
+    userId: string | null;
+    user: ReturnType<typeof useUser>['user'];
+    isLoaded: boolean;
+    isSignedIn: boolean;
+    // Derived data
+    kyc: KycRecord | null;
+    profile: UserProfile | null;
+    subscription: Subscription | null;
+    // Actions
+    refreshUserData: () => Promise<void>;
+    signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType>({
+    userId: null,
+    user: null,
+    isLoaded: false,
+    isSignedIn: false,
+    kyc: null,
+    profile: null,
+    subscription: null,
+    refreshUserData: async () => { },
+    signOut: async () => { },
+});
+
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+    const { isLoaded, isSignedIn, userId: clerkUserId } = useClerkAuth();
+    const { user } = useUser();
+    const { signOut: clerkSignOut } = useClerk();
+
+    const [kyc, setKyc] = useState<KycRecord | null>(null);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [subscription, setSubscription] = useState<Subscription | null>(null);
+
+    const fetchUserData = useCallback(async (userId: string) => {
+        try {
+            const [kycRes, profileRes, subRes] = await Promise.all([
+                supabase.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
+            ]);
+            setKyc(kycRes.data ?? null);
+            setProfile(profileRes.data ?? null);
+            setSubscription(subRes.data ?? null);
+        } catch (e) {
+            console.warn('Failed to fetch user data:', e);
+        }
+    }, []);
+
+    const refreshUserData = useCallback(async () => {
+        if (user?.id) {
+            await fetchUserData(user.id);
+        }
+    }, [user?.id, fetchUserData]);
+
+    // Fetch user data when Clerk user changes
+    useEffect(() => {
+        if (isLoaded && isSignedIn && user?.id) {
+            fetchUserData(user.id);
+        } else if (isLoaded && !isSignedIn) {
+            // Clear data when signed out
+            setKyc(null);
+            setProfile(null);
+            setSubscription(null);
+        }
+    }, [isLoaded, isSignedIn, user?.id, fetchUserData]);
+
+    const signOut = useCallback(async () => {
+        try {
+            await clerkSignOut();
+            // Manually clear the clerk token cache to prevent "session already exists" issue
+            await SecureStore.deleteItemAsync('__clerk_client_jwt');
+        } catch (error) {
+            console.warn('Clerk sign out error:', error);
+        }
+        // Clear local state
+        setKyc(null);
+        setProfile(null);
+        setSubscription(null);
+    }, [clerkSignOut]);
+
+    return (
+        <AuthContext.Provider
+            value={{
+                userId: clerkUserId ?? null,
+                user: user ?? null,
+                isLoaded: !!isLoaded,
+                isSignedIn: !!isSignedIn,
+                kyc,
+                profile,
+                subscription,
+                refreshUserData,
+                signOut
+            }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
+};
