@@ -122,20 +122,29 @@ export default function LoginScreen() {
 
             if (createdSessionId && setOAuthActive) {
                 await setOAuthActive({ session: createdSessionId });
+                router.replace('/');
+            } else if (oauthSignIn?.createdSessionId && setOAuthActive) {
+                await setOAuthActive({ session: oauthSignIn.createdSessionId });
+                router.replace('/');
+            } else if (signUp?.createdSessionId && setOAuthActive) {
+                await setOAuthActive({ session: signUp.createdSessionId });
+                router.replace('/');
+            } else {
+                if (signUp?.status === 'missing_requirements') {
+                    showAlert('Registration Incomplete', 'Your account requires more information. Please sign up via email.');
+                }
             }
         } catch (err: any) {
             const message = err?.errors?.[0]?.message ?? err?.message ?? 'An unknown error occurred';
             if (message.toLowerCase().includes('session already exists')) {
-                // Clear the inconsistent session state
-                await signOut();
-                showAlert('Session Error', 'A conflicting session was found and cleared. Please try signing in again.');
+                router.replace('/');
             } else {
                 showAlert('Google Sign In Failed', message);
             }
         } finally {
             setLoading(false);
         }
-    }, [startGoogleOAuthFlow, signOut, showAlert, clerk]);
+    }, [startGoogleOAuthFlow, showAlert, clerk]);
 
     const animateButton = () => {
         Animated.sequence([
