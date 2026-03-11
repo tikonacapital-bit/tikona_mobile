@@ -118,7 +118,7 @@ export interface UserProfile {
 export interface Subscription {
     id: string;
     user_id: string;
-    plan: 'free' | 'basic' | 'premium';
+    plan: 'midcap_wealth' | 'smallcap_alpha' | 'sme_emerging' | 'all_in_growth';
     started_at: string;
     expires_at: string | null;
     is_active: boolean;
@@ -166,39 +166,63 @@ export interface ProfilingQuestion {
 
 // Subscription plans
 export const PLANS = {
-    free: {
-        name: 'Free',
-        price: '₹0',
-        period: '',
+    midcap_wealth: {
+        name: 'Mid Cap Wealth Builders',
+        description: 'Consistent performers with long-term compounding potential',
+        price: '₹24,999',
+        period: '/year',
+        tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14ed46313330572f9419a',
         features: [
-            'View 3 reports per month',
-            'Basic stock info',
-            'Portfolio (up to 5 stocks)',
-        ],
-        limitations: ['No audio summaries', 'No video briefings', 'No PDF downloads'],
-    },
-    basic: {
-        name: 'Basic',
-        price: '₹499',
-        period: '/month',
-        features: [
-            'Unlimited report access',
-            'Audio summaries',
-            'Full portfolio tracking',
+            'Curated mid cap stock picks',
+            'Consistent performer recommendations',
+            'Detailed research reports',
+            'Portfolio tracking',
             'Email support',
         ],
-        limitations: ['No video briefings'],
+        limitations: [],
     },
-    premium: {
-        name: 'Premium',
-        price: '₹999',
-        period: '/month',
+    smallcap_alpha: {
+        name: 'Smallcap Alpha Picks',
+        description: 'Focused ideas for aggressive growth investors',
+        price: '₹29,999',
+        period: '/year',
+        tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14fe46313330572f95675',
         features: [
-            'Everything in Basic',
-            'Video research briefings',
-            'PDF report downloads',
-            'Priority research requests',
+            'High-alpha smallcap ideas',
+            'Aggressive growth picks',
+            'In-depth company analysis',
+            'Portfolio tracking',
+            'Priority email support',
+        ],
+        limitations: [],
+    },
+    sme_emerging: {
+        name: 'SME Emerging Business',
+        description: 'Scalable models from the SME platform',
+        price: '₹35,999',
+        period: '/year',
+        tradeboxUrl: null as string | null,
+        features: [
+            'SME IPO & listed picks',
+            'Emerging scalable business models',
+            'Early-stage growth opportunities',
+            'Detailed sector analysis',
             'Dedicated support',
+        ],
+        limitations: [],
+    },
+    all_in_growth: {
+        name: 'All In Growth Bundle',
+        description: 'Complete access to all research plans',
+        price: '₹74,999',
+        period: '/year',
+        tradeboxUrl: null as string | null,
+        features: [
+            'Everything in all plans',
+            'Mid cap + Smallcap + SME picks',
+            'Personalised research calls',
+            'Portfolio advisory sessions',
+            'Priority dedicated support',
         ],
         limitations: [],
     },
