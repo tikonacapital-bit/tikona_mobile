@@ -1,11 +1,11 @@
-import { Tabs } from 'expo-router';
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
-import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Tabs } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const TAB_ITEMS = [
   { name: 'index', title: 'Home', icon: 'home-outline', iconFocused: 'home' },
@@ -51,7 +51,7 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
           {isExpanded && (
             <View style={{ flexShrink: 1 }}>
               <Text style={[styles.brandName, { color: c.text }]} numberOfLines={1}>
-                Tikona Capital
+                TIKONA CAPITAL
               </Text>
               <Text style={[styles.brandSub, { color: c.textTertiary }]} numberOfLines={1}>
                 Equity Research
@@ -176,7 +176,7 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
               resizeMode="contain"
             />
             <Text style={[styles.footerText, { color: c.textTertiary }]}>
-              Tikona Capital Pvt. Ltd.
+              TIKONA CAPITAL
             </Text>
           </View>
         ) : (
@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   brandName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: 2,
   },
   brandSub: {
     fontSize: 11,

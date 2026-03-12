@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    Platform, Linking, Alert,
+    Platform, Linking, Alert, AppState,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
@@ -18,15 +18,72 @@ const planOrder: PlanKey[] = ['midcap_wealth', 'smallcap_alpha', 'sme_emerging',
 const planMeta: Record<PlanKey, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
     midcap_wealth:  { icon: 'trending-up',  color: Colors.brand.secondary },
     smallcap_alpha: { icon: 'flash',         color: Colors.brand.gold },
-    sme_emerging:   { icon: 'business',      color: '#8B5CF6' },
+    sme_emerging:   { icon: 'business',      color: Colors.brand.primary },
     all_in_growth:  { icon: 'rocket',        color: Colors.brand.accent },
 };
 
 export default function SubscriptionScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
-    const { subscription } = useAuth();
+    const { subscription, refreshUserData } = useAuth();
     const currentPlan = subscription?.plan as PlanKey | undefined;
+    const prevPlanRef = useRef<string | undefined>(currentPlan);
+    const isRedirectingRef = useRef(false);
+
+    // ── Auto-refresh when returning from Tradebox ──
+    // When user pays on Tradebox and comes back, we re-fetch subscription data.
+    // If your backend/webhook has written the subscription to Supabase,
+    // it will be detected here automatically.
+    const handleAppFocus = useCallback(async () => {
+        if (!isRedirectingRef.current) return;
+        isRedirectingRef.current = false;
+
+        // The webhook might take a few seconds to process the payment from Tradebox.
+        // We will poll for the update 3 times.
+        for (let i = 0; i < 3; i++) {
+            await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
+            await refreshUserData();
+            // We can't easily break out of the loop here without reading the latest state,
+            // but fetching user data 3 times over 5 seconds is perfectly fine and ensures
+            // we catch the webhook's update even if it's delayed.
+        }
+    }, [refreshUserData]);
+
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            const onVisChange = () => {
+                if (document.visibilityState === 'visible') handleAppFocus();
+            };
+            document.addEventListener('visibilitychange', onVisChange);
+            return () => document.removeEventListener('visibilitychange', onVisChange);
+        } else {
+            const sub = AppState.addEventListener('change', (state) => {
+                if (state === 'active') handleAppFocus();
+            });
+            return () => sub.remove();
+        }
+    }, [handleAppFocus]);
+
+    // Detect subscription changes and show success
+    useEffect(() => {
+        const prevPlan = prevPlanRef.current;
+        const newPlan = subscription?.plan;
+        prevPlanRef.current = newPlan;
+
+        if (newPlan && newPlan !== prevPlan && prevPlan !== undefined) {
+            // A new subscription was detected!
+            const planName = PLANS[newPlan as PlanKey]?.name || newPlan;
+            Alert.alert(
+                '🎉 Payment Successful!',
+                `You're now subscribed to ${planName}. Enjoy premium research access!`,
+                [{ 
+                    text: 'Awesome!', 
+                    style: 'default',
+                    onPress: () => router.replace('/(tabs)')
+                }]
+            );
+        }
+    }, [subscription?.plan]);
 
     const handleSelectPlan = (planKey: PlanKey) => {
         const url = PLANS[planKey].tradeboxUrl;
@@ -35,17 +92,17 @@ export default function SubscriptionScreen() {
             return;
         }
 
+        isRedirectingRef.current = true;
+
         if (Platform.OS === 'web') {
             window.open(url, '_blank', 'noopener,noreferrer');
             return;
         }
 
-        // Native (Android/iOS): Open in Chrome/Safari
-        // This is strictly required because Tradebox uses Clerk/Google Auth
-        // which completely blocks login attempts inside in-app WebViews for security.
-        Linking.openURL(url).catch(() =>
-            Alert.alert('Error', 'Could not open the link. Please try again.')
-        );
+        Linking.openURL(url).catch(() => {
+            isRedirectingRef.current = false;
+            Alert.alert('Error', 'Could not open the link. Please try again.');
+        });
     };
 
     return (
@@ -110,8 +167,8 @@ export default function SubscriptionScreen() {
                                     <Ionicons name={icon} size={24} color={color} />
                                 </View>
                                 <View style={{ flex: 1, marginLeft: 14 }}>
-                                    <Text style={[styles.planName, { color: c.text }]}>{plan.name}</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                                    <Text style={[styles.planName, { color: c.text }]} numberOfLines={2}>{plan.name}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
                                         <Text style={[styles.planPrice, { color }]}>{plan.price}</Text>
                                         <Text style={[styles.planPeriod, { color: c.textTertiary }]}>{plan.period}</Text>
                                     </View>
@@ -204,7 +261,7 @@ const styles = StyleSheet.create({
     popularText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
     planHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm },
     planIconCircle: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-    planName: { fontSize: FontSize.lg, fontWeight: '700' },
+    planName: { fontSize: FontSize.lg, fontWeight: '700', flexShrink: 1 },
     planPrice: { fontSize: FontSize['2xl'], fontWeight: '800' },
     planPeriod: { fontSize: FontSize.sm, marginLeft: 2 },
     planDescription: { fontSize: FontSize.sm, lineHeight: 20, marginBottom: Spacing.lg },

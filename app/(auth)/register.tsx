@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     View, TextInput, TouchableOpacity, Text, StyleSheet,
     ActivityIndicator, Platform, KeyboardAvoidingView, ScrollView,
-    Animated,
+    Animated, Image,
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
@@ -383,15 +383,14 @@ export default function RegisterScreen() {
                         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                     ]}
                 >
-                    <View style={[styles.logoContainer, { backgroundColor: Colors.brand.primary }]}>
-                        <View style={styles.logoInner}>
-                            <Ionicons name="person-add" size={32} color="#fff" />
-                        </View>
-                        <View style={[styles.logoGlow, { backgroundColor: Colors.brand.primary }]} />
-                    </View>
+                    <Image
+                        source={require('@/assets/images/react-logo.png')}
+                        style={styles.logoImage}
+                        resizeMode="contain"
+                    />
                     <Text style={[styles.brandTitle, { color: c.text }]}>Create Account</Text>
                     <Text style={[styles.brandSubtitle, { color: c.textSecondary }]}>
-                        Join Tikona Capital today
+                        Join TIKONA CAPITAL today
                     </Text>
                 </Animated.View>
 
@@ -769,32 +768,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 28,
     },
-    logoContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 16,
-        shadowColor: Colors.brand.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    logoInner: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    logoGlow: {
-        position: 'absolute',
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        opacity: 0.2,
-        zIndex: -1,
+    logoImage: {
+        width: 56,
+        height: 56,
+        marginBottom: 14,
     },
     brandTitle: {
         fontSize: FontSize['2xl'],

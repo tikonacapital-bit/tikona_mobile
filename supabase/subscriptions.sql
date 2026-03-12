@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════
 -- Subscriptions table (updated for new plan structure)
--- Plans: midcap_wealth, smallcap_alpha, sme_emerging, all_in_growth
+-- Plans: midcap_wealth, smallcap_alpha, all_in_growth
 -- ═══════════════════════════════════════════════════════════════════
 
 create table public.subscriptions (
@@ -19,7 +19,6 @@ create table public.subscriptions (
       array[
         'midcap_wealth'::text,
         'smallcap_alpha'::text,
-        'sme_emerging'::text,
         'all_in_growth'::text
       ]
     )
@@ -48,7 +47,6 @@ create trigger set_subscriptions_updated_at
 --     array[
 --       'midcap_wealth'::text,
 --       'smallcap_alpha'::text,
---       'sme_emerging'::text,
 --       'all_in_growth'::text
 --     ]
 --   )

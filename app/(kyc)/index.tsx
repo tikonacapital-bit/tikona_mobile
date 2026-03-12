@@ -36,8 +36,8 @@ const STATUS_CONFIG: Record<string, {
         icon: 'time',
         iconColor: '#f59e0b',
         bgColor: '#f59e0b15',
-        title: 'KYC Under Review',
-        description: 'Tradebox is verifying your identity. This usually takes 24–48 hours. You\'ll be notified once it\'s complete.',
+        title: 'Verifying Check',
+        description: 'Tradebox is confirming your payment and KYC. This usually takes just a few moments.',
     },
     rejected: {
         icon: 'close-circle',
@@ -97,31 +97,23 @@ export default function KycStatusScreen() {
 
                 <TimelineStep
                     step={1}
-                    title="Subscribe to a Plan"
-                    desc="Choose Basic or Premium and pay securely via Razorpay."
+                    title="Select a Plan"
+                    desc="Choose your preferred subscription tier to proceed."
                     done={hasSubscription}
                     theme={theme}
                 />
                 <TimelineStep
                     step={2}
-                    title="KYC Auto-Initiated"
-                    desc="Tradebox automatically starts your KYC verification right after payment."
-                    done={!!kyc}
+                    title="Checkout & e-KYC"
+                    desc="Complete your payment and instant e-KYC securely via Tradebox."
+                    done={kyc?.status === 'approved'}
                     active={hasSubscription && !kyc}
                     theme={theme}
                 />
                 <TimelineStep
                     step={3}
-                    title="Document Verification"
-                    desc="Tradebox verifies your PAN/Aadhaar and bank details (24–48 hrs)."
-                    done={kyc?.status === 'approved'}
-                    active={kyc?.status === 'pending'}
-                    theme={theme}
-                />
-                <TimelineStep
-                    step={4}
-                    title="Full Access Unlocked"
-                    desc="Once KYC is approved, you get complete access to all platform features."
+                    title="Instant Access"
+                    desc="Once payment succeeds, your KYC is auto-approved and full access is unlocked."
                     done={kyc?.status === 'approved'}
                     theme={theme}
                     isLast
@@ -157,7 +149,7 @@ export default function KycStatusScreen() {
                 <View style={[styles.infoBox, { backgroundColor: Colors.brand.secondary + '12', borderColor: Colors.brand.secondary + '30' }]}>
                     <Ionicons name="information-circle" size={18} color={Colors.brand.secondary} />
                     <Text style={[styles.infoText, { color: c.textSecondary }]}>
-                        You'll receive a notification and email when your KYC is approved. No action needed right now.
+                        We are waiting for final confirmation from Tradebox. Your account will automatically activate in a few moments.
                     </Text>
                 </View>
             )}

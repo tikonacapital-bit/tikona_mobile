@@ -84,10 +84,9 @@ export default function ReportDetailScreen() {
     const hasAudio = !!report.audio_file_url;
     const hasVideo = !!report.video_file_url;
 
-    const isPremium = subscription?.plan === 'premium';
-    const isBasic = subscription?.plan === 'basic';
-    const canAudio = isPremium || isBasic;
-    const canVideo = isPremium;
+    const hasActiveSubscription = !!subscription?.is_active;
+    const canAudio = hasActiveSubscription;
+    const canVideo = hasActiveSubscription;
 
     const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; available: boolean; locked: boolean }[] = [
         { key: 'report', label: 'Report', icon: 'document-text', available: hasPdf, locked: false },

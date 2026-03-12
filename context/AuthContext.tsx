@@ -41,16 +41,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
 
-    const fetchUserData = useCallback(async (userId: string) => {
+    const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
         try {
             const [kycRes, profileRes, subRes] = await Promise.all([
                 supabase.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
                 supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
                 supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
             ]);
-            setKyc(kycRes.data ?? null);
+            // Tradebox instant e-KYC: an active subscription means KYC was successful.
+            const kycData = subRes.data?.is_active 
+                ? ({ status: 'approved' } as any) 
+                : (kycRes.data ?? null);
+            
+            setKyc(kycData);
             setProfile(profileRes.data ?? null);
             setSubscription(subRes.data ?? null);
+
+            // Keep email synced in profiles so Razorpay webhook can look up user_id by email
+            if (primaryEmail && profileRes.data) {
+                await supabase
+                    .from('profiles')
+                    .update({ email: primaryEmail })
+                    .eq('user_id', userId);
+            }
         } catch (e) {
             console.warn('Failed to fetch user data:', e);
         }
@@ -58,14 +71,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const refreshUserData = useCallback(async () => {
         if (user?.id) {
-            await fetchUserData(user.id);
+            const email = user.primaryEmailAddress?.emailAddress;
+            await fetchUserData(user.id, email);
         }
-    }, [user?.id, fetchUserData]);
+    }, [user?.id, user?.primaryEmailAddress?.emailAddress, fetchUserData]);
 
     // Fetch user data when Clerk user changes
     useEffect(() => {
         if (isLoaded && isSignedIn && user?.id) {
-            fetchUserData(user.id);
+            const email = user.primaryEmailAddress?.emailAddress;
+            fetchUserData(user.id, email);
         } else if (isLoaded && !isSignedIn) {
             // Clear data when signed out
             setKyc(null);

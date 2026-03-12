@@ -7,10 +7,11 @@
 
 export const Colors = {
     brand: {
-        primary: '#1B2B4B',      // Deep navy — authority, trust
-        secondary: '#2563EB',    // Confident blue — CTAs, links
-        accent: '#10B981',       // Clean green — success, verified
-        gold: '#F59E0B',         // Premium gold — upgrade CTA
+        primary: '#1F4690',      // Deep blue — authority, trust
+        secondary: '#3A5BA0',    // Medium blue — CTAs, links
+        accent: '#FFA500',       // Orange — highlights, badges
+        accentLight: '#FFE5B4',  // Peach — soft accent backgrounds
+        gold: '#FFA500',         // Orange gold — upgrade CTA
     },
 
     light: {
@@ -22,10 +23,10 @@ export const Colors = {
         textTertiary: '#9CA3AF',
         border: '#E5E7EB',
         borderLight: '#F3F4F6',
-        tint: '#1B2B4B',
+        tint: '#1F4690',
         icon: '#6B7280',
         tabIconDefault: '#9CA3AF',
-        tabIconSelected: '#1B2B4B',
+        tabIconSelected: '#1F4690',
         // Semantic
         success: '#059669',
         successBg: '#ECFDF5',
@@ -33,7 +34,7 @@ export const Colors = {
         dangerBg: '#FEF2F2',
         warning: '#D97706',
         warningBg: '#FFFBEB',
-        info: '#2563EB',
+        info: '#3A5BA0',
         infoBg: '#EFF6FF',
         // Cards
         cardBg: '#FFFFFF',
@@ -42,7 +43,7 @@ export const Colors = {
         // Input
         inputBg: '#F9FAFB',
         inputBorder: '#D1D5DB',
-        inputFocusBorder: '#2563EB',
+        inputFocusBorder: '#3A5BA0',
         // Tab bar
         tabBarBg: '#FFFFFF',
         tabBarBorder: '#E5E7EB',
