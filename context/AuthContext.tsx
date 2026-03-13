@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/lib/supabase';
-import type { KycRecord, UserProfile, Subscription } from '@/lib/types';
+import type { KycRecord, UserProfile, Subscription, RefundRequest } from '@/lib/types';
 
 type AuthContextType = {
     userId: string | null;
@@ -13,6 +13,7 @@ type AuthContextType = {
     kyc: KycRecord | null;
     profile: UserProfile | null;
     subscription: Subscription | null;
+    refundRequest: RefundRequest | null;
     // Actions
     refreshUserData: () => Promise<void>;
     signOut: () => Promise<void>;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
     kyc: null,
     profile: null,
     subscription: null,
+    refundRequest: null,
     refreshUserData: async () => { },
     signOut: async () => { },
 });
@@ -40,13 +42,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [kyc, setKyc] = useState<KycRecord | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
+    const [refundRequest, setRefundRequest] = useState<RefundRequest | null>(null);
 
     const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
         try {
-            const [kycRes, profileRes, subRes] = await Promise.all([
+            const [kycRes, profileRes, subRes, refundRes] = await Promise.all([
                 supabase.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
                 supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
                 supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
+                supabase.from('refund_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             ]);
             // Tradebox instant e-KYC: an active subscription means KYC was successful.
             const kycData = subRes.data?.is_active 
@@ -56,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setKyc(kycData);
             setProfile(profileRes.data ?? null);
             setSubscription(subRes.data ?? null);
+            setRefundRequest(refundRes.data as RefundRequest | null ?? null);
 
             // Keep email synced in profiles so Razorpay webhook can look up user_id by email
             if (primaryEmail && profileRes.data) {
@@ -86,6 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setKyc(null);
             setProfile(null);
             setSubscription(null);
+            setRefundRequest(null);
         }
     }, [isLoaded, isSignedIn, user?.id, fetchUserData]);
 
@@ -101,6 +107,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setKyc(null);
         setProfile(null);
         setSubscription(null);
+        setRefundRequest(null);
     }, [clerkSignOut]);
 
     return (
@@ -113,6 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 kyc,
                 profile,
                 subscription,
+                refundRequest,
                 refreshUserData,
                 signOut
             }}

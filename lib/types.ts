@@ -122,8 +122,37 @@ export interface Subscription {
     started_at: string;
     expires_at: string | null;
     is_active: boolean;
+    amount_paid: number | null;
     created_at: string;
 }
+
+// Refund request
+export interface RefundRequest {
+    id: string;
+    user_id: string;
+    subscription_id: string;
+    plan: string;
+    total_paid: number;
+    months_used: number;
+    months_remaining: number;
+    refund_amount: number;
+    upi_id: string; // User's UPI ID for direct 1-click refund payment
+    status: 'pending' | 'approved' | 'rejected' | 'processed';
+    reason: string | null;
+    admin_notes: string | null;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+// Numeric plan prices (for refund calculation)
+export const PLAN_PRICES: Record<string, number> = {
+    midcap_wealth: 24999,
+    smallcap_alpha: 29999,
+    sme_emerging: 35999,
+    all_in_growth: 74999,
+};
 
 // Portfolio
 export interface CustomerPortfolio {

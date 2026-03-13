@@ -236,6 +236,9 @@ serve(async (req: Request) => {
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
     // ── Upsert subscription ─────────────────────────────────────────────
+    // amount is in paise → convert to INR (÷ 100)
+    const amountPaidINR = amount / 100;
+
     const { data, error } = await supabase
       .from("subscriptions")
       .upsert(
@@ -245,6 +248,7 @@ serve(async (req: Request) => {
           is_active: true,
           started_at: startsAt.toISOString(),
           expires_at: expiresAt.toISOString(),
+          amount_paid: amountPaidINR,
         },
         { onConflict: "user_id" }
       )

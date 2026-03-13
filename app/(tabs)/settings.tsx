@@ -105,6 +105,9 @@ export default function SettingsScreen() {
                     <Row theme={theme} icon="shield-checkmark" label="KYC Verification" value={kyc?.status || 'Not Done'} onPress={() => router.push('/(kyc)')} />
                     <Row theme={theme} icon="bar-chart" label="Risk Profile" value={profile?.display_label || profile?.risk_profile || 'Not Set'} onPress={() => router.push('/(profiling)')} />
                     <Row theme={theme} icon="diamond" label="Subscription" value={(subscription?.plan || 'None').charAt(0).toUpperCase() + (subscription?.plan || 'None').slice(1)} onPress={() => router.push('/subscription')} />
+                    {subscription?.is_active && (
+                        <Row theme={theme} icon="arrow-undo" label="Request Refund" onPress={() => router.push('/refund' as any)} />
+                    )}
                 </Section>
 
                 <Section title="PREFERENCES" theme={theme}>
