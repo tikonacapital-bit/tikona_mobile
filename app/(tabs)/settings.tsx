@@ -113,7 +113,7 @@ export default function SettingsScreen() {
                 <Section title="PREFERENCES" theme={theme}>
                     <Row theme={theme} icon="notifications-outline" label="Notifications" />
                     <Row theme={theme} icon="moon-outline" label="Appearance" value={themeLabel} onPress={() => setShowThemePicker(true)} />
-                    <Row theme={theme} icon="help-circle-outline" label="Help & Support" />
+                    <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
                 </Section>
 
                 <Section title="" theme={theme}>

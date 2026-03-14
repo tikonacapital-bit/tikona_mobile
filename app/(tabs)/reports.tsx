@@ -1,17 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Platform,
-} from 'react-native';
-import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
+import { Card, EmptyState, RecommendationBadge, ResponsiveContainer } from '@/components/ui';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
-import { Card, RecommendationBadge, EmptyState, ResponsiveContainer } from '@/components/ui';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput, TouchableOpacity,
+    View,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const PAGE_SIZE = 12;
 
@@ -66,11 +73,12 @@ export default function ReportsScreen() {
         },
         enabled: !!userId,
         staleTime: 60000,
+
     });
 
     const reports = data ?? [];
 
-    const canAccessAll = subscription?.plan === 'basic' || subscription?.plan === 'premium';
+    const canAccessAll = !!subscription?.is_active;
     const isLocked = (index: number) => !canAccessAll && index >= 3;
 
     if (!kyc || !profile) {
@@ -144,11 +152,23 @@ export default function ReportsScreen() {
     return (
         <ResponsiveContainer style={{ backgroundColor: c.background }}>
             <View style={[styles.container, { backgroundColor: c.background }]}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={[styles.title, { color: c.text }]}>Research Reports</Text>
-                    <Text style={[styles.subtitle, { color: c.textSecondary }]}>AI-powered equity analysis</Text>
+                {/* Premium Header */}
+                <View style={{ overflow: 'hidden' }}>
+                    <LinearGradient
+                        colors={[Colors.brand.primary, '#1e3a8a']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.header}
+                    >
+                        <View style={styles.headerTextWrapper}>
+                            <Text style={styles.headerTitle}>Research Reports</Text>
+                            <Text style={styles.headerSubtitle}>In-depth analysis by expert research analysts</Text>
+                        </View>
+                    </LinearGradient>
                 </View>
+
+                {/* Status Bar Background for consistency */}
+                <View style={{ height: 1, backgroundColor: c.border }} />
 
                 {/* Search */}
                 <View style={styles.searchWrap}>
@@ -209,24 +229,102 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { paddingHorizontal: Spacing.xl, paddingTop: Platform.select({ ios: 60, web: 20, default: 48 }), paddingBottom: Spacing.sm },
-    title: { fontSize: FontSize.xl, fontWeight: '700', letterSpacing: -0.3 },
-    subtitle: { fontSize: FontSize.sm, marginTop: 2 },
-    searchWrap: { paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg },
-    searchBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: BorderRadius.md, paddingHorizontal: 14, height: 46, gap: 8 },
-    searchInput: { flex: 1, fontSize: FontSize.base },
+    header: {
+        paddingTop: Platform.select({ ios: 60, web: 24, default: 48 }),
+        paddingBottom: 40,
+        paddingHorizontal: Spacing.xl,
+        borderBottomLeftRadius: BorderRadius['3xl'],
+        borderBottomRightRadius: BorderRadius['3xl'],
+    },
+    headerTextWrapper: {
+        marginTop: Spacing.xs,
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: '#fff',
+        letterSpacing: -1,
+    },
+    headerSubtitle: {
+        fontSize: FontSize.md,
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 6,
+        fontWeight: '500',
+    },
+    searchWrap: { paddingHorizontal: Spacing.xl, marginTop: -24, marginBottom: Spacing.xl },
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderRadius: BorderRadius.xl,
+        paddingHorizontal: 16,
+        height: 52,
+        gap: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 1,
+    },
+    searchInput: { flex: 1, fontSize: 16 },
     loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    listContent: { paddingHorizontal: Spacing.xl, paddingBottom: 32 },
-    columnWrapper: { gap: Spacing.md, marginBottom: Spacing.md },
-    reportCard: { flex: 1, padding: Spacing.lg },
-    reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-    reportIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    reportBadges: { flexDirection: 'row', gap: 4, alignItems: 'center' },
-    lockBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-    companyName: { fontSize: FontSize.base, fontWeight: '700', marginBottom: 2 },
-    symbol: { fontSize: FontSize.xs, fontFamily: 'monospace', marginBottom: 6 },
-    target: { fontSize: FontSize.xs, marginBottom: 10 },
-    reportFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    date: { fontSize: 10 },
-    mediaRow: { flexDirection: 'row', gap: 4 },
+    listContent: { paddingHorizontal: Spacing.xl, paddingBottom: 40 },
+    columnWrapper: { gap: Spacing.xl, marginBottom: Spacing.xl },
+    reportCard: {
+        flex: 1,
+        padding: 20,
+        borderRadius: BorderRadius['2xl'],
+    },
+    reportHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 16,
+    },
+    reportIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    reportBadges: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+    lockBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+    },
+    companyName: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 4,
+        letterSpacing: -0.3,
+    },
+    symbol: {
+        fontSize: 12,
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        marginBottom: 8,
+        fontWeight: '700',
+        color: Colors.brand.secondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    target: {
+        fontSize: 13,
+        marginBottom: 16,
+        fontWeight: '500',
+    },
+    reportFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.03)',
+    },
+    date: { fontSize: 11, fontWeight: '500' },
+    mediaRow: { flexDirection: 'row', gap: 6 },
 });

@@ -82,7 +82,7 @@ export default function HomeScreen() {
                 });
             }
 
-            if (kycStatus !== 'approved') {
+            if (kycStatus === 'not_started' || kycStatus === 'rejected') {
                 setTimeout(async () => {
                     await Notifications.scheduleNotificationAsync({
                         content: {

@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
+import ReportAIChat from '@/components/ReportAIChat';
 // Audio/Video opened via external links (Linking.openURL)
 import type { ResearchReport } from '@/lib/types';
 
@@ -23,6 +24,7 @@ export default function ReportDetailScreen() {
     const { subscription, kyc, profile } = useAuth();
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
+    const [showAIChat, setShowAIChat] = useState(false);
 
     const { data: report, isLoading } = useQuery({
         queryKey: ['report_detail', id],
@@ -149,6 +151,17 @@ export default function ReportDetailScreen() {
                         {tab.locked && <Ionicons name="lock-closed" size={10} color={Colors.brand.gold} />}
                     </TouchableOpacity>
                 ))}
+                {/* Ask AI Tab */}
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        { borderBottomColor: 'transparent' },
+                    ]}
+                    onPress={() => setShowAIChat(true)}
+                >
+                    <Ionicons name="sparkles" size={16} color={Colors.brand.accent} />
+                    <Text style={[styles.tabLabel, { color: Colors.brand.accent, fontWeight: '700' }]}>Ask AI</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Content */}
@@ -209,6 +222,22 @@ export default function ReportDetailScreen() {
                     </View>
                 )}
             </ResponsiveScrollView>
+
+            {/* Floating AI Chat Button */}
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: Colors.brand.primary }]}
+                onPress={() => setShowAIChat(true)}
+                activeOpacity={0.85}
+            >
+                <Ionicons name="sparkles" size={22} color="#fff" />
+            </TouchableOpacity>
+
+            {/* AI Chat Modal */}
+            <ReportAIChat
+                visible={showAIChat}
+                onClose={() => setShowAIChat(false)}
+                report={report}
+            />
         </View>
     );
 }
@@ -238,4 +267,5 @@ const styles = StyleSheet.create({
     mediaSub: { fontSize: FontSize.sm, marginTop: 4, marginBottom: Spacing.xl },
     playBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 14, borderRadius: BorderRadius.md },
     playBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
+    fab: { position: 'absolute', bottom: Platform.select({ ios: 40, default: 24 }), right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
 });
