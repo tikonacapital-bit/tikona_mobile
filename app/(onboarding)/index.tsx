@@ -9,6 +9,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { Logo } from '@/components/Logo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SLIDES = [
     {
@@ -64,10 +66,15 @@ export default function OnboardingScreen() {
         }
     }).current;
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (currentIndex < SLIDES.length - 1) {
             flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
         } else {
+            try {
+                await AsyncStorage.setItem('has_seen_onboarding', 'true');
+            } catch (e) {
+                console.error('Failed to save onboarding state:', e);
+            }
             router.replace('/(auth)/login');
         }
     };
@@ -76,16 +83,12 @@ export default function OnboardingScreen() {
         <View style={[styles.slide, { width }]}>
             <View style={{ maxWidth: contentMaxWidth, alignItems: 'center' as const, width: '100%' }}>
 
-                {/* Logo */}
-                <Image
-                    source={require('@/assets/images/react-logo.png')}
-                    style={{ width: logoSize, height: logoSize, marginBottom: isSmallScreen ? 8 : 12 }}
-                    resizeMode="contain"
-                />
-
-                {/* Brand Name */}
-                <View style={styles.slideBrand}>
-                    <Text style={[styles.slideBrandName, { color: isDark ? '#E0E7FF' : Colors.brand.primary, fontSize: isWideWeb ? 22 : 18 }]}>TIKONA CAPITAL</Text>
+                {/* Brand Logo & Name */}
+                <View style={{ marginBottom: isSmallScreen ? 20 : 32 }}>
+                    <Logo
+                        size={logoSize}
+                        fontSize={isWideWeb ? 24 : 20}
+                    />
                 </View>
 
                 {/* SEBI Registered Badge */}
@@ -108,7 +111,7 @@ export default function OnboardingScreen() {
                 {item.regNo && (
                     <View style={[styles.regNoContainer, { marginTop: isSmallScreen ? 16 : 24 }]}>
                         <Text style={[styles.regNoLabel, { color: isDark ? '#8B95A8' : c.textTertiary }]}>SEBI Registration No.</Text>
-                        <Text style={[styles.regNoValue, { color: isDark ? '#7B9FD4' : Colors.brand.secondary, fontSize: isWideWeb ? 24 : 20 }]}>{item.regNo}</Text>
+                        <Text style={[styles.regNoValue, { color: isDark ? '#7B9FD4' : Colors.brand.secondary, fontSize: isWideWeb ? 18 : 15 }]}>{item.regNo}</Text>
                     </View>
                 )}
 
@@ -175,7 +178,10 @@ export default function OnboardingScreen() {
 
             {/* Actions */}
             <View style={[styles.bottomActions, isWideWeb && { maxWidth: 540, alignSelf: 'center' as const, width: '100%' }]}>
-                <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.skipBtn}>
+                <TouchableOpacity onPress={async () => {
+                    await AsyncStorage.setItem('has_seen_onboarding', 'true');
+                    router.replace('/(auth)/login');
+                }} style={styles.skipBtn}>
                     <Text style={[styles.skipText, { color: c.textTertiary }]}>Skip</Text>
                 </TouchableOpacity>
 
@@ -269,8 +275,8 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     regNoValue: {
-        fontWeight: '800',
-        letterSpacing: 1.2,
+        fontWeight: '700',
+        letterSpacing: 0.8,
     },
 
     // Feature icon for slides 2 & 3

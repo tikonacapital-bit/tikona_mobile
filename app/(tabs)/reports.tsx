@@ -227,6 +227,14 @@ export default function ReportsScreen() {
                                 theme={theme}
                             />
                         }
+                        ListFooterComponent={reports.length > 0 ? (
+                            <View style={[styles.disclaimerFooter, { borderTopColor: c.border }]}>
+                                <Ionicons name="information-circle-outline" size={13} color={c.textTertiary} />
+                                <Text style={[styles.disclaimerText, { color: c.textTertiary }]}>
+                                    Reports are for informational purposes only and do not constitute investment advice. Investment in securities market is subject to market risks. SEBI RA Reg. No.: INH000069807
+                                </Text>
+                            </View>
+                        ) : null}
                     />
                 )}
             </View>
@@ -334,4 +342,6 @@ const styles = StyleSheet.create({
     },
     date: { fontSize: 11, fontWeight: '500' },
     mediaRow: { flexDirection: 'row', gap: 6 },
+    disclaimerFooter: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: Spacing.lg, marginTop: Spacing.sm, borderTopWidth: 1, paddingBottom: Spacing.xl },
+    disclaimerText: { flex: 1, fontSize: 11, lineHeight: 15 },
 });

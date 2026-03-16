@@ -10,6 +10,7 @@ import { Card, StatusChip, ResponsiveScrollView } from '@/components/ui';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { Switch } from 'react-native';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 import type { ThemeMode } from '@/constants/theme';
 
 function Section({ title, children, theme }: { title: string; children: React.ReactNode; theme: ThemeMode }) {
@@ -86,6 +87,16 @@ export default function SettingsScreen() {
 
     const saveNotifSettings = async (newSettings: typeof notifSettings) => {
         setNotifSettings(newSettings);
+        
+        // If master is turned ON, register for push notifications
+        if (newSettings.master && !notifSettings.master && user?.id) {
+            try {
+                await registerForPushNotificationsAsync(user.id);
+            } catch (error) {
+                console.warn('Failed to register notifications:', error);
+            }
+        }
+
         try {
             if (Platform.OS === 'web') {
                 localStorage.setItem(PREFS_KEY, JSON.stringify(newSettings));

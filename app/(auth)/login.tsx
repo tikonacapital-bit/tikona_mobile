@@ -13,6 +13,7 @@ import { useSignIn, useOAuth, useClerk } from '@clerk/clerk-expo';
 import { useCallback } from 'react';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
+import { Logo } from '@/components/Logo';
 
 if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
@@ -181,12 +182,9 @@ export default function LoginScreen() {
                         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                     ]}
                 >
-                    <Image
-                        source={require('@/assets/images/react-logo.png')}
-                        style={styles.logoImage}
-                        resizeMode="contain"
-                    />
-                    <Text style={[styles.brandTitle, { color: c.text }]}>TIKONA CAPITAL</Text>
+                    <View style={{ marginBottom: 12 }}>
+                        <Logo size={64} fontSize={22} />
+                    </View>
                     <Text style={[styles.brandSubtitle, { color: c.textSecondary }]}>
                         Welcome back! Sign in to continue
                     </Text>

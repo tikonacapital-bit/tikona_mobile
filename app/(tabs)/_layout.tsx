@@ -6,6 +6,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Logo } from '@/components/Logo';
 
 const TAB_ITEMS = [
   { name: 'index', title: 'Home', icon: 'home-outline', iconFocused: 'home' },
@@ -15,7 +16,7 @@ const TAB_ITEMS = [
   { name: 'settings', title: 'Account', icon: 'person-outline', iconFocused: 'person' },
 ] as const;
 
-const SIDEBAR_EXPANDED = 250;
+const SIDEBAR_EXPANDED = 280;
 const SIDEBAR_COLLAPSED = 68;
 
 function WebSidebar({ state, navigation }: BottomTabBarProps) {
@@ -44,20 +45,15 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
       {/* ═══ Top Row: Logo + Toggle ═══ */}
       <View style={[styles.topRow, !isExpanded && styles.topRowCollapsed]}>
         <View style={styles.logoRow}>
-          <Image
-            source={require('@/assets/images/adaptive-icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          {isExpanded && (
-            <View style={{ flexShrink: 1 }}>
-              <Text style={[styles.brandName, { color: c.text }]} numberOfLines={1}>
-                TIKONA CAPITAL
-              </Text>
-              <Text style={[styles.brandSub, { color: c.textTertiary }]} numberOfLines={1}>
-                Equity Research
-              </Text>
-            </View>
+          {isExpanded ? (
+            <Logo 
+              size={34} 
+              fontSize={15} 
+              align="left" 
+              tagline="Equity Research"
+            />
+          ) : (
+            <Logo size={34} showText={false} />
           )}
         </View>
 
@@ -171,14 +167,7 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
         <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]} />
         {isExpanded ? (
           <View style={styles.footerContent}>
-            <Image
-              source={require('@/assets/images/adaptive-icon.png')}
-              style={styles.footerLogo}
-              resizeMode="contain"
-            />
-            <Text style={[styles.footerText, { color: c.textTertiary }]}>
-              TIKONA CAPITAL
-            </Text>
+            <Logo size={18} fontSize={10} textColor={c.textTertiary} />
           </View>
         ) : (
           <Text style={[styles.footerCopy, { color: c.textTertiary }]}>©</Text>
@@ -215,7 +204,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flexShrink: 1,
   },
   logo: {
     width: 36,

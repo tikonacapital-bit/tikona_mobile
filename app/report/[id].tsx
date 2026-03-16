@@ -215,6 +215,19 @@ export default function ReportDetailScreen() {
                         {renderTextSection('Demand Drivers', report.demand_drivers)}
                         {renderTextSection('Industry Risks', report.industry_risks)}
                         {report.recommendation_rationale && renderTextSection('Recommendation Rationale', report.recommendation_rationale)}
+
+                        {/* SEBI Disclaimer */}
+                        <View style={[styles.sebiDisclaimer, { backgroundColor: c.surface, borderColor: c.border }]}>
+                            <View style={styles.sebiDisclaimerHeader}>
+                                <Ionicons name="information-circle" size={16} color={c.textTertiary} />
+                                <Text style={[styles.sebiDisclaimerTitle, { color: c.textTertiary }]}>Important Disclaimer</Text>
+                            </View>
+                            <Text style={[styles.sebiDisclaimerText, { color: c.textTertiary }]}>
+                                Investment in securities market is subject to market risks. Read all the related documents carefully before investing. Registration granted by SEBI and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors.{'\n\n'}
+                                This report is prepared for informational purposes only and does not constitute investment advice, an offer to sell, or a solicitation to buy any securities. Past performance is not indicative of future results. Investors should consult their financial advisor before making any investment decisions.{'\n\n'}
+                                SEBI Research Analyst Reg. No.: INH000069807
+                            </Text>
+                        </View>
                     </>
                 )}
 
@@ -298,4 +311,8 @@ const styles = StyleSheet.create({
     playBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 14, borderRadius: BorderRadius.md },
     playBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
     fab: { position: 'absolute', bottom: Platform.select({ ios: 40, default: 24 }), right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
+    sebiDisclaimer: { marginTop: Spacing['2xl'], padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1 },
+    sebiDisclaimerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm },
+    sebiDisclaimerTitle: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    sebiDisclaimerText: { fontSize: 11, lineHeight: 16 },
 });

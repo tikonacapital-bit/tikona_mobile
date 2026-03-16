@@ -730,7 +730,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         <View style={[s.disclaimerBar, { backgroundColor: isDark ? Colors.brand.primary + '08' : '#FEF9EF' }]}>
           <Ionicons name="shield-checkmark-outline" size={12} color={isDark ? Colors.brand.accent : '#B45309'} />
           <Text style={[s.disclaimerText, { color: isDark ? c.textTertiary : '#92400E' }]}>
-            Powered by Claude Sonnet · AI responses may be inaccurate
+            AI-generated content. Not SEBI-registered investment advice. For informational purposes only.
           </Text>
         </View>
 

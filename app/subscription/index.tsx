@@ -1,4 +1,5 @@
 import { Card, ResponsiveScrollView } from '@/components/ui';
+import { SubscriptionComparison } from '@/components/SubscriptionComparison';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -233,6 +234,19 @@ export default function SubscriptionScreen() {
                     </View>
                 </View>
 
+                {/* Risk Disclosure — Required before payment */}
+                <View style={[styles.riskDisclosure, { backgroundColor: '#FFF8E1', borderColor: '#F59E0B' }]}>
+                    <View style={styles.riskDisclosureHeader}>
+                        <Ionicons name="warning" size={16} color="#B45309" />
+                        <Text style={[styles.riskDisclosureTitle, { color: '#B45309' }]}>Risk Disclosure</Text>
+                    </View>
+                    <Text style={[styles.riskDisclosureText, { color: '#78350F' }]}>
+                        Investment in securities market is subject to market risks. Read all related documents carefully before investing. Past performance is not indicative of future results.{'\n\n'}
+                        The research reports provided are for informational and educational purposes only and do not constitute investment advice. Subscribers are advised to consult their registered financial advisor before making any investment decisions.{'\n\n'}
+                        SEBI Research Analyst Reg. No.: INH000069807
+                    </Text>
+                </View>
+
                 {/* Plans */}
                 {planOrder.map((planKey) => {
                     const plan = PLANS[planKey];
@@ -330,6 +344,8 @@ export default function SubscriptionScreen() {
                         </Card>
                     );
                 })}
+
+                <SubscriptionComparison />
 
                 <View style={{ height: 40 }} />
             </ResponsiveScrollView>
@@ -547,5 +563,27 @@ const styles = StyleSheet.create({
     payNoteText: {
         fontSize: 11,
         fontWeight: '600',
+    },
+    riskDisclosure: {
+        borderWidth: 1,
+        borderRadius: BorderRadius.xl,
+        padding: Spacing.lg,
+        marginBottom: Spacing.xl,
+    },
+    riskDisclosureHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: Spacing.sm,
+    },
+    riskDisclosureTitle: {
+        fontSize: FontSize.sm,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    riskDisclosureText: {
+        fontSize: 12,
+        lineHeight: 17,
     },
 });

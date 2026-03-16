@@ -4,11 +4,27 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export default function AppEntry() {
-    const { isSignedIn, isLoaded, kyc, profile } = useAuth();
+    const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
+    const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
     const theme = useColorScheme();
 
-    if (!isLoaded) {
+    useEffect(() => {
+        const checkOnboarding = async () => {
+            try {
+                const value = await AsyncStorage.getItem('has_seen_onboarding');
+                setHasSeenOnboarding(value === 'true');
+            } catch (e) {
+                setHasSeenOnboarding(false);
+            }
+        };
+        checkOnboarding();
+    }, []);
+
+    if (!isAuthLoaded || hasSeenOnboarding === null) {
         return (
             <View style={[styles.container, { backgroundColor: Colors[theme].background }]}>
                 <ActivityIndicator size="large" color={Colors.brand.secondary} />
@@ -16,13 +32,15 @@ export default function AppEntry() {
         );
     }
 
-    // Not logged in → auth
-    if (!isSignedIn) {
+    if (isSignedIn) {
+        return <Redirect href="/(tabs)" />;
+    }
+
+    if (!hasSeenOnboarding) {
         return <Redirect href="/(onboarding)" />;
     }
 
-    // Logged in → go directly to main dashboard
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/(auth)/login" />;
 }
 
 const styles = StyleSheet.create({
