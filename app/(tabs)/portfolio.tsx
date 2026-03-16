@@ -122,6 +122,40 @@ export default function PortfolioScreen() {
     const totalPnl = totalCurrent - totalInvested;
     const totalPnlPct = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
 
+    // ── Health & Concentration Logic ──
+    const healthScore = useMemo(() => {
+        if (!holdings?.length) return 0;
+        let score = 50;
+        
+        // Diversification
+        const sectors = new Set(holdings.map(h => h.sector).filter(Boolean));
+        if (sectors.size >= 5) score += 15;
+        else if (sectors.size >= 3) score += 5;
+
+        // Stock count
+        if (holdings.length >= 10) score += 15;
+        else if (holdings.length >= 5) score += 5;
+
+        // Concentration
+        const maxConcentration = Math.max(...holdings.map(h => ((h.current_value ?? h.invested) / totalCurrent) * 100));
+        if (maxConcentration < 20) score += 10;
+        else if (maxConcentration > 40) score -= 10;
+
+        // Performance
+        if (totalPnlPct > 15) score += 10;
+        else if (totalPnlPct < -5) score -= 5;
+
+        return Math.min(Math.max(score, 0), 100);
+    }, [holdings, totalCurrent, totalPnlPct]);
+
+    const concentrationAlerts = useMemo(() => {
+        if (!holdings?.length) return [];
+        return holdings.filter(h => {
+            const pct = ((h.current_value ?? h.invested) / totalCurrent) * 100;
+            return pct > 25;
+        });
+    }, [holdings, totalCurrent]);
+
     const allocationData = useMemo(() => {
         if (!holdings?.length) return [];
         return holdings.map((h, i) => ({
@@ -196,10 +230,40 @@ export default function PortfolioScreen() {
             {/* ── Summary Metrics ── */}
             {hasData && (
                 <View style={styles.metricsRow}>
-                    <MetricCard label="Invested" value={fmt(totalInvested)} theme={theme} />
-                    <MetricCard label="Current" value={fmt(totalCurrent)} theme={theme} />
-                    <MetricCard label="P&L" value={`${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}`} theme={theme} valueColor={totalPnl >= 0 ? c.success : c.danger} />
-                    <MetricCard label="Returns" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} theme={theme} valueColor={totalPnlPct >= 0 ? c.success : c.danger} />
+                    <MetricCard label="Current Value" value={fmt(totalCurrent)} theme={theme} />
+                    <MetricCard label="Health Score" value={`${healthScore}/100`} theme={theme} valueColor={healthScore > 70 ? c.success : healthScore > 40 ? c.warning : c.danger} />
+                    <MetricCard label="Total P&L" value={`${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}`} theme={theme} valueColor={totalPnl >= 0 ? c.success : c.danger} />
+                    <MetricCard label="Total Returns" value={`${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(1)}%`} theme={theme} valueColor={totalPnlPct >= 0 ? c.success : c.danger} />
+                </View>
+            )}
+
+            {/* ── AI Insights Banner ── */}
+            {hasData && (
+                <View style={styles.aiSection}>
+                    <TouchableOpacity 
+                        onPress={() => router.push({ pathname: '/ai-chat', params: { sector: 'Portfolio Strategy' } } as any)}
+                        activeOpacity={0.9}
+                    >
+                        <View style={[styles.aiBanner, { backgroundColor: Colors.brand.primary }]}>
+                            <View style={styles.aiLeft}>
+                                <View style={styles.aiIconWrap}>
+                                    <Ionicons name="sparkles" size={20} color="#fff" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.aiBannerTitle}>AI Analyst Insight</Text>
+                                    <Text style={styles.aiBannerSub}>
+                                        {concentrationAlerts.length > 0 
+                                            ? `Attention: ${concentrationAlerts[0].nse_symbol} represents ${(((concentrationAlerts[0].current_value ?? concentrationAlerts[0].invested) / totalCurrent) * 100).toFixed(0)}% of your portfolio.`
+                                            : healthScore > 80 
+                                                ? "Your portfolio looks well-diversified. Ready for deep-dive analysis?"
+                                                : "I can help you optimize your diversification. Want to chat?"
+                                        }
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
+                            </View>
+                        </View>
+                    </TouchableOpacity>
                 </View>
             )}
 
@@ -243,7 +307,15 @@ export default function PortfolioScreen() {
 
             {/* ── Holdings ── */}
             <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: c.text }]}>Holdings</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: c.text }]}>Holdings</Text>
+                    {concentrationAlerts.length > 0 && (
+                        <View style={[styles.alertPill, { backgroundColor: c.danger + '15' }]}>
+                            <Ionicons name="warning" size={12} color={c.danger} />
+                            <Text style={[styles.alertText, { color: c.danger }]}>Concentration Risk</Text>
+                        </View>
+                    )}
+                </View>
 
                 {isLoading ? (
                     <View style={styles.loadingWrap}>
@@ -253,6 +325,7 @@ export default function PortfolioScreen() {
                     holdings.map((h, i) => {
                         const dotColor = getChartColor(i);
                         const isUp = (h.pnl ?? 0) >= 0;
+                        const weight = ((h.current_value ?? h.invested) / totalCurrent) * 100;
                         return (
                             <Card
                                 key={h.id}
@@ -303,16 +376,22 @@ export default function PortfolioScreen() {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* Progress bar: invested vs current */}
+                                {/* Progress bar: Weight in portfolio */}
                                 {h.current_value != null && (
-                                    <View style={[styles.progressBg, { backgroundColor: c.border }]}>
-                                        <View style={[
-                                            styles.progressFill,
-                                            {
-                                                width: `${Math.min((h.current_value / totalCurrent) * 100, 100)}%` as any,
-                                                backgroundColor: dotColor,
-                                            },
-                                        ]} />
+                                    <View style={{ marginTop: 12 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                            <Text style={{ color: c.textTertiary, fontSize: 10 }}>Portfolio Weight</Text>
+                                            <Text style={{ color: c.textSecondary, fontSize: 10, fontWeight: '700' }}>{weight.toFixed(1)}%</Text>
+                                        </View>
+                                        <View style={[styles.progressBg, { backgroundColor: c.border }]}>
+                                            <View style={[
+                                                styles.progressFill,
+                                                {
+                                                    width: `${Math.min(weight, 100)}%` as any,
+                                                    backgroundColor: weight > 25 ? c.danger : dotColor,
+                                                },
+                                            ]} />
+                                        </View>
                                     </View>
                                 )}
                             </Card>
@@ -473,7 +552,10 @@ const styles = StyleSheet.create({
     chartTitle: { fontSize: FontSize.md, fontWeight: '700' },
     chartSub: { fontSize: FontSize.xs, marginTop: 2 },
     section: { paddingHorizontal: Spacing.xl },
-    sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', marginBottom: Spacing.md, letterSpacing: -0.2 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
+    sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', letterSpacing: -0.2 },
+    alertPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    alertText: { fontSize: 10, fontWeight: '700' },
     loadingWrap: { paddingVertical: 40, alignItems: 'center' },
     holdingCard: { padding: Spacing.lg, marginBottom: Spacing.sm },
     holdingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -485,7 +567,7 @@ const styles = StyleSheet.create({
     pnlBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginTop: 3 },
     pnlText: { fontSize: 11, fontWeight: '700' },
     deleteBtn: { paddingLeft: 4 },
-    progressBg: { height: 3, borderRadius: 2, marginTop: 10, overflow: 'hidden' },
+    progressBg: { height: 3, borderRadius: 2, overflow: 'hidden' },
     progressFill: { height: 3, borderRadius: 2 },
 
     // Modal
@@ -523,8 +605,9 @@ const styles = StyleSheet.create({
     aiLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
     aiIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
     aiBannerTitle: { color: '#fff', fontSize: FontSize.base, fontWeight: '700' },
-    aiBannerSub: { color: 'rgba(255,255,255,0.75)', fontSize: FontSize.xs, marginTop: 2 },
+    aiBannerSub: { color: 'rgba(255,255,255,0.75)', fontSize: FontSize.xs, marginTop: 2, lineHeight: 16 },
     aiChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     aiChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: BorderRadius.full },
     aiChipText: { color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: '600' },
 });
+

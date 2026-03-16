@@ -79,4 +79,14 @@ export const SECTOR_ANALYSTS = [
         bg: '#EEF2FF',
         darkBg: '#1e1a4a',
     },
+    {
+        sector: 'Portfolio Strategy',
+        analyst: 'Karan Sharma',
+        title: 'Strategy Lead',
+        description: 'Diversification, asset allocation, risk management, and overall portfolio health.',
+        icon: 'analytics-outline' as const,
+        color: '#EC4899',
+        bg: '#FDF2F8',
+        darkBg: '#47182a',
+    },
 ];

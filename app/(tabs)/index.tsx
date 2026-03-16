@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, Image, Animated,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
@@ -67,7 +68,24 @@ export default function HomeScreen() {
         if (Platform.OS === 'web') return; // Notifications not supported on web
 
         const scheduleReminder = async () => {
-            if (hasNotified.current) return;
+            if (hasNotified.current || !user) return;
+            const uid = user.id;
+
+            // Load preferences
+            let saved: string | null = null;
+            try {
+                if (Platform.OS === 'web') {
+                    saved = localStorage.getItem('notification_preferences');
+                } else {
+                    saved = await SecureStore.getItemAsync('notification_preferences');
+                }
+            } catch (e) {
+                console.warn('[Notifications] Preference read error:', e);
+            }
+
+            const prefs = saved ? JSON.parse(saved) : { master: true, reports: true, kyc: true };
+            if (!prefs.master) return;
+
             hasNotified.current = true;
 
             const { status } = await Notifications.requestPermissionsAsync();
@@ -82,28 +100,79 @@ export default function HomeScreen() {
                 });
             }
 
-            if (kycStatus === 'not_started' || kycStatus === 'rejected') {
-                setTimeout(async () => {
-                    await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: 'Complete your KYC 🛡️',
-                            body: 'Verify your identity to unlock full access to Tikona research reports.',
-                            sound: true,
-                        },
-                        trigger: null,
-                    });
-                }, 5000);
-            } else if (!profile) {
-                setTimeout(async () => {
-                    await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: 'Set your risk profile 📊',
-                            body: 'Take a quick quiz to get personalized report recommendations.',
-                            sound: true,
-                        },
-                        trigger: null,
-                    });
-                }, 5000);
+            // ── KYC & Profile Alerts ──
+            if (prefs.kyc) {
+                if (kycStatus === 'not_started' || kycStatus === 'rejected') {
+                    setTimeout(async () => {
+                        await Notifications.scheduleNotificationAsync({
+                            content: {
+                                title: 'Complete your KYC 🛡️',
+                                body: 'Verify your identity to unlock full access to Tikona research reports.',
+                                sound: true,
+                            },
+                            trigger: null,
+                        });
+                    }, 5000);
+                } else if (!profile) {
+                    setTimeout(async () => {
+                        await Notifications.scheduleNotificationAsync({
+                            content: {
+                                title: 'Set your risk profile 📊',
+                                body: 'Take a quick quiz to get personalized report recommendations.',
+                                sound: true,
+                            },
+                            trigger: null,
+                        });
+                    }, 5000);
+                }
+            }
+
+            // ── New Reports Alerts ──
+            if (prefs.reports && kycStatus === 'approved' && subscription?.is_active) {
+                try {
+                    const { count } = await supabase
+                        .from('user_report_assignments')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', uid);
+
+                    if (count !== null) {
+                        let lastCountStr: string | null = null;
+                        const countKey = `last_report_count_${uid}`;
+                        try {
+                            if (Platform.OS === 'web') {
+                                lastCountStr = localStorage.getItem(countKey);
+                            } else {
+                                lastCountStr = await SecureStore.getItemAsync(countKey);
+                            }
+                        } catch (e) { }
+
+                        const lastCount = lastCountStr ? parseInt(lastCountStr, 10) : 0;
+
+                        if (count > lastCount) {
+                            const newCount = count - lastCount;
+                            setTimeout(async () => {
+                                await Notifications.scheduleNotificationAsync({
+                                    content: {
+                                        title: 'New Reports Available 📈',
+                                        body: `You have ${newCount} new research report${newCount > 1 ? 's' : ''} assigned to you. Tap to view.`,
+                                        sound: true,
+                                    },
+                                    trigger: null,
+                                });
+                            }, 3000);
+                        }
+                        
+                        try {
+                            if (Platform.OS === 'web') {
+                                localStorage.setItem(countKey, count.toString());
+                            } else {
+                                await SecureStore.setItemAsync(countKey, count.toString());
+                            }
+                        } catch (e) { }
+                    }
+                } catch (e) {
+                    console.warn('[Notifications] Failed to check for new reports:', e);
+                }
             }
         };
 

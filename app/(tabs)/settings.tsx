@@ -7,6 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { Card, StatusChip, ResponsiveScrollView } from '@/components/ui';
+import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
+import { Switch } from 'react-native';
 import type { ThemeMode } from '@/constants/theme';
 
 function Section({ title, children, theme }: { title: string; children: React.ReactNode; theme: ThemeMode }) {
@@ -53,6 +56,46 @@ export default function SettingsScreen() {
     const { user, kyc, profile, subscription, signOut } = useAuth();
     const { showAlert } = useAlert();
     const [showThemePicker, setShowThemePicker] = useState(false);
+    const [showNotifPicker, setShowNotifPicker] = useState(false);
+    // ── Notifications Settings State ──
+    const [notifSettings, setNotifSettings] = useState({
+        master: true,
+        reports: true,
+        kyc: true,
+        insights: false
+    });
+
+    const PREFS_KEY = 'notification_preferences';
+
+    React.useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                let saved: string | null = null;
+                if (Platform.OS === 'web') {
+                    saved = localStorage.getItem(PREFS_KEY);
+                } else {
+                    saved = await SecureStore.getItemAsync(PREFS_KEY);
+                }
+                if (saved) setNotifSettings(JSON.parse(saved));
+            } catch (e) {
+                console.warn('Failed to load settings:', e);
+            }
+        };
+        loadSettings();
+    }, []);
+
+    const saveNotifSettings = async (newSettings: typeof notifSettings) => {
+        setNotifSettings(newSettings);
+        try {
+            if (Platform.OS === 'web') {
+                localStorage.setItem(PREFS_KEY, JSON.stringify(newSettings));
+            } else {
+                await SecureStore.setItemAsync(PREFS_KEY, JSON.stringify(newSettings));
+            }
+        } catch (e) {
+            console.warn('Failed to save settings:', e);
+        }
+    };
 
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
     const initial = displayName.charAt(0).toUpperCase();
@@ -111,7 +154,7 @@ export default function SettingsScreen() {
                 </Section>
 
                 <Section title="PREFERENCES" theme={theme}>
-                    <Row theme={theme} icon="notifications-outline" label="Notifications" />
+                    <Row theme={theme} icon="notifications-outline" label="Notifications" value={notifSettings.master ? 'On' : 'Off'} onPress={() => setShowNotifPicker(true)} />
                     <Row theme={theme} icon="moon-outline" label="Appearance" value={themeLabel} onPress={() => setShowThemePicker(true)} />
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
                 </Section>
@@ -181,7 +224,103 @@ export default function SettingsScreen() {
                     </Pressable>
                 </Pressable>
             </Modal>
+
+            {/* ── Notifications Settings Modal ── */}
+            <Modal
+                visible={showNotifPicker}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowNotifPicker(false)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setShowNotifPicker(false)}>
+                    <Pressable style={[styles.modalSheet, { backgroundColor: c.surface }]} onPress={() => { }}>
+                        <View style={styles.modalHandle}>
+                            <View style={[styles.modalHandleBar, { backgroundColor: c.border }]} />
+                        </View>
+
+                        <Text style={[styles.modalTitle, { color: c.text }]}>Notifications</Text>
+                        <Text style={[styles.modalSubtitle, { color: c.textSecondary }]}>Manage how and when you receive alerts</Text>
+
+                        <View style={styles.themeOptions}>
+                            {/* Master Toggle */}
+                            <View style={[styles.notifRow, { borderBottomColor: c.borderLight, marginBottom: 12 }]}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.notifLabel, { color: c.text }]}>Allow Notifications</Text>
+                                    <Text style={[styles.notifDesc, { color: c.textTertiary }]}>Master switch for all push alerts</Text>
+                                </View>
+                                <Switch
+                                    value={notifSettings.master}
+                                    onValueChange={(v) => saveNotifSettings({ ...notifSettings, master: v })}
+                                    trackColor={{ false: c.border, true: Colors.brand.secondary }}
+                                    thumbColor="#fff"
+                                />
+                            </View>
+
+                            {/* Specific Settings */}
+                            <View style={{ opacity: notifSettings.master ? 1 : 0.5 }}>
+                                <NotifToggle
+                                    label="New Research Reports"
+                                    desc="Alerts when new reports are assigned to you"
+                                    value={notifSettings.reports}
+                                    onToggle={(v) => saveNotifSettings({ ...notifSettings, reports: v })}
+                                    disabled={!notifSettings.master}
+                                    theme={theme}
+                                />
+                                <NotifToggle
+                                    label="Account & Security"
+                                    desc="KYC updates and security reminders"
+                                    value={notifSettings.kyc}
+                                    onToggle={(v) => saveNotifSettings({ ...notifSettings, kyc: v })}
+                                    disabled={!notifSettings.master}
+                                    theme={theme}
+                                />
+                                <NotifToggle
+                                    label="Daily Strategy Insights"
+                                    desc="Morning briefings and market summaries"
+                                    value={notifSettings.insights}
+                                    onToggle={(v) => saveNotifSettings({ ...notifSettings, insights: v })}
+                                    disabled={!notifSettings.master}
+                                    theme={theme}
+                                />
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.modalDoneBtn, { backgroundColor: Colors.brand.secondary }]}
+                            onPress={() => setShowNotifPicker(false)}
+                        >
+                            <Text style={[styles.modalDoneBtnText, { color: '#fff' }]}>Done</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </>
+    );
+}
+
+function NotifToggle({ label, desc, value, onToggle, disabled, theme }: {
+    label: string,
+    desc: string,
+    value: boolean,
+    onToggle: (v: boolean) => void,
+    disabled: boolean,
+    theme: ThemeMode
+}) {
+    const c = Colors[theme];
+    return (
+        <View style={styles.notifRow}>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.notifLabelSmall, { color: c.text }]}>{label}</Text>
+                <Text style={[styles.notifDesc, { color: c.textTertiary }]}>{desc}</Text>
+            </View>
+            <Switch
+                value={value}
+                onValueChange={onToggle}
+                disabled={disabled}
+                trackColor={{ false: c.border, true: Colors.brand.secondary + '80' }}
+                thumbColor={value ? Colors.brand.secondary : '#f4f3f4'}
+            />
+        </View>
     );
 }
 
@@ -285,5 +424,24 @@ const styles = StyleSheet.create({
     modalDoneBtnText: {
         fontSize: FontSize.base,
         fontWeight: '600',
+    },
+    notifRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        gap: Spacing.md,
+    },
+    notifLabel: {
+        fontSize: FontSize.lg,
+        fontWeight: '700',
+    },
+    notifLabelSmall: {
+        fontSize: FontSize.base,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    notifDesc: {
+        fontSize: FontSize.xs,
+        lineHeight: 16,
     },
 });

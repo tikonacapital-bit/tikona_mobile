@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { View, Platform } from 'react-native';
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/lib/supabase';
@@ -99,7 +100,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await clerkSignOut();
             // Manually clear the clerk token cache to prevent "session already exists" issue
-            await SecureStore.deleteItemAsync('__clerk_client_jwt');
+            if (Platform.OS !== 'web') {
+                await SecureStore.deleteItemAsync('__clerk_client_jwt');
+            }
         } catch (error) {
             console.warn('Clerk sign out error:', error);
         }
