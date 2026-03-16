@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, StyleProp, Platform, useWindowDimensions, ScrollView } from 'react-native';
-import { Colors, BorderRadius, FontSize, Spacing, ThemeMode } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, Spacing, ThemeMode } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Platform, ScrollView, StyleProp, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, ViewStyle } from 'react-native';
 
 // ── Responsive constants ──
 const CONTENT_MAX_WIDTH = 1350;

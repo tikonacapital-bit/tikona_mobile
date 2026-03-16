@@ -63,8 +63,14 @@ export default function RefundScreen() {
     // ── Submit refund request ──
     const handleSubmit = async () => {
         if (!userId || !subscription) return;
-        if (!upiId.trim()) {
+        const trimmedUpi = upiId.trim();
+        if (!trimmedUpi) {
             Alert.alert('Required Field', 'Please enter your UPI ID so we can process your refund.');
+            return;
+        }
+        // Basic UPI format: something@something (e.g. 9876543210@ybl, name@okaxis)
+        if (!/^[a-zA-Z0-9.\-_+]+@[a-zA-Z0-9]+$/.test(trimmedUpi)) {
+            Alert.alert('Invalid UPI ID', 'Please enter a valid UPI ID (e.g. 9876543210@ybl or name@okaxis).');
             return;
         }
 
@@ -275,9 +281,14 @@ export default function RefundScreen() {
                         )}
                         <View style={styles.detailRow}>
                             <Text style={[styles.detailLabel, { color: c.textSecondary }]}>Amount Paid</Text>
-                            <Text style={[styles.detailValue, { color: c.text, fontWeight: '700' }]}>
-                                {formatINR(subscription.amount_paid ?? PLAN_PRICES[subscription.plan] ?? 0)}
-                            </Text>
+                            <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={[styles.detailValue, { color: c.text, fontWeight: '700' }]}>
+                                    {formatINR(subscription.amount_paid ?? PLAN_PRICES[subscription.plan] ?? 0)}
+                                </Text>
+                                {subscription.amount_paid == null && (
+                                    <Text style={{ fontSize: 10, color: c.warning, marginTop: 2 }}>estimated — contact us to confirm</Text>
+                                )}
+                            </View>
                         </View>
                     </View>
                 </Card>
@@ -401,7 +412,7 @@ export default function RefundScreen() {
                             <Ionicons name="information-circle" size={16} color={c.textTertiary} />
                             <Text style={[styles.disclaimerText, { color: c.textTertiary }]}>
                                 Your request will be reviewed by our team within 2-3 business days. 
-                                Once approved, the refund will be processed to your original payment method.
+                                Once approved, the refund will be credited directly to your UPI ID within 5-7 business days.
                             </Text>
                         </View>
                     </>

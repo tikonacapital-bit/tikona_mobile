@@ -12,6 +12,7 @@
 //
 // Environment variables (set in Supabase Dashboard → Edge Functions → Secrets):
 //   SARVAM_API_KEY — from Sarvam AI Dashboard → API Keys
+//   OPENROUTER_API_KEY — from openrouter.ai
 //
 // Deploy:
 //   npx supabase functions deploy report-ai-chat --no-verify-jwt
@@ -31,6 +32,12 @@ const corsHeaders = {
 function getApiKey(): string {
   const key = Deno.env.get("SARVAM_API_KEY");
   if (!key) throw new Error("SARVAM_API_KEY not configured");
+  return key;
+}
+
+function getOpenRouterApiKey(): string {
+  const key = Deno.env.get("OPENROUTER_API_KEY");
+  if (!key) throw new Error("OPENROUTER_API_KEY not configured");
   return key;
 }
 
@@ -72,46 +79,48 @@ async function speechToText(
   };
 }
 
-// ─── Chat Completion (LLM) ──────────────────────────────────────────────────
+// ─── Chat Completion (LLM via OpenRouter) ───────────────────────────────────
 async function chatCompletion(
   userMessage: string,
   reportContext: string,
   history: Array<{ role: string; content: string }> = []
 ): Promise<string> {
-  const apiKey = getApiKey();
+  const openRouterKey = getOpenRouterApiKey();
 
-  const systemPrompt = `You are an intelligent financial research assistant for Tikona Capital. You help users understand equity research reports by answering their questions clearly and accurately.
+  const systemPrompt = `You are an intelligent financial research assistant for Tikona Capital. You help users understand equity research reports by answering their questions clearly, accurately, and with deep analytical insight.
 
 You are given the context of a specific research report below. Answer the user's question ONLY based on the report context provided. If the answer is not in the report context, politely say you don't have that information in this report.
 
-Be concise, professional, and helpful. Use simple language that retail investors can understand. DO NOT use markdown, asterisks, bolding, or special symbols. Your output will be spoken aloud by a text-to-speech engine, so write exactly how it should be read.
+Be concise, professional, and highly intelligent. Use simple language that retail investors can understand, but don't shy away from explaining complex financial metrics clearly if asked. DO NOT use markdown, asterisks, bolding, special symbols, or lists. Your output will be spoken aloud by a text-to-speech engine, so write EXACTLY how it should be read as a conversational paragraph.
 
 --- REPORT CONTEXT ---
 ${reportContext}
 --- END REPORT CONTEXT ---`;
 
-  const res = await fetch(`${SARVAM_BASE}/v1/chat/completions`, {
+  const res = await fetch(`https://openrouter.ai/api/v1/chat/completions`, {
     method: "POST",
     headers: {
-      "api-subscription-key": apiKey,
+      "Authorization": `Bearer ${openRouterKey}`,
+      "HTTP-Referer": "https://tradeboxlive.com", // Optional, for OpenRouter rankings
+      "X-Title": "Tikona Capital App", // Optional, for OpenRouter rankings
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "sarvam-m",
+      model: "anthropic/claude-3.5-sonnet", // The genius brain!
       messages: [
         { role: "system", content: systemPrompt },
         ...history,
         { role: "user", content: userMessage },
       ],
-      temperature: 0.3,
+      temperature: 0.2, // Keep it highly analytical and grounded
       max_tokens: 1024,
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[Chat] Error:", res.status, errText);
-    throw new Error(`Chat failed: ${res.status} ${errText}`);
+    console.error("[OpenRouter LLM] Error:", res.status, errText);
+    throw new Error(`OpenRouter Chat failed: ${res.status} ${errText}`);
   }
 
   const data = await res.json();

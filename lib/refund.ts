@@ -170,7 +170,6 @@ async function notifyAdmin(request: RefundRequest): Promise<void> {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''}`,
             },
             body: JSON.stringify({
                 admin_email: ADMIN_EMAIL,
