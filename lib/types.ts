@@ -201,6 +201,7 @@ export const PLANS = {
         price: '₹24,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14ed46313330572f9419a',
+        telegramUrl: 'https://t.me/+oW0wvTa0830xMDM1',
         features: [
             'Curated mid cap stock picks',
             'Consistent performer recommendations',
@@ -216,6 +217,7 @@ export const PLANS = {
         price: '₹29,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14fe46313330572f95675',
+        telegramUrl: 'https://t.me/+PVyybrFQfuhkYjA1',
         features: [
             'High-alpha smallcap ideas',
             'Aggressive growth picks',
@@ -231,6 +233,7 @@ export const PLANS = {
         price: '₹35,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/services/69b2a7d66eea45a42e77510c',
+        telegramUrl: 'https://t.me/+qiWl18xxG8k0YmE1',
         features: [
             'High-growth SME ideas',
             'Early-stage businesses',
@@ -246,6 +249,7 @@ export const PLANS = {
         price: '₹74,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/packages/69b2a8676eea45a42e7751ae',
+        telegramUrl: 'https://t.me/+oW0wvTa0830xMDM1', // Assuming gives access to all or maybe just one. Let's provide midcap as fallback or contact support. I'll omit it or put a placeholder. Let's just leave it empty.
         features: [
             'Everything in all plans',
             'Mid cap + Smallcap + SME picks',

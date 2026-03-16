@@ -82,18 +82,25 @@ export default function ReportsScreen() {
     const isLocked = (index: number) => !canAccessAll && index >= 3;
 
     if (!kyc || !profile) {
+        const isKycMissing = !kyc;
+        const missingText = isKycMissing ? 'KYC' : 'Risk Profiling';
+        const route = isKycMissing ? '/(kyc)' : '/(profiling)';
+        const btnText = isKycMissing ? 'Complete KYC' : 'Complete Risk Profile';
+
         return (
             <View style={[styles.container, { backgroundColor: c.background, justifyContent: 'center', alignItems: 'center', padding: Spacing['2xl'] }]}>
                 <Ionicons name="shield-half" size={56} color={c.textTertiary} style={{ marginBottom: Spacing.lg }} />
-                <Text style={{ fontSize: FontSize.xl, fontWeight: '700', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>Verification Required</Text>
+                <Text style={{ fontSize: FontSize.xl, fontWeight: '700', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>
+                    {missingText} Required
+                </Text>
                 <Text style={{ fontSize: FontSize.base, color: c.textSecondary, textAlign: 'center', marginBottom: Spacing.xl, lineHeight: 22 }}>
-                    Complete your KYC and Risk Profiling to access research reports.
+                    Please complete your {missingText} to access premium research reports.
                 </Text>
                 <TouchableOpacity
                     style={{ backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl, paddingVertical: 14, borderRadius: BorderRadius.lg, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                    onPress={() => router.push(!kyc ? '/(kyc)' : '/(profiling)')}
+                    onPress={() => router.push(route)}
                 >
-                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{!kyc ? 'Complete KYC' : 'Complete Profile'}</Text>
+                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{btnText}</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </TouchableOpacity>
             </View>

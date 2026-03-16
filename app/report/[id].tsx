@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Linking as RNLinking,
     ActivityIndicator, Platform,
@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
 import ReportAIChat from '@/components/ReportAIChat';
+import { useUser } from '@clerk/clerk-expo';
+import * as WebBrowser from 'expo-web-browser';
 // Audio/Video opened via external links (Linking.openURL)
 import type { ResearchReport } from '@/lib/types';
 
@@ -22,6 +24,7 @@ export default function ReportDetailScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const { subscription, kyc, profile } = useAuth();
+    const { user } = useUser();
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);
@@ -61,18 +64,25 @@ export default function ReportDetailScreen() {
     }
 
     if (!kyc || !profile) {
+        const isKycMissing = !kyc;
+        const missingText = isKycMissing ? 'KYC' : 'Risk Profiling';
+        const route = isKycMissing ? '/(kyc)' : '/(profiling)';
+        const btnText = isKycMissing ? 'Complete KYC' : 'Complete Risk Profile';
+
         return (
             <View style={[styles.loadingWrap, { backgroundColor: c.background, padding: Spacing['2xl'] }]}>
                 <Ionicons name="shield-half" size={64} color={c.textTertiary} style={{ marginBottom: Spacing.lg }} />
-                <Text style={{ fontSize: FontSize.xl, fontWeight: '800', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>Verification Required</Text>
+                <Text style={{ fontSize: FontSize.xl, fontWeight: '800', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>
+                    {missingText} Required
+                </Text>
                 <Text style={{ fontSize: FontSize.base, color: c.textSecondary, textAlign: 'center', marginBottom: Spacing.xl }}>
-                    You must complete your KYC and Risk Profiling to access this research report.
+                    You must complete your {missingText} to access this research report.
                 </Text>
                 <TouchableOpacity
                     style={{ backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl, paddingVertical: 14, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                    onPress={() => router.push(!kyc ? '/(kyc)' : '/(profiling)')}
+                    onPress={() => router.push(route)}
                 >
-                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{!kyc ? 'Complete KYC' : 'Complete Risk Profile'}</Text>
+                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{btnText}</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: Spacing.xl }}>
@@ -100,8 +110,8 @@ export default function ReportDetailScreen() {
         if (!content) return null;
         return (
             <View style={styles.textSection}>
-                <Text style={[styles.sectionHeading, { color: c.text }]}>{title}</Text>
-                <Text style={[styles.sectionBody, { color: c.textSecondary }]}>{content}</Text>
+                <Text style={[styles.sectionHeading, { color: c.text }]} selectable={false}>{title}</Text>
+                <Text style={[styles.sectionBody, { color: c.textSecondary }]} selectable={false}>{content}</Text>
             </View>
         );
     };
@@ -166,15 +176,35 @@ export default function ReportDetailScreen() {
 
             {/* Content */}
             <ResponsiveScrollView style={{ flex: 1 }} contentContainerStyle={styles.contentContainer}>
+                {user && (
+                    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                        {Array.from({ length: 20 }).map((_, i) => (
+                            <Text
+                                key={i}
+                                style={{
+                                    color: c.textTertiary,
+                                    opacity: 0.1,
+                                    fontSize: 14,
+                                    transform: [{ rotate: '-45deg' }],
+                                    position: 'absolute',
+                                    top: Math.random() * 1000 + (i * 50),
+                                    left: Math.random() * 400 - 100,
+                                }}
+                            >
+                                {user.primaryEmailAddress?.emailAddress || user.id}
+                            </Text>
+                        ))}
+                    </View>
+                )}
                 {activeTab === 'report' && (
                     <>
                         {hasPdf && (
                             <TouchableOpacity
                                 style={[styles.pdfBtn, { backgroundColor: Colors.brand.primary }]}
-                                onPress={() => RNLinking.openURL(report.pdf_file_url!)}
+                                onPress={() => WebBrowser.openBrowserAsync(report.pdf_file_url!)}
                             >
-                                <Ionicons name="download" size={18} color="#fff" />
-                                <Text style={styles.pdfBtnText}>Open Full Report PDF</Text>
+                                <Ionicons name="document-text" size={18} color="#fff" />
+                                <Text style={styles.pdfBtnText}>View Full Report PDF</Text>
                             </TouchableOpacity>
                         )}
                         {renderTextSection('Company Background', report.company_background)}

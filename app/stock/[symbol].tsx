@@ -1,48 +1,80 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useStockQuote } from '@/hooks/useStockQuote';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { Card, MetricCard, RecommendationBadge, SectionHeader, ResponsiveScrollView, ResponsiveContainer } from '@/components/ui';
-import { TradingViewChart, ComparisonChart } from '@/components/charts';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { Card, RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
 import type { EquityUniverse, ResearchReport } from '@/lib/types';
 
-const fmt = (v: number | null | undefined, suffix = ''): string => v != null ? `${v.toFixed(2)}${suffix}` : '—';
-const fmtCr = (v: number | null | undefined): string => {
+// ── Formatters ──
+const fmtPrice = (v: number | null | undefined) =>
+    v != null ? `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '—';
+const fmtCr = (v: number | null | undefined) => {
     if (v == null) return '—';
-    if (v >= 100000) return `₹${(v / 100000).toFixed(2)} Lakh Cr`;
+    if (v >= 100000) return `₹${(v / 100000).toFixed(2)}L Cr`;
     if (v >= 1000) return `₹${(v / 1000).toFixed(1)}K Cr`;
-    if (v >= 1) return `₹${v.toFixed(0)} Cr`;
-    return `₹${v.toFixed(2)} Cr`;
+    return `₹${v.toFixed(0)} Cr`;
 };
-const fmtPrice = (v: number | null | undefined): string => {
-    if (v == null) return '—';
-    return `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-};
-const fmtVol = (v: number | null | undefined): string => {
-    if (v == null) return '—';
-    if (v >= 10000000) return `${(v / 10000000).toFixed(2)} Cr`;
-    if (v >= 100000) return `${(v / 100000).toFixed(2)} L`;
-    if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
-    return v.toLocaleString('en-IN');
-};
+const fmtPct = (v: number | null | undefined) => v != null ? `${v.toFixed(2)}%` : '—';
+const fmtX = (v: number | null | undefined) => v != null ? `${v.toFixed(2)}x` : '—';
+const fmtNum = (v: number | null | undefined) => v != null ? v.toFixed(2) : '—';
+
+// ── Metric Row Item ──
+function MetricRow({ label, value, valueColor, theme }: { label: string; value: string; valueColor?: string; theme: string }) {
+    const c = Colors[theme as 'light' | 'dark'];
+    return (
+        <View style={metricRowStyles.row}>
+            <Text style={[metricRowStyles.label, { color: c.textSecondary }]}>{label}</Text>
+            <Text style={[metricRowStyles.value, { color: valueColor ?? c.text }]}>{value}</Text>
+        </View>
+    );
+}
+const metricRowStyles = StyleSheet.create({
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+    label: { fontSize: FontSize.sm, fontWeight: '500' },
+    value: { fontSize: FontSize.sm, fontWeight: '700', textAlign: 'right', maxWidth: '55%' },
+});
+
+// ── 52-Week Range Bar ──
+function RangeBar({ current, low, high, theme }: { current: number | null; low: number | null; high: number | null; theme: string }) {
+    const c = Colors[theme as 'light' | 'dark'];
+    if (current == null || low == null || high == null || high === low) return null;
+    const pct = Math.min(Math.max(((current - low) / (high - low)) * 100, 0), 100);
+    return (
+        <View style={{ marginTop: Spacing.md }}>
+            <View style={[rangeStyles.track, { backgroundColor: c.border }]}>
+                <View style={[rangeStyles.fill, { width: `${pct}%` as any, backgroundColor: Colors.brand.secondary }]} />
+                <View style={[rangeStyles.thumb, { left: `${pct}%` as any, backgroundColor: Colors.brand.secondary }]} />
+            </View>
+            <View style={rangeStyles.labels}>
+                <Text style={[rangeStyles.label, { color: c.textTertiary }]}>{fmtPrice(low)}</Text>
+                <Text style={[rangeStyles.label, { color: c.textSecondary, fontWeight: '700' }]}>{fmtPrice(current)}</Text>
+                <Text style={[rangeStyles.label, { color: c.textTertiary }]}>{fmtPrice(high)}</Text>
+            </View>
+        </View>
+    );
+}
+const rangeStyles = StyleSheet.create({
+    track: { height: 6, borderRadius: 3, overflow: 'visible', position: 'relative' },
+    fill: { height: 6, borderRadius: 3 },
+    thumb: { position: 'absolute', top: -4, width: 14, height: 14, borderRadius: 7, marginLeft: -7, borderWidth: 2, borderColor: '#fff' },
+    labels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+    label: { fontSize: 11, fontWeight: '500' },
+});
+
+// ── Divider ──
+function Divider({ theme }: { theme: string }) {
+    const c = Colors[theme as 'light' | 'dark'];
+    return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: c.borderLight, marginVertical: 2 }} />;
+}
 
 export default function StockDetailScreen() {
     const { symbol } = useLocalSearchParams<{ symbol: string }>();
     const theme = useColorScheme();
     const c = Colors[theme];
-    const isDark = theme === 'dark';
-    const [showDesc, setShowDesc] = useState(false);
-
-
-
-    const { quote, screener, loading: quoteLoading, refresh } = useStockQuote(symbol, { refreshIntervalMs: 30000 });
 
     const { data: stock, isLoading } = useQuery({
         queryKey: ['stock', symbol],
@@ -56,13 +88,19 @@ export default function StockDetailScreen() {
     const { data: reports } = useQuery({
         queryKey: ['stock_reports', symbol],
         queryFn: async (): Promise<ResearchReport[]> => {
-            const { data } = await supabase.from('research_reports').select('*').eq('is_published', true).eq('nse_symbol', symbol!).order('published_at', { ascending: false }).limit(5);
+            const { data } = await supabase
+                .from('research_reports')
+                .select('*')
+                .eq('is_published', true)
+                .eq('nse_symbol', symbol!)
+                .order('published_at', { ascending: false })
+                .limit(5);
             return data ?? [];
         },
         enabled: !!symbol,
     });
 
-    if (isLoading && quoteLoading) {
+    if (isLoading) {
         return (
             <View style={[styles.loadingWrap, { backgroundColor: c.background }]}>
                 <ActivityIndicator size="large" color={Colors.brand.primary} />
@@ -70,175 +108,175 @@ export default function StockDetailScreen() {
         );
     }
 
-    const priceChange = quote?.change ?? 0;
-    const priceUp = priceChange >= 0;
-    const glowColor = priceUp ? '#10b981' : '#ef4444'; // Emerald for up, Red for down
+    const hasPrice = stock?.current_price != null;
+    const upFromLow = stock?.low_52_week != null && stock?.current_price != null
+        ? ((stock.current_price - stock.low_52_week) / stock.low_52_week) * 100
+        : null;
+
     return (
         <View style={[styles.container, { backgroundColor: c.background }]}>
-            {/* ═══ Scrollable Content ═══ */}
             <ResponsiveScrollView contentContainerStyle={styles.content}>
-                <ResponsiveContainer style={{ paddingHorizontal: Spacing.xl }}>
 
-                    {/* ═══ Integrated Premium Header ═══ */}
-                    <HeaderContent symbol={symbol!} stock={stock} screener={screener} quote={quote} c={c} priceUp={priceUp} priceChange={priceChange} />
-
-                    {/* Chart Section */}
-                    <SectionHeader title="Price Chart" theme={theme} />
-                    <View style={[styles.chartWrapper, { backgroundColor: c.surfaceElevated }]}>
-                        <TradingViewChart symbol={symbol!} theme={theme} />
-                    </View>
-
-                    {/* ═══ Performance vs Benchmarks ═══ */}
-                    <View style={{ marginTop: Spacing.xl }}>
-                        <SectionHeader title="Performance vs Benchmarks" theme={theme} />
-                    </View>
-                    <View style={[styles.chartWrapper, { backgroundColor: c.surfaceElevated }]}>
-                        <ComparisonChart symbol={symbol!} theme={theme} />
-                    </View>
-
-                    {/* ═══ Today's Trading ═══ */}
-                    {quote && (
-                        <>
-                            <View style={styles.sectionRow}>
-                                <SectionHeader title="Today's Trading" theme={theme} />
-                                <View style={styles.liveTag}>
-                                    <View style={[styles.statusDot, { backgroundColor: '#34D399' }]} />
-                                    <Text style={styles.liveTagText}>Live Updates</Text>
-                                </View>
-                            </View>
-                            <View style={styles.metricsGrid}>
-                                <MetricCard label="Day High" value={fmtPrice(quote.dayHigh)} theme={theme} />
-                                <MetricCard label="Day Low" value={fmtPrice(quote.dayLow)} theme={theme} />
-                                <MetricCard label="Prev Close" value={fmtPrice(quote.previousClose)} theme={theme} />
-                                <MetricCard label="Volume" value={fmtVol(quote.volume)} theme={theme} />
-                                <MetricCard label="52W High" value={fmtPrice(quote.high52Week)} theme={theme} />
-                                <MetricCard label="52W Low" value={fmtPrice(quote.low52Week)} theme={theme} />
-                            </View>
-                        </>
-                    )}
-
-                    {/* ═══ Key Metrics (Screener.in) ═══ */}
-                    {screener && (
-                        <>
-                            <View style={styles.sectionRow}>
-                                <SectionHeader title="Key Metrics" theme={theme} />
-                                <View style={[styles.sourceTag, { backgroundColor: c.borderLight }]}>
-                                    <Text style={{ fontSize: 9, color: c.textSecondary, fontWeight: '600' }}>Screener.in</Text>
-                                </View>
-                            </View>
-                            <View style={styles.metricsGrid}>
-                                <MetricCard label="Market Cap" value={fmtCr(screener.marketCap)} theme={theme} />
-                                <MetricCard label="Stock P/E" value={screener.stockPE != null ? `${screener.stockPE.toFixed(2)}x` : '—'} theme={theme} />
-                                <MetricCard label="Book Value" value={screener.bookValue != null ? `₹${screener.bookValue.toFixed(0)}` : '—'} theme={theme} />
-                                <MetricCard label="Div Yield" value={screener.dividendYield != null ? `${screener.dividendYield.toFixed(2)}%` : '—'} theme={theme} />
-                                <MetricCard label="ROCE" value={screener.roce != null ? `${screener.roce.toFixed(2)}%` : '—'} theme={theme} />
-                                <MetricCard label="ROE" value={screener.roe != null ? `${screener.roe.toFixed(2)}%` : '—'} theme={theme} />
-                                <MetricCard label="Face Value" value={screener.faceValue != null ? `₹${screener.faceValue}` : '—'} theme={theme} />
-                            </View>
-                        </>
-                    )}
-
-                    {/* ═══ Additional Metrics (Supabase) ═══ */}
-                    {stock && (stock.ev_ebitda_ttm != null || stock.ebitda_margin_ttm != null || stock.debt != null) && (
-                        <>
-                            <SectionHeader title="Fundamentals" theme={theme} />
-                            <View style={styles.metricsGrid}>
-                                {stock.ev_ebitda_ttm != null && <MetricCard label="EV/EBITDA" value={fmt(stock.ev_ebitda_ttm, 'x')} theme={theme} />}
-                                {stock.ebitda_margin_ttm != null && <MetricCard label="EBITDA Margin" value={fmt(stock.ebitda_margin_ttm, '%')} theme={theme} />}
-                                {stock.debt != null && <MetricCard label="Debt" value={fmtCr(stock.debt)} theme={theme} />}
-                                {stock.promoter_holding_pct != null && <MetricCard label="Promoter Hold" value={fmt(stock.promoter_holding_pct, '%')} theme={theme} />}
-                                {stock.eps_ttm != null && <MetricCard label="EPS (TTM)" value={fmt(stock.eps_ttm)} theme={theme} />}
-                                {stock.pe_ttm != null && !screener?.stockPE && <MetricCard label="P/E (TTM)" value={fmt(stock.pe_ttm, 'x')} theme={theme} />}
-                            </View>
-                        </>
-                    )}
-
-                    {/* ═══ About (Screener.in) ═══ */}
-                    {screener?.description && (
-                        <>
-                            <SectionHeader title="About" theme={theme} />
-                            <Card theme={theme} style={styles.aboutCard}>
-                                <Text
-                                    style={[styles.aboutText, { color: c.textSecondary }]}
-                                    numberOfLines={showDesc ? undefined : 4}
-                                >
-                                    {screener.description}
-                                </Text>
-                                <TouchableOpacity onPress={() => setShowDesc(!showDesc)} activeOpacity={0.7}>
-                                    <Text style={{ color: Colors.brand.primary, fontSize: FontSize.sm, fontWeight: '700', marginTop: 8 }}>
-                                        {showDesc ? 'Show Less' : 'Read More →'}
-                                    </Text>
-                                </TouchableOpacity>
-                            </Card>
-                        </>
-                    )}
-
-                    {!stock && !quote && !screener && (
-                        <View style={styles.noData}>
-                            <Text style={[{ color: c.textSecondary, fontSize: FontSize.sm }]}>No data available for {symbol}.</Text>
-                        </View>
-                    )}
-
-                    {/* Last Updated */}
-                    {quote && (
-                        <View style={styles.footer}>
-                            <Text style={[styles.updatedAt, { color: c.textTertiary }]}>
-                                Data by Yahoo Finance & Screener.in{'\n'}
-                                Last updated: {quote.lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </Text>
-                            <TouchableOpacity onPress={refresh} style={[styles.refreshBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]} activeOpacity={0.7}>
-                                <Ionicons name="refresh" size={12} color={c.textSecondary} />
-                                <Text style={{ color: c.textSecondary, fontSize: 12, fontWeight: '600' }}>Refresh Data</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    <View style={{ height: 60 }} />
-                </ResponsiveContainer>
-            </ResponsiveScrollView>
-        </View >
-    );
-}
-
-// ── Shared Header Content Component ──
-function HeaderContent({ symbol, stock, screener, quote, c, priceUp, priceChange }: any) {
-    return (
-        <View style={styles.headerContentWrapper}>
-            <View style={styles.topNavRow}>
-                <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: c.borderLight }]} activeOpacity={0.8}>
-                    <Ionicons name="chevron-back" size={20} color={c.text} />
-                </TouchableOpacity>
-                <View style={styles.symbolBadge}>
-                    <Text style={[styles.symbolTextTop, { color: c.textSecondary }]}>NSE: {symbol}</Text>
-                    {(screener?.sector || stock?.sector) && (
+                {/* ── Back Bar ── */}
+                <View style={styles.backRow}>
+                    <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: c.borderLight }]} activeOpacity={0.8}>
+                        <Ionicons name="chevron-back" size={20} color={c.text} />
+                    </TouchableOpacity>
+                    <Text style={[styles.backLabel, { color: c.textSecondary }]}>NSE: {symbol}</Text>
+                    {(stock?.sector) && (
                         <View style={[styles.sectorBadge, { backgroundColor: c.borderLight }]}>
-                            <Text style={{ color: c.textSecondary, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                {screener?.industry || screener?.sector || stock?.sector}
-                            </Text>
+                            <Text style={[styles.sectorText, { color: c.textSecondary }]}>{stock.sector}</Text>
                         </View>
                     )}
                 </View>
-            </View>
 
-            <View style={styles.headerMain}>
-                <Text style={[styles.companyName, { color: c.text }]} numberOfLines={2}>
-                    {quote?.companyName || stock?.company_name || symbol}
-                </Text>
-
-                <View style={styles.priceRow}>
-                    <Text style={[styles.price, { color: c.text }]}>
-                        {quote ? fmtPrice(quote.currentPrice) : fmtPrice(stock?.current_price)}
+                {/* ── Price Hero Card ── */}
+                <Card theme={theme} style={styles.heroCard}>
+                    <Text style={[styles.companyName, { color: c.text }]} numberOfLines={2}>
+                        {stock?.company_name || symbol}
                     </Text>
-                    {quote && (
-                        <View style={[styles.changePill, { backgroundColor: priceUp ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
-                            <Ionicons name={priceUp ? 'caret-up' : 'caret-down'} size={14} color={priceUp ? '#10b981' : '#ef4444'} />
-                            <Text style={{ fontSize: 14, fontWeight: '700', color: priceUp ? '#10b981' : '#ef4444' }}>
-                                {priceUp ? '+' : ''}{priceChange.toFixed(2)} ({quote.changePct.toFixed(2)}%)
-                            </Text>
+
+                    {hasPrice ? (
+                        <View style={styles.priceRow}>
+                            <Text style={[styles.price, { color: c.text }]}>{fmtPrice(stock!.current_price)}</Text>
+                            {upFromLow != null && (
+                                <View style={[styles.changePill, { backgroundColor: Colors.brand.secondary + '18' }]}>
+                                    <Ionicons name="trending-up" size={13} color={Colors.brand.secondary} />
+                                    <Text style={[styles.changeText, { color: Colors.brand.secondary }]}>
+                                        +{upFromLow.toFixed(1)}% from 52W low
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    ) : (
+                        <Text style={[styles.noPrice, { color: c.textTertiary }]}>Price not available</Text>
+                    )}
+
+                    {/* 52-Week Range */}
+                    {stock?.high_52_week != null && stock?.low_52_week != null && (
+                        <View style={{ marginTop: Spacing.lg }}>
+                            <Text style={[styles.rangeLabel, { color: c.textSecondary }]}>52-Week Range</Text>
+                            <RangeBar
+                                current={stock.current_price}
+                                low={stock.low_52_week}
+                                high={stock.high_52_week}
+                                theme={theme}
+                            />
                         </View>
                     )}
-                </View>
-            </View>
+
+                    {/* Target Price */}
+                    {stock?.consensus_target_price != null && (
+                        <View style={[styles.targetRow, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+                            <Ionicons name="flag" size={14} color={Colors.brand.secondary} />
+                            <Text style={[styles.targetLabel, { color: c.textSecondary }]}>Consensus Target</Text>
+                            <Text style={[styles.targetValue, { color: Colors.brand.secondary }]}>
+                                {fmtPrice(stock.consensus_target_price)}
+                            </Text>
+                            {stock.current_price != null && (
+                                <Text style={[styles.targetUpside, { color: c.textTertiary }]}>
+                                    ({((stock.consensus_target_price - stock.current_price) / stock.current_price * 100) >= 0 ? '+' : ''}
+                                    {((stock.consensus_target_price - stock.current_price) / stock.current_price * 100).toFixed(1)}% upside)
+                                </Text>
+                            )}
+                        </View>
+                    )}
+                </Card>
+
+                {/* ── Valuation ── */}
+                {(stock?.pe_ttm != null || stock?.ev_ebitda_ttm != null || stock?.market_cap != null || stock?.book_value != null) && (
+                    <Card theme={theme} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <Ionicons name="bar-chart" size={16} color={Colors.brand.secondary} />
+                            <Text style={[styles.cardTitle, { color: c.text }]}>Valuation</Text>
+                        </View>
+                        {stock?.market_cap != null && <><MetricRow label="Market Cap" value={fmtCr(stock.market_cap)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.pe_ttm != null && <><MetricRow label="P/E (TTM)" value={fmtX(stock.pe_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.ev_ebitda_ttm != null && <><MetricRow label="EV / EBITDA" value={fmtX(stock.ev_ebitda_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.book_value != null && <MetricRow label="Book Value" value={fmtPrice(stock.book_value)} theme={theme} />}
+                    </Card>
+                )}
+
+                {/* ── Profitability ── */}
+                {(stock?.roce != null || stock?.roe != null || stock?.ebitda_margin_ttm != null || stock?.pat_margin_ttm != null || stock?.eps_ttm != null) && (
+                    <Card theme={theme} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <Ionicons name="trending-up" size={16} color='#10B981' />
+                            <Text style={[styles.cardTitle, { color: c.text }]}>Profitability</Text>
+                        </View>
+                        {stock?.roce != null && <><MetricRow label="ROCE" value={fmtPct(stock.roce)} valueColor='#10B981' theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.roe != null && <><MetricRow label="ROE" value={fmtPct(stock.roe)} valueColor='#10B981' theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.ebitda_margin_ttm != null && <><MetricRow label="EBITDA Margin" value={fmtPct(stock.ebitda_margin_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.pat_margin_ttm != null && <><MetricRow label="PAT Margin" value={fmtPct(stock.pat_margin_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.eps_ttm != null && <MetricRow label="EPS (TTM)" value={`₹${fmtNum(stock.eps_ttm)}`} theme={theme} />}
+                    </Card>
+                )}
+
+                {/* ── Balance Sheet ── */}
+                {(stock?.debt != null || stock?.promoter_holding_pct != null) && (
+                    <Card theme={theme} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <Ionicons name="shield-checkmark" size={16} color='#8B5CF6' />
+                            <Text style={[styles.cardTitle, { color: c.text }]}>Balance Sheet</Text>
+                        </View>
+                        {stock?.debt != null && <><MetricRow label="Debt" value={fmtCr(stock.debt)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.promoter_holding_pct != null && (
+                            <>
+                                <MetricRow label="Promoter Holding" value={fmtPct(stock.promoter_holding_pct)} valueColor={stock.promoter_holding_pct >= 50 ? '#10B981' : undefined} theme={theme} />
+                                {/* Promoter holding bar */}
+                                <View style={[styles.barBg, { backgroundColor: c.border }]}>
+                                    <View style={[styles.barFill, { width: `${stock.promoter_holding_pct}%` as any, backgroundColor: stock.promoter_holding_pct >= 50 ? '#10B981' : Colors.brand.secondary }]} />
+                                </View>
+                            </>
+                        )}
+                    </Card>
+                )}
+
+                {/* ── Research Reports ── */}
+                {reports && reports.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: c.text }]}>Research Reports</Text>
+                        {reports.map((r) => (
+                            <Card
+                                key={r.report_id}
+                                theme={theme}
+                                style={styles.reportCard}
+                                onPress={() => router.push(`/report/${r.report_id}`)}
+                            >
+                                <View style={styles.reportRow}>
+                                    <View style={[styles.reportIcon, { backgroundColor: c.infoBg }]}>
+                                        <Ionicons name="document-text" size={18} color={c.info} />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.reportDate, { color: c.textTertiary }]}>
+                                            {r.published_at ? new Date(r.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                                        </Text>
+                                        {r.target_price != null && (
+                                            <Text style={[styles.reportTarget, { color: c.textSecondary }]}>
+                                                Target: <Text style={{ color: c.success, fontWeight: '700' }}>{fmtPrice(r.target_price)}</Text>
+                                            </Text>
+                                        )}
+                                    </View>
+                                    {r.recommendation && <RecommendationBadge recommendation={r.recommendation} theme={theme} />}
+                                    <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />
+                                </View>
+                            </Card>
+                        ))}
+                    </View>
+                )}
+
+                {/* No data fallback */}
+                {!stock && (
+                    <Card theme={theme} style={[styles.card, { alignItems: 'center', paddingVertical: 40 }]}>
+                        <Ionicons name="search-outline" size={40} color={c.textTertiary} />
+                        <Text style={[{ color: c.textTertiary, marginTop: Spacing.md, fontSize: FontSize.sm }]}>
+                            No data found for {symbol}
+                        </Text>
+                    </Card>
+                )}
+
+                <View style={{ height: 60 }} />
+            </ResponsiveScrollView>
         </View>
     );
 }
@@ -246,63 +284,44 @@ function HeaderContent({ symbol, stock, screener, quote, c, priceUp, priceChange
 const styles = StyleSheet.create({
     container: { flex: 1 },
     loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    content: { paddingHorizontal: Spacing.xl, paddingTop: Platform.select({ ios: 56, default: 32 }) },
 
-    /* ── Header ── */
-    headerContentWrapper: {
-        paddingTop: Platform.select({ ios: 50, default: 30 }),
-        paddingBottom: Spacing.xl,
-    },
-    topNavRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: Spacing.lg,
-    },
-    symbolBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    symbolTextTop: { fontSize: FontSize.sm, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontWeight: '700' },
+    // Back bar
+    backRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.xl },
+    backBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
+    backLabel: { fontSize: FontSize.sm, fontWeight: '700', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
     sectorBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    headerMain: {
-        gap: 4,
-    },
-    backBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-    companyName: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32 },
-    priceRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        gap: 12,
-        marginTop: 4,
-    },
-    price: { fontSize: 40, fontWeight: '800', letterSpacing: -1.5 },
-    changePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginBottom: 6 },
+    sectorText: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
 
-    /* ── Content ── */
-    content: { paddingTop: Spacing.xl }, // removed left/right padding here, handling it inside ResponsiveContainer
-    chartWrapper: {
-        borderRadius: BorderRadius.xl,
-        overflow: 'hidden',
-        marginBottom: Spacing.xl,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-        padding: Spacing.lg,
-    },
-    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-    liveTag: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(52, 211, 153, 0.15)', borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.3)' },
-    liveTagText: { fontSize: 11, fontWeight: '700', color: '#34D399', letterSpacing: 0.5, textTransform: 'uppercase' },
-    sourceTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-    metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing['2xl'], justifyContent: 'space-between' },
-    noData: { padding: Spacing['3xl'], alignItems: 'center' },
+    // Hero card
+    heroCard: { padding: Spacing.xl, marginBottom: Spacing.md },
+    companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: Spacing.sm },
+    priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+    price: { fontSize: 36, fontWeight: '800', letterSpacing: -1 },
+    changePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+    changeText: { fontSize: 12, fontWeight: '700' },
+    noPrice: { fontSize: FontSize.md, marginTop: 4 },
+    rangeLabel: { fontSize: FontSize.xs, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+    targetRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, padding: 12, borderRadius: BorderRadius.md, borderWidth: 1, flexWrap: 'wrap' },
+    targetLabel: { fontSize: FontSize.sm, fontWeight: '500' },
+    targetValue: { fontSize: FontSize.sm, fontWeight: '800' },
+    targetUpside: { fontSize: 11 },
 
-    /* ── About ── */
-    aboutCard: { padding: Spacing.xl, marginBottom: Spacing['2xl'], borderRadius: BorderRadius.xl },
-    aboutText: { fontSize: FontSize.md, lineHeight: 24 },
+    // Cards
+    card: { padding: Spacing.xl, marginBottom: Spacing.md },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.sm },
+    cardTitle: { fontSize: FontSize.md, fontWeight: '700' },
 
-    /* ── Footer ── */
-    footer: { alignItems: 'center', gap: Spacing.md, marginTop: Spacing.xl },
-    updatedAt: { fontSize: 11, textAlign: 'center', lineHeight: 18, fontWeight: '500' },
-    refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+    // Balance sheet bar
+    barBg: { height: 6, borderRadius: 3, marginTop: 8, overflow: 'hidden' },
+    barFill: { height: 6, borderRadius: 3 },
+
+    // Reports
+    section: { marginBottom: Spacing.md },
+    sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', marginBottom: Spacing.md, letterSpacing: -0.2 },
+    reportCard: { padding: Spacing.lg, marginBottom: Spacing.sm },
+    reportRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    reportIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    reportDate: { fontSize: FontSize.xs, marginBottom: 2 },
+    reportTarget: { fontSize: FontSize.sm },
 });

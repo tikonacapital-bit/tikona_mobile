@@ -10,6 +10,7 @@ import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react
 const TAB_ITEMS = [
   { name: 'index', title: 'Home', icon: 'home-outline', iconFocused: 'home' },
   { name: 'reports', title: 'Reports', icon: 'document-text-outline', iconFocused: 'document-text' },
+  { name: 'analyst', title: 'Analyst', icon: 'chatbubbles-outline', iconFocused: 'chatbubbles' },
   { name: 'portfolio', title: 'Portfolio', icon: 'pie-chart-outline', iconFocused: 'pie-chart' },
   { name: 'settings', title: 'Account', icon: 'person-outline', iconFocused: 'person' },
 ] as const;
@@ -368,6 +369,15 @@ export default function TabLayout() {
           title: 'Reports',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons size={22} name={focused ? 'document-text' : 'document-text-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="analyst"
+        options={{
+          title: 'Analyst',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons size={22} name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
           ),
         }}
       />

@@ -15,6 +15,7 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -193,6 +194,25 @@ export default function SubscriptionScreen() {
                             <Text style={[styles.activeBannerSub, { color: c.textTertiary }]}>
                                 Membership active until {new Date(subscription.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </Text>
+                        )}
+                        {currentPlan && PLANS[currentPlan as PlanKey]?.telegramUrl && (
+                            <TouchableOpacity
+                                style={{
+                                    marginTop: 10,
+                                    backgroundColor: '#0088cc',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 8,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    alignSelf: 'flex-start',
+                                    gap: 6
+                                }}
+                                onPress={() => Linking.openURL((PLANS[currentPlan as PlanKey] as any).telegramUrl)}
+                            >
+                                <Ionicons name="paper-plane" size={14} color="#fff" />
+                                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Join PRO Telegram Group</Text>
+                            </TouchableOpacity>
                         )}
                     </View>
                 </View>
