@@ -165,33 +165,36 @@ async function notifyAdmin(request: RefundRequest): Promise<void> {
         return;
     }
 
-    try {
-        const response = await fetch(`${supabaseUrl}/functions/v1/refund-action`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                admin_email: ADMIN_EMAIL,
-                request_id: request.id,
-                user_id: request.user_id,
-                plan: request.plan,
-                refund_amount: request.refund_amount,
-                total_paid: request.total_paid,
-                months_used: request.months_used,
-                months_remaining: request.months_remaining,
-                upi_id: request.upi_id,
-                reason: request.reason,
-            }),
-        });
+    const body = JSON.stringify({
+        admin_email: ADMIN_EMAIL,
+        request_id: request.id,
+        user_id: request.user_id,
+        plan: request.plan,
+        refund_amount: request.refund_amount,
+        total_paid: request.total_paid,
+        months_used: request.months_used,
+        months_remaining: request.months_remaining,
+        upi_id: request.upi_id,
+        reason: request.reason,
+    });
 
-        if (!response.ok) {
-            console.warn('[Refund] Admin notification endpoint returned:', response.status);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const response = await fetch(`${supabaseUrl}/functions/v1/refund-action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+            });
+            if (response.ok) return;
+            console.warn('[Refund] Admin notification attempt', attempt, 'returned:', response.status);
+        } catch (err) {
+            console.warn('[Refund] Admin notification attempt', attempt, 'failed:', err);
         }
-    } catch (err) {
-        // Edge function may not be deployed yet — that's okay
-        console.log('[Refund] Admin notification skipped (edge function not available).');
+        if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
     }
+    console.warn('[Refund] Admin notification failed after 2 attempts for request:', request.id);
 }
 
 /**

@@ -1,13 +1,14 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput,
-    FlatList, ActivityIndicator, KeyboardAvoidingView,
-    Platform, Keyboard,
+    FlatList, KeyboardAvoidingView, Platform, Keyboard,
+    Animated, ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
 
@@ -15,6 +16,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    timestamp: Date;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -22,7 +24,51 @@ const SUGGESTED_QUESTIONS = [
     'Which stocks are best positioned?',
     'What are the key risks to watch?',
     'What valuation metrics matter most here?',
+    'How does macro environment affect this sector?',
 ];
+
+function TypingDots({ color }: { color: string }) {
+    const dot1 = useRef(new Animated.Value(0)).current;
+    const dot2 = useRef(new Animated.Value(0)).current;
+    const dot3 = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const animate = (dot: Animated.Value, delay: number) =>
+            Animated.loop(
+                Animated.sequence([
+                    Animated.delay(delay),
+                    Animated.timing(dot, { toValue: -5, duration: 280, useNativeDriver: true }),
+                    Animated.timing(dot, { toValue: 0, duration: 280, useNativeDriver: true }),
+                    Animated.delay(600),
+                ])
+            );
+        const a1 = animate(dot1, 0);
+        const a2 = animate(dot2, 140);
+        const a3 = animate(dot3, 280);
+        a1.start(); a2.start(); a3.start();
+        return () => { a1.stop(); a2.stop(); a3.stop(); };
+    }, []);
+
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 2 }}>
+            {[dot1, dot2, dot3].map((dot, i) => (
+                <Animated.View
+                    key={i}
+                    style={{
+                        width: 7, height: 7, borderRadius: 4,
+                        backgroundColor: color,
+                        opacity: 0.75,
+                        transform: [{ translateY: dot }],
+                    }}
+                />
+            ))}
+        </View>
+    );
+}
+
+function formatTime(date: Date) {
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 
 export default function AIChatScreen() {
     const { sector } = useLocalSearchParams<{ sector: string }>();
@@ -31,17 +77,29 @@ export default function AIChatScreen() {
     const isDark = theme === 'dark';
 
     const analyst = SECTOR_ANALYSTS.find((a) => a.sector === sector);
+    const analystColor = analyst?.color ?? Colors.brand.secondary;
+    const analystBg = isDark ? analyst?.darkBg : analyst?.bg;
 
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '0',
             role: 'assistant',
             content: `Hi! I'm ${analyst?.analyst ?? 'your AI analyst'}, covering the ${sector} sector. Ask me anything — company outlooks, valuations, risks, or sector trends.`,
+            timestamp: new Date(),
         },
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const listRef = useRef<FlatList>(null);
+
+    const resetChat = useCallback(() => {
+        setMessages([{
+            id: '0',
+            role: 'assistant',
+            content: `Hi! I'm ${analyst?.analyst ?? 'your AI analyst'}, covering the ${sector} sector. Ask me anything — company outlooks, valuations, risks, or sector trends.`,
+            timestamp: new Date(),
+        }]);
+    }, [analyst, sector]);
 
     const sendMessage = useCallback(async (text: string) => {
         const trimmed = text.trim();
@@ -50,11 +108,15 @@ export default function AIChatScreen() {
         setInput('');
         if (Platform.OS !== 'web') Keyboard.dismiss();
 
-        const userMsg: Message = { id: Date.now().toString(), role: 'user', content: trimmed };
+        const userMsg: Message = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: trimmed,
+            timestamp: new Date(),
+        };
         setMessages((prev) => [...prev, userMsg]);
         setLoading(true);
 
-        // Build history for the API (exclude greeting message)
         const history = messages
             .slice(1)
             .map((m) => ({ role: m.role, content: m.content }));
@@ -63,22 +125,21 @@ export default function AIChatScreen() {
             const { data, error } = await supabase.functions.invoke('sector-ai-chat', {
                 body: { sector, message: trimmed, history },
             });
-
             if (error) throw error;
 
-            const assistantMsg: Message = {
+            setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: data.reply || 'Sorry, I could not generate a response.',
-            };
-            setMessages((prev) => [...prev, assistantMsg]);
-        } catch (err: any) {
-            const errMsg: Message = {
+                timestamp: new Date(),
+            }]);
+        } catch {
+            setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: 'Sorry, something went wrong. Please try again.',
-            };
-            setMessages((prev) => [...prev, errMsg]);
+                timestamp: new Date(),
+            }]);
         } finally {
             setLoading(false);
             setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -90,22 +151,34 @@ export default function AIChatScreen() {
         return (
             <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
                 {!isUser && (
-                    <View style={[styles.avatarWrap, { backgroundColor: isDark ? analyst?.darkBg : analyst?.bg }]}>
-                        <Ionicons name={analyst?.icon ?? 'person'} size={14} color={analyst?.color ?? Colors.brand.secondary} />
+                    <View style={[styles.avatarWrap, { backgroundColor: analystBg }]}>
+                        <Ionicons name={analyst?.icon ?? 'person'} size={13} color={analystColor} />
                     </View>
                 )}
-                <View style={[
-                    styles.bubble,
-                    isUser
-                        ? { backgroundColor: Colors.brand.primary }
-                        : { backgroundColor: c.surfaceElevated, borderColor: c.border, borderWidth: 1 },
-                    isUser && styles.bubbleUser,
-                ]}>
+                <View style={{ maxWidth: '78%' }}>
+                    {isUser ? (
+                        <LinearGradient
+                            colors={[Colors.brand.primary, '#1e40af']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.bubble, styles.bubbleUser]}
+                        >
+                            <Text style={[styles.bubbleText, { color: '#fff' }]}>{item.content}</Text>
+                        </LinearGradient>
+                    ) : (
+                        <View style={[styles.bubble, styles.bubbleAssistant, {
+                            backgroundColor: c.surfaceElevated,
+                            borderColor: c.border,
+                        }]}>
+                            <Text style={[styles.bubbleText, { color: c.text }]}>{item.content}</Text>
+                        </View>
+                    )}
                     <Text style={[
-                        styles.bubbleText,
-                        { color: isUser ? '#fff' : c.text },
+                        styles.timestamp,
+                        isUser ? styles.timestampRight : styles.timestampLeft,
+                        { color: c.textTertiary },
                     ]}>
-                        {item.content}
+                        {formatTime(item.timestamp)}
                     </Text>
                 </View>
             </View>
@@ -116,38 +189,56 @@ export default function AIChatScreen() {
         <KeyboardAvoidingView
             style={[styles.container, { backgroundColor: c.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
             {/* Header */}
-            <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+            <LinearGradient
+                colors={isDark ? ['#0f172a', '#1e293b'] : ['#ffffff', '#f8fafc']}
+                style={[styles.header, { borderBottomColor: c.border }]}
+            >
                 <TouchableOpacity
                     onPress={() => router.back()}
-                    style={[styles.backBtn, { backgroundColor: c.borderLight }]}
+                    style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
                     activeOpacity={0.8}
                 >
                     <Ionicons name="chevron-back" size={20} color={c.text} />
                 </TouchableOpacity>
-                <View style={[styles.analystAvatar, { backgroundColor: isDark ? analyst?.darkBg : analyst?.bg }]}>
-                    <Ionicons name={analyst?.icon ?? 'person'} size={20} color={analyst?.color ?? Colors.brand.secondary} />
+
+                <View style={{ position: 'relative' }}>
+                    <View style={[styles.analystAvatar, { backgroundColor: analystBg }]}>
+                        <Ionicons name={analyst?.icon ?? 'person'} size={22} color={analystColor} />
+                    </View>
+                    <View style={[styles.onlineDot, { borderColor: isDark ? '#0f172a' : '#ffffff' }]} />
                 </View>
+
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
                         {analyst?.analyst ?? sector}
                     </Text>
-                    <Text style={[styles.headerRole, { color: analyst?.color ?? c.textSecondary }]}>
-                        {analyst?.title} · {sector}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                        <View style={styles.onlineDotSmall} />
+                        <Text style={[styles.headerStatus, { color: analystColor }]}>
+                            Online · {analyst?.title}
+                        </Text>
+                    </View>
                 </View>
+
                 <TouchableOpacity
-                    onPress={() => setMessages([{
-                        id: '0', role: 'assistant',
-                        content: `Hi! I'm ${analyst?.analyst ?? 'your AI analyst'}, covering the ${sector} sector. Ask me anything — company outlooks, valuations, risks, or sector trends.`,
-                    }])}
-                    style={[styles.clearBtn, { backgroundColor: c.borderLight }]}
+                    onPress={resetChat}
+                    style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
                     activeOpacity={0.7}
                 >
                     <Ionicons name="refresh-outline" size={16} color={c.textSecondary} />
                 </TouchableOpacity>
+            </LinearGradient>
+
+            {/* Sector pill bar */}
+            <View style={[styles.sectorBar, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+                <View style={[styles.sectorPill, { backgroundColor: analystBg }]}>
+                    <Text style={[styles.sectorPillText, { color: analystColor }]}>{sector}</Text>
+                </View>
+                <Text style={[styles.sectorDesc, { color: c.textTertiary }]} numberOfLines={1}>
+                    {analyst?.description}
+                </Text>
             </View>
 
             {/* Messages */}
@@ -162,43 +253,53 @@ export default function AIChatScreen() {
                 ListFooterComponent={
                     loading ? (
                         <View style={styles.typingRow}>
-                            <View style={[styles.avatarWrap, { backgroundColor: isDark ? analyst?.darkBg : analyst?.bg }]}>
-                                <Ionicons name={analyst?.icon ?? 'person'} size={14} color={analyst?.color ?? Colors.brand.secondary} />
+                            <View style={[styles.avatarWrap, { backgroundColor: analystBg }]}>
+                                <Ionicons name={analyst?.icon ?? 'person'} size={13} color={analystColor} />
                             </View>
                             <View style={[styles.typingBubble, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-                                <ActivityIndicator size="small" color={analyst?.color ?? Colors.brand.secondary} />
-                                <Text style={[styles.typingText, { color: c.textTertiary }]}>Thinking...</Text>
+                                <TypingDots color={analystColor} />
                             </View>
                         </View>
                     ) : null
                 }
             />
 
-            {/* Suggested questions (shown when only greeting exists) */}
+            {/* Suggested questions — horizontal scroll */}
             {messages.length === 1 && !loading && (
                 <View style={styles.suggestionsWrap}>
-                    <Text style={[styles.suggestionsLabel, { color: c.textTertiary }]}>Suggested questions</Text>
-                    <View style={styles.suggestionsRow}>
+                    <Text style={[styles.suggestionsLabel, { color: c.textTertiary }]}>Try asking</Text>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.suggestionsScroll}
+                    >
                         {SUGGESTED_QUESTIONS.map((q) => (
                             <TouchableOpacity
                                 key={q}
-                                style={[styles.suggestionChip, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+                                style={[styles.suggestionChip, { backgroundColor: analystBg, borderColor: analystColor + '35' }]}
                                 onPress={() => sendMessage(q)}
                                 activeOpacity={0.7}
                             >
-                                <Text style={[styles.suggestionText, { color: c.textSecondary }]}>{q}</Text>
+                                <Ionicons name="sparkles" size={10} color={analystColor} />
+                                <Text style={[styles.suggestionText, { color: analystColor }]}>{q}</Text>
                             </TouchableOpacity>
                         ))}
-                    </View>
+                    </ScrollView>
                 </View>
             )}
 
             {/* Input Bar */}
             <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
-                <View style={[styles.inputWrap, { backgroundColor: c.inputBg, borderColor: c.inputBorder }]}>
+                <View style={[
+                    styles.inputWrap,
+                    {
+                        backgroundColor: c.inputBg,
+                        borderColor: input.trim() ? analystColor + '55' : c.inputBorder,
+                    },
+                ]}>
                     <TextInput
                         style={[styles.input, { color: c.text }]}
-                        placeholder={`Ask ${analyst?.analyst?.split(' ')[0] ?? 'the analyst'} anything...`}
+                        placeholder={`Ask ${analyst?.analyst?.split(' ')[0] ?? 'the analyst'}...`}
                         placeholderTextColor={c.textTertiary}
                         value={input}
                         onChangeText={setInput}
@@ -210,19 +311,23 @@ export default function AIChatScreen() {
                     />
                 </View>
                 <TouchableOpacity
-                    style={[
-                        styles.sendBtn,
-                        { backgroundColor: input.trim() && !loading ? Colors.brand.primary : c.surfaceElevated },
-                    ]}
                     onPress={() => sendMessage(input)}
                     disabled={!input.trim() || loading}
                     activeOpacity={0.85}
                 >
-                    <Ionicons
-                        name="send"
-                        size={18}
-                        color={input.trim() && !loading ? '#fff' : c.textTertiary}
-                    />
+                    <LinearGradient
+                        colors={input.trim() && !loading
+                            ? [Colors.brand.primary, '#1e40af']
+                            : [c.surfaceElevated, c.surfaceElevated]
+                        }
+                        style={styles.sendBtn}
+                    >
+                        <Ionicons
+                            name="send"
+                            size={17}
+                            color={input.trim() && !loading ? '#fff' : c.textTertiary}
+                        />
+                    </LinearGradient>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -240,34 +345,80 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
         paddingTop: Platform.select({ ios: 56, default: 40 }),
         paddingBottom: Spacing.md,
-        borderBottomWidth: 1,
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
-    backBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    analystAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-    headerName: { fontSize: FontSize.base, fontWeight: '700' },
-    headerRole: { fontSize: FontSize.xs, fontWeight: '600', marginTop: 1 },
-    clearBtn: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+    iconBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    analystAvatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+    onlineDot: {
+        position: 'absolute', bottom: 1, right: 1,
+        width: 12, height: 12, borderRadius: 6,
+        backgroundColor: '#22c55e', borderWidth: 2,
+    },
+    onlineDotSmall: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22c55e' },
+    headerName: { fontSize: FontSize.base, fontWeight: '700', letterSpacing: -0.2 },
+    headerStatus: { fontSize: 11, fontWeight: '600' },
+
+    // Sector bar
+    sectorBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    sectorPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: BorderRadius.full },
+    sectorPillText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+    sectorDesc: { fontSize: 11, flex: 1 },
 
     // Messages
-    messageList: { padding: Spacing.xl, gap: Spacing.md, paddingBottom: Spacing.lg },
-    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: Spacing.sm },
+    messageList: {
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.sm,
+    },
+    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16 },
     msgRowUser: { flexDirection: 'row-reverse' },
-    avatarWrap: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-    bubble: { maxWidth: '78%', padding: 12, borderRadius: 16, borderBottomLeftRadius: 4 },
-    bubbleUser: { borderBottomLeftRadius: 16, borderBottomRightRadius: 4 },
+    avatarWrap: {
+        width: 28, height: 28, borderRadius: 14,
+        justifyContent: 'center', alignItems: 'center',
+        flexShrink: 0, marginBottom: 18,
+    },
+    bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+    bubbleUser: { borderBottomRightRadius: 4 },
+    bubbleAssistant: { borderWidth: 1, borderBottomLeftRadius: 4 },
     bubbleText: { fontSize: FontSize.sm, lineHeight: 22 },
+    timestamp: { fontSize: 10, marginTop: 4 },
+    timestampRight: { textAlign: 'right', marginRight: 2 },
+    timestampLeft: { marginLeft: 2 },
 
     // Typing
-    typingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.xl, marginBottom: Spacing.md },
-    typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, borderWidth: 1 },
-    typingText: { fontSize: FontSize.xs },
+    typingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: Spacing.xl,
+        marginBottom: Spacing.md,
+    },
+    typingBubble: {
+        paddingHorizontal: 14, paddingVertical: 10,
+        borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1,
+    },
 
     // Suggestions
-    suggestionsWrap: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing.sm },
-    suggestionsLabel: { fontSize: FontSize.xs, fontWeight: '600', marginBottom: Spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
-    suggestionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-    suggestionChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: BorderRadius.full, borderWidth: 1 },
-    suggestionText: { fontSize: FontSize.xs, fontWeight: '500' },
+    suggestionsWrap: { paddingLeft: Spacing.xl, paddingBottom: Spacing.sm, paddingTop: 4 },
+    suggestionsLabel: {
+        fontSize: 10, fontWeight: '700',
+        letterSpacing: 0.8, textTransform: 'uppercase',
+        marginBottom: 8,
+    },
+    suggestionsScroll: { gap: 8, paddingRight: Spacing.xl },
+    suggestionChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 12, paddingVertical: 8,
+        borderRadius: BorderRadius.full, borderWidth: 1,
+    },
+    suggestionText: { fontSize: 12, fontWeight: '600' },
 
     // Input
     inputBar: {
@@ -275,11 +426,19 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         gap: 10,
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.sm,
+        paddingTop: 10,
         paddingBottom: Platform.OS === 'ios' ? 32 : Spacing.lg,
-        borderTopWidth: 1,
+        borderTopWidth: StyleSheet.hairlineWidth,
     },
-    inputWrap: { flex: 1, borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 120 },
+    inputWrap: {
+        flex: 1, borderWidth: 1.5,
+        borderRadius: 24,
+        paddingHorizontal: 16, paddingVertical: 10,
+        maxHeight: 120,
+    },
     input: { fontSize: FontSize.base, lineHeight: 22 },
-    sendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+    sendBtn: {
+        width: 44, height: 44, borderRadius: 22,
+        justifyContent: 'center', alignItems: 'center',
+    },
 });

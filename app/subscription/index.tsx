@@ -39,9 +39,12 @@ export default function SubscriptionScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const { subscription, refreshUserData } = useAuth();
+    const subscriptionRef = useRef(subscription);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectingPlan, setSelectingPlan] = useState<PlanKey | null>(null);
     const currentPlan = subscription?.plan as PlanKey | undefined;
+    useEffect(() => { subscriptionRef.current = subscription; }, [subscription]);
+
     const prevPlanRef = useRef<string | undefined>(currentPlan);
     const isRedirectingRef = useRef(false);
     const hasInitiatedPaymentRef = useRef(false);
@@ -56,14 +59,12 @@ export default function SubscriptionScreen() {
         setIsRefreshing(true);
 
         // The webhook might take a few seconds to process the payment from Tradebox.
-        // We will poll for the update 3 times.
+        // We will poll for the update up to 3 times, stopping early if subscription is found.
         try {
             for (let i = 0; i < 3; i++) {
                 await new Promise(resolve => setTimeout(resolve, i === 0 ? 1500 : 2000));
                 await refreshUserData();
-                // We can't easily break out of the loop here without reading the latest state,
-                // but fetching user data 3 times over 5 seconds is perfectly fine and ensures
-                // we catch the webhook's update even if it's delayed.
+                if (subscriptionRef.current?.is_active) break;
             }
         } finally {
             setIsRefreshing(false);

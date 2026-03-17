@@ -5,7 +5,7 @@
  * This screen shows the current KYC status and guides the user accordingly.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
     TouchableOpacity, Linking, Platform,
@@ -58,9 +58,16 @@ const STATUS_CONFIG: Record<string, {
 export default function KycStatusScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
-    const { kyc, subscription } = useAuth();
+    const { kyc, subscription, refreshUserData } = useAuth();
 
     const status: string = kyc?.status || (subscription ? 'pending' : 'not_initiated');
+
+    // Auto-refresh every 10s while KYC is pending so user doesn't get stuck
+    useEffect(() => {
+        if (status !== 'pending') return;
+        const interval = setInterval(() => { refreshUserData(); }, 10000);
+        return () => clearInterval(interval);
+    }, [status, refreshUserData]);
     const config = STATUS_CONFIG[status] || STATUS_CONFIG['not_initiated'];
     const hasSubscription = !!subscription?.is_active;
 

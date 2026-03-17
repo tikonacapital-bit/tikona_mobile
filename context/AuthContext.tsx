@@ -15,6 +15,7 @@ type AuthContextType = {
     profile: UserProfile | null;
     subscription: Subscription | null;
     refundRequest: RefundRequest | null;
+    dataError: boolean;
     // Actions
     refreshUserData: () => Promise<void>;
     signOut: () => Promise<void>;
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
     profile: null,
     subscription: null,
     refundRequest: null,
+    dataError: false,
     refreshUserData: async () => { },
     signOut: async () => { },
 });
@@ -44,9 +46,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [refundRequest, setRefundRequest] = useState<RefundRequest | null>(null);
+    const [dataError, setDataError] = useState(false);
 
     const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
         try {
+            setDataError(false);
             const [kycRes, profileRes, subRes, refundRes] = await Promise.all([
                 supabase.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
                 supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
@@ -72,6 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
         } catch (e) {
             console.warn('Failed to fetch user data:', e);
+            setDataError(true);
         }
     }, []);
 
@@ -124,6 +129,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 profile,
                 subscription,
                 refundRequest,
+                dataError,
                 refreshUserData,
                 signOut
             }}

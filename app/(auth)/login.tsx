@@ -114,11 +114,6 @@ export default function LoginScreen() {
         try {
             setLoading(true);
 
-            // Pre-emptively clear any stuck Clerk client state before starting OAuth
-            if (clerk.client.activeSessions.length > 0) {
-                await clerk.signOut();
-            }
-
             const { createdSessionId, setActive: setOAuthActive, signUp, signIn: oauthSignIn } = await startGoogleOAuthFlow();
 
             if (createdSessionId && setOAuthActive) {

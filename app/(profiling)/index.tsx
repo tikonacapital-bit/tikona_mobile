@@ -86,11 +86,15 @@ export default function ProfilingScreen() {
         score: number | null,
         rawAnswers: Record<string, number> | null,
     ) => {
+        if (!user?.id) {
+            showAlert('Session Error', 'Your session has expired. Please sign in again.');
+            return;
+        }
         setLoading(true);
         const displayLabel = RISK_DISPLAY_MAP[riskProfile];
 
         const { error } = await supabase.from('profiles').upsert({
-            user_id: user!.id,
+            user_id: user.id,
             risk_score: score,
             risk_profile: riskProfile,
             profile_method: method,
@@ -99,14 +103,14 @@ export default function ProfilingScreen() {
         }, { onConflict: 'user_id' });
 
         if (error) {
-            showAlert('Failed', error.message);
+            showAlert('Save Failed', `${error.message}\n\nPlease tap the button again to retry.`);
             setLoading(false);
             return;
         }
 
         // Also create a free subscription if none exists
         await supabase.from('subscriptions').upsert({
-            user_id: user!.id,
+            user_id: user.id,
             plan: 'free',
             is_active: true,
         }, { onConflict: 'user_id' });

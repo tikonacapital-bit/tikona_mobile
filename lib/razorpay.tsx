@@ -134,14 +134,14 @@ function buildRazorpayHTML(opts: {
         }
 
         var options = {
-          key: '${opts.key}',
+          key: ${JSON.stringify(opts.key)},
           amount: ${opts.amount},
           currency: 'INR',
           name: 'Tikona Capital',
-          description: '${opts.description}',
+          description: ${JSON.stringify(opts.description)},
           prefill: {
-            name: '${opts.prefillName}',
-            email: '${opts.prefillEmail}'
+            name: ${JSON.stringify(opts.prefillName)},
+            email: ${JSON.stringify(opts.prefillEmail)}
           },
           theme: { color: '#1B2B4B' },
           modal: {

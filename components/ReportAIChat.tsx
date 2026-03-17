@@ -28,6 +28,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -231,7 +232,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         {
           id: 'welcome',
           role: 'assistant',
-          text: `Hi! I'm your AI research assistant. I've analyzed the report on **${report.company_name}** (${report.nse_symbol}). Ask me anything about this company — tap the mic to speak or use the keyboard!`,
+          text: `Hi! I'm your AI research assistant. I've fully analyzed the report on ${report.company_name} (${report.nse_symbol}). Ask me anything — financials, risks, valuation, or growth outlook.`,
           timestamp: new Date(),
         },
       ]);
@@ -558,7 +559,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       {
         id: 'welcome',
         role: 'assistant',
-        text: `Hi! I'm your AI research assistant. I've analyzed the report on **${report.company_name}** (${report.nse_symbol}). Ask me anything about this company — tap the mic to speak or use the keyboard!`,
+        text: `Hi! I'm your AI research assistant. I've fully analyzed the report on ${report.company_name} (${report.nse_symbol}). Ask me anything — financials, risks, valuation, or growth outlook.`,
         timestamp: new Date(),
       },
     ]);
@@ -611,67 +612,66 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           </Text>
 
           {/* Message bubble */}
-          <View
-            style={[
-              s.msgBubble,
-              isUser
-                ? {
-                    backgroundColor: Colors.brand.primary,
-                    borderBottomRightRadius: 4,
-                    shadowColor: Colors.brand.primary,
-                    shadowOpacity: 0.2,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowRadius: 12,
-                    elevation: 4,
-                  }
-                : {
-                    backgroundColor: isDark ? c.surfaceElevated : c.surface,
-                    borderBottomLeftRadius: 4,
-                    borderWidth: 1,
-                    borderColor: c.border,
-                    shadowColor: '#000',
-                    shadowOpacity: isDark ? 0.15 : 0.04,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowRadius: 8,
-                    elevation: 2,
-                  },
-            ]}
-          >
-            {item.isLoading ? (
-              <View style={s.loadingWrap}>
-                <BouncingDots color={Colors.brand.primary} />
-                <Text style={[s.thinkingText, { color: c.textTertiary }]}>Thinking...</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={[s.msgText, { color: isUser ? '#fff' : c.text }]}>
-                  {item.text}
-                </Text>
-                {!isUser && item.audioBase64 && (
-                  <TouchableOpacity
-                    style={[
-                      s.replayBtn,
-                      {
-                        backgroundColor: Colors.brand.primary + '10',
-                        borderColor: Colors.brand.primary + '20',
-                      },
-                    ]}
-                    onPress={() => replayAudio(item.audioBase64!)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={isSpeaking ? 'pause-circle' : 'play-circle'}
-                      size={16}
-                      color={Colors.brand.primary}
-                    />
-                    <Text style={[s.replayText, { color: Colors.brand.primary }]}>
-                      {isSpeaking ? 'Playing...' : 'Play audio'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
+          {isUser ? (
+            <LinearGradient
+              colors={[Colors.brand.primary, '#1e3a8a']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[s.msgBubble, s.userBubble]}
+            >
+              <Text style={[s.msgText, { color: '#fff' }]}>{item.text}</Text>
+            </LinearGradient>
+          ) : (
+            <View
+              style={[
+                s.msgBubble,
+                {
+                  backgroundColor: isDark ? c.surfaceElevated : '#EEF2FF',
+                  borderBottomLeftRadius: 4,
+                  borderWidth: 1,
+                  borderColor: isDark ? c.border : '#C7D7FF',
+                  shadowColor: '#000',
+                  shadowOpacity: isDark ? 0.15 : 0.04,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowRadius: 8,
+                  elevation: 2,
+                },
+              ]}
+            >
+              {item.isLoading ? (
+                <View style={s.loadingWrap}>
+                  <BouncingDots color={Colors.brand.primary} />
+                  <Text style={[s.thinkingText, { color: c.textTertiary }]}>Thinking...</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={[s.msgText, { color: c.text }]}>{item.text}</Text>
+                  {item.audioBase64 && (
+                    <TouchableOpacity
+                      style={[
+                        s.replayBtn,
+                        {
+                          backgroundColor: Colors.brand.primary + '10',
+                          borderColor: Colors.brand.primary + '20',
+                        },
+                      ]}
+                      onPress={() => replayAudio(item.audioBase64!)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isSpeaking ? 'pause-circle' : 'play-circle'}
+                        size={16}
+                        color={Colors.brand.primary}
+                      />
+                      <Text style={[s.replayText, { color: Colors.brand.primary }]}>
+                        {isSpeaking ? 'Playing...' : 'Play audio'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          )}
         </View>
 
         {/* User avatar */}
@@ -686,6 +686,15 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     );
   };
 
+  const SUGGESTIONS = [
+    'Key financial metrics?',
+    'What is the growth outlook?',
+    'Main risks to watch?',
+    'Investment thesis?',
+    'Competitive advantages?',
+    'Current valuation summary?',
+  ];
+
   // ── Main Render ───────────────────────────────────────────────────────
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
@@ -694,25 +703,27 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* ── Premium Header ─────────────────────────────────────────── */}
-        <View style={[s.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+        <LinearGradient
+          colors={isDark ? ['#0f172a', '#1e293b'] : [Colors.brand.primary, '#1e3a8a']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.header}
+        >
           <TouchableOpacity onPress={handleMinimize} style={s.headerBtn} activeOpacity={0.7}>
-            <View style={[s.headerBtnInner, { backgroundColor: isDark ? '#ffffff08' : '#00000006' }]}>
-              <Ionicons name="chevron-back" size={20} color={c.text} />
+            <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+              <Ionicons name="chevron-back" size={20} color="#fff" />
             </View>
           </TouchableOpacity>
 
           <View style={s.headerCenter}>
-            <LinearGradient
-              colors={[Colors.brand.primary, Colors.brand.secondary]}
-              style={s.headerIcon}
-            >
+            <View style={[s.headerIcon, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
               <Ionicons name="sparkles" size={14} color="#fff" />
-            </LinearGradient>
+            </View>
             <View>
-              <Text style={[s.headerTitle, { color: c.text }]}>AI Assistant</Text>
+              <Text style={[s.headerTitle, { color: '#fff' }]}>AI Assistant</Text>
               <View style={s.headerStatusRow}>
                 <View style={[s.statusDot, { backgroundColor: '#34D399' }]} />
-                <Text style={[s.headerSub, { color: c.textTertiary }]} numberOfLines={1}>
+                <Text style={[s.headerSub, { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
                   {report.company_name} · {report.nse_symbol}
                 </Text>
               </View>
@@ -720,11 +731,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           </View>
 
           <TouchableOpacity onPress={handleNewChat} style={s.headerBtn} activeOpacity={0.7}>
-            <View style={[s.headerBtnInner, { backgroundColor: Colors.brand.primary + '10' }]}>
-              <Ionicons name="refresh" size={18} color={Colors.brand.primary} />
+            <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+              <Ionicons name="refresh" size={18} color="#fff" />
             </View>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
 
         {/* ── Disclaimer ─────────────────────────────────────────────── */}
         <View style={[s.disclaimerBar, { backgroundColor: isDark ? Colors.brand.primary + '08' : '#FEF9EF' }]}>
@@ -742,7 +753,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.chatContainer}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
         />
 
         {/* ── Bottom Controls ────────────────────────────────────────── */}
@@ -755,6 +766,40 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
             },
           ]}
         >
+          {/* Suggestion Chips — pinned inside bottom bar */}
+          {messages.length <= 1 && !isRecording && !isProcessing && !isSpeaking && (
+            <>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.chipsScroll}
+                style={s.chipsBreakout}
+              >
+                {SUGGESTIONS.map((chip) => (
+                  <TouchableOpacity
+                    key={chip}
+                    style={[
+                      s.chip,
+                      {
+                        backgroundColor: isDark ? '#1e293b' : '#EFF4FF',
+                        borderColor: Colors.brand.primary + '35',
+                      },
+                    ]}
+                    onPress={() => {
+                      setTextInput(chip);
+                      setShowTextInput(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.chipText, { color: isDark ? Colors.brand.accent : Colors.brand.primary }]}>
+                      {chip}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <View style={[s.chipsDivider, { backgroundColor: c.border }]} />
+            </>
+          )}
           {/* Recording State */}
           {isRecording && (
             <View style={s.recordingOverlay}>
@@ -873,15 +918,6 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                 </View>
               ) : (
                 <View style={s.voiceInputArea}>
-                  <TouchableOpacity
-                    onPress={() => setShowTextInput(true)}
-                    style={[s.sideBtn, { backgroundColor: isDark ? '#ffffff08' : '#F3F4F6' }]}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={c.textSecondary} />
-                    <Text style={[s.sideBtnText, { color: c.textSecondary }]}>Type</Text>
-                  </TouchableOpacity>
-
                   {/* Premium Mic Button */}
                   <View style={s.micBtnWrap}>
                     <Animated.View
@@ -897,17 +933,14 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                             {
                               scale: micGlow.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [1, 1.15],
+                                outputRange: [1, 1.2],
                               }),
                             },
                           ],
                         },
                       ]}
                     />
-                    <TouchableOpacity
-                      onPress={startRecording}
-                      activeOpacity={0.85}
-                    >
+                    <TouchableOpacity onPress={startRecording} activeOpacity={0.85}>
                       <LinearGradient
                         colors={[Colors.brand.primary, Colors.brand.secondary]}
                         style={s.micBtn}
@@ -917,11 +950,20 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                     </TouchableOpacity>
                   </View>
 
-                  <View style={[s.sideBtn, { backgroundColor: 'transparent' }]}>
-                    <Ionicons name="volume-high-outline" size={18} color={c.textTertiary} />
-                    <Text style={[s.sideBtnText, { color: c.textTertiary, fontSize: 9 }]}>
-                      Voice AI
+                  {/* Hint + Type toggle */}
+                  <View style={s.voiceHintRow}>
+                    <Text style={[s.voiceHintText, { color: c.textSecondary }]}>
+                      Tap mic to speak
                     </Text>
+                    <View style={[s.voiceDivider, { backgroundColor: c.border }]} />
+                    <TouchableOpacity
+                      onPress={() => setShowTextInput(true)}
+                      style={[s.typeToggleBtn, { backgroundColor: Colors.brand.primary + '10' }]}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.brand.primary} />
+                      <Text style={[s.typeToggleText, { color: Colors.brand.primary }]}>Type instead</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               )}
@@ -946,7 +988,8 @@ const s = StyleSheet.create({
     paddingTop: Platform.select({ ios: 56, web: 16, default: 48 }),
     paddingBottom: Spacing.md,
     paddingHorizontal: Spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.15)',
     gap: Spacing.sm,
   },
   headerBtn: {
@@ -1013,6 +1056,8 @@ const s = StyleSheet.create({
 
   // ── Chat ──────────────────────────────────────────────────────────────
   chatContainer: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     padding: Spacing.lg,
     paddingBottom: 24,
   },
@@ -1056,6 +1101,14 @@ const s = StyleSheet.create({
     padding: Spacing.md,
     paddingHorizontal: 14,
     borderRadius: BorderRadius.lg,
+  },
+  userBubble: {
+    borderBottomRightRadius: 4,
+    shadowColor: Colors.brand.primary,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
   },
   msgText: {
     fontSize: FontSize.base,
@@ -1107,21 +1160,74 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // ── Suggestion chips ──────────────────────────────────────────────────
+  chipsBreakout: {
+    marginHorizontal: -Spacing.lg, // break out of bottomBar horizontal padding
+  },
+  chipsScroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+  },
+  chipText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+  chipsDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: -Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+
   // ── Bottom bar ────────────────────────────────────────────────────────
   bottomBar: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingBottom: Platform.select({ ios: 34, default: 16 }),
-    paddingTop: Spacing.md,
+    paddingTop: 0,
     paddingHorizontal: Spacing.lg,
-    minHeight: 80,
   },
 
   // ── Voice input ───────────────────────────────────────────────────────
   voiceInputArea: {
+    alignItems: 'center',
+    paddingTop: Spacing.md,
+    paddingBottom: 4,
+    gap: 12,
+  },
+  voiceHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 4,
+    gap: 10,
+  },
+  voiceHintText: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+  },
+  voiceDivider: {
+    width: 1,
+    height: 12,
+  },
+  typeToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  typeToggleText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
   },
   micBtnWrap: {
     justifyContent: 'center',
@@ -1160,7 +1266,7 @@ const s = StyleSheet.create({
   },
 
   // ── Text input ────────────────────────────────────────────────────────
-  inputArea: {},
+  inputArea: { paddingTop: Spacing.md },
   textInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
