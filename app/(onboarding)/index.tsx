@@ -126,15 +126,12 @@ export default function OnboardingScreen() {
 
             {/* Reg number */}
             {item.regNo && (
-                <View style={[styles.desktopRegNo, {
-                    backgroundColor: isDark ? 'rgba(123,159,212,0.08)' : 'rgba(31,70,144,0.05)',
-                    borderColor: isDark ? 'rgba(123,159,212,0.2)' : 'rgba(31,70,144,0.15)',
-                    marginTop: 20,
-                }]}>
-                    <Ionicons name="card-outline" size={13} color={isDark ? '#7B9FD4' : Colors.brand.secondary} />
-                    <Text style={[styles.regNoValue, { color: isDark ? '#7B9FD4' : Colors.brand.secondary, fontSize: 11 }]}>
-                        {item.regNo}
-                    </Text>
+                <View style={{ marginTop: 24, gap: 4 }}>
+                    {item.regNo.split('\n').map((line, index) => (
+                        <Text key={index} style={{ color: isDark ? '#7B9FD4' : '#3A5BA0', fontSize: 11, fontWeight: '600', letterSpacing: 0.5 }}>
+                            {line}
+                        </Text>
+                    ))}
                 </View>
             )}
         </View>

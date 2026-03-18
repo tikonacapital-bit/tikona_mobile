@@ -4,6 +4,7 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { PLANS } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -38,7 +39,7 @@ const PAYMENT_REDIRECT_URL = 'tikonamobile://payment-success';
 export default function SubscriptionScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
-    const { subscription, refreshUserData } = useAuth();
+    const { subscription, refreshUserData, userId } = useAuth();
     const subscriptionRef = useRef(subscription);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectingPlan, setSelectingPlan] = useState<PlanKey | null>(null);
@@ -115,6 +116,14 @@ export default function SubscriptionScreen() {
         if (!url) {
             Alert.alert('Coming Soon', 'This plan is currently under development. Stay tuned!');
             return;
+        }
+
+        // Store selected plan before opening Tradebox so the webhook knows which plan to activate
+        if (userId) {
+            await supabase.from('pending_payments').upsert(
+                { user_id: userId, plan: planKey },
+                { onConflict: 'user_id' }
+            );
         }
 
         isRedirectingRef.current = true;

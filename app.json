@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Tikona Reports",
+    "name": "Tikona Research",
     "slug": "tikona-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -32,10 +32,10 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
-          "imageWidth": 200,
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 150,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#ffffff"
         }
       ],
       "expo-secure-store",
@@ -51,7 +51,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Allow Tikona Reports to access your microphone to record voice commands."
+          "microphonePermission": "Allow Tikona Research to access your microphone to record voice commands."
         }
       ]
     ],

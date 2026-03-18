@@ -341,6 +341,34 @@ export default function RefundScreen() {
                     </Card>
                 )}
 
+                {/* ── SEBI Refund Policy ── */}
+                <Card theme={theme} style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={[styles.planIcon, { backgroundColor: Colors.brand.primary + '15' }]}>
+                            <Ionicons name="shield-checkmark" size={20} color={Colors.brand.primary} />
+                        </View>
+                        <Text style={[styles.cardTitle, { color: c.text }]}>Refund Policy as per SEBI</Text>
+                    </View>
+                    <Text style={[styles.policyText, { color: c.textSecondary }]}>
+                        As per SEBI (Investment Advisers) Regulations, a refund shall be provided for the remaining months of the subscription period from the date of the refund request.
+                    </Text>
+                    <View style={[styles.policyPoint, { borderLeftColor: Colors.brand.secondary }]}>
+                        <Text style={[styles.policyPointText, { color: c.textSecondary }]}>
+                            The refund is calculated on a pro-rata basis for the unused/remaining months of your current subscription.
+                        </Text>
+                    </View>
+                    <View style={[styles.policyPoint, { borderLeftColor: Colors.brand.secondary }]}>
+                        <Text style={[styles.policyPointText, { color: c.textSecondary }]}>
+                            Refund requests must be submitted before the subscription expires.
+                        </Text>
+                    </View>
+                    <View style={[styles.policyPoint, { borderLeftColor: Colors.brand.secondary }]}>
+                        <Text style={[styles.policyPointText, { color: c.textSecondary }]}>
+                            The refund amount will be credited to your registered UPI ID within 5-7 business days after approval.
+                        </Text>
+                    </View>
+                </Card>
+
                 {/* ── Reason Input + Submit (only if no existing pending/approved request) ── */}
                 {!hasExisting && breakdown && breakdown.refundAmount > 0 && (
                     <>
@@ -510,6 +538,14 @@ const styles = StyleSheet.create({
         padding: Spacing.md, borderRadius: BorderRadius.md, marginTop: Spacing.md,
     },
     noRefundText: { fontSize: FontSize.sm, flex: 1, lineHeight: 19 },
+
+    // ── Policy ──
+    policyText: { fontSize: FontSize.sm, lineHeight: 20, marginBottom: Spacing.md },
+    policyPoint: {
+        borderLeftWidth: 3, paddingLeft: Spacing.md,
+        marginBottom: Spacing.sm,
+    },
+    policyPointText: { fontSize: FontSize.sm, lineHeight: 19 },
 
     // ── Input ──
     inputLabel: { fontSize: FontSize.base, fontWeight: '600', marginBottom: Spacing.sm },
