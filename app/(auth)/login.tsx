@@ -1,19 +1,24 @@
-import React, { useState, useRef } from 'react';
-import {
-    View, TextInput, TouchableOpacity, Text, StyleSheet,
-    ActivityIndicator, Platform, KeyboardAvoidingView, ScrollView,
-    Animated, Image,
-} from 'react-native';
-import { Link, router } from 'expo-router';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import { useSignIn, useOAuth, useClerk } from '@clerk/clerk-expo';
-import { useCallback } from 'react';
+import { Logo } from '@/components/Logo';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
-import { Logo } from '@/components/Logo';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { useClerk, useOAuth, useSignIn } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput, TouchableOpacity,
+    View
+} from 'react-native';
 
 if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
@@ -177,8 +182,8 @@ export default function LoginScreen() {
                         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                     ]}
                 >
-                    <View style={{ marginBottom: 12 }}>
-                        <Logo size={64} fontSize={22} />
+                    <View style={{ marginBottom: 20 }}>
+                        <Logo size={80} fontSize={22} stacked={true} textColor="#1F4690" />
                     </View>
                     <Text style={[styles.brandSubtitle, { color: c.textSecondary }]}>
                         Welcome back! Sign in to continue

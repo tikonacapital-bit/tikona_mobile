@@ -1,16 +1,23 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, TextInput,
-    FlatList, KeyboardAvoidingView, Platform, Keyboard,
-    Animated, ScrollView,
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { SECTOR_ANALYSTS } from '@/lib/analysts';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
-import { SECTOR_ANALYSTS } from '@/lib/analysts';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    FlatList,
+    Keyboard,
+    KeyboardAvoidingView, Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 interface Message {
     id: string;

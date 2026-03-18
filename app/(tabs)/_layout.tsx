@@ -167,7 +167,7 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
         <View style={[styles.separator, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]} />
         {isExpanded ? (
           <View style={styles.footerContent}>
-            <Logo size={18} fontSize={10} textColor={c.textTertiary} />
+            <Logo size={18} fontSize={10} />
           </View>
         ) : (
           <Text style={[styles.footerCopy, { color: c.textTertiary }]}>©</Text>

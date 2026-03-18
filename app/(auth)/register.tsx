@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
+import { Logo } from '@/components/Logo';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -383,11 +384,9 @@ export default function RegisterScreen() {
                         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
                     ]}
                 >
-                    <Image
-                        source={require('@/assets/images/react-logo.png')}
-                        style={styles.logoImage}
-                        resizeMode="contain"
-                    />
+                    <View style={{ marginBottom: 10 }}>
+                        <Logo size={70} fontSize={18} stacked={true} textColor="#1F4690" />
+                    </View>
                     <Text style={[styles.brandTitle, { color: c.text }]}>Create Account</Text>
                     <Text style={[styles.brandSubtitle, { color: c.textSecondary }]}>
                         Join TIKONA CAPITAL today
