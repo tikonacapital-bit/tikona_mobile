@@ -19,7 +19,7 @@ export default function HomeScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { user, kyc, profile, subscription, refreshUserData } = useAuth();
+    const { user, kyc, profile, subscription, refreshUserData, isLoadingData } = useAuth();
     const queryClient = useQueryClient();
     const [refreshing, setRefreshing] = useState(false);
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
@@ -66,6 +66,7 @@ export default function HomeScreen() {
     const hasNotified = useRef(false);
     useEffect(() => {
         if (Platform.OS === 'web') return; // Notifications not supported on web
+        if (isLoadingData) return; // Wait until data is loaded
 
         const scheduleReminder = async () => {
             if (hasNotified.current || !user) return;
@@ -177,7 +178,7 @@ export default function HomeScreen() {
         };
 
         if (user && !hasNotified.current) scheduleReminder();
-    }, [user, kycStatus, profile]);
+    }, [user, kycStatus, profile, isLoadingData]);
 
     // ── Greeting based on time ──
     const hour = new Date().getHours();

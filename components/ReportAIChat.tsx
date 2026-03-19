@@ -18,6 +18,7 @@ import {
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -42,7 +43,7 @@ interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   text: string;
-  audioBase64?: string;
+  hasAudio?: boolean;
   timestamp: Date;
   isLoading?: boolean;
 }
@@ -204,6 +205,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const reportContext = useRef<string>('');
   const chatHistory = useRef<ChatHistoryEntry[]>([]);
   const silenceStartRef = useRef<number | null>(null);
+  const isStoppingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const audioCache = useRef<Map<string, string>>(new Map());
+
+  const MAX_HISTORY = 10;
 
   // Mic button glow animation
   const micGlow = useRef(new Animated.Value(0)).current;
@@ -241,10 +247,18 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (soundRef.current) {
         soundRef.current.unloadAsync();
+        soundRef.current = null;
       }
+      // Clean up cached audio temp files
+      audioCache.current.forEach((filePath) => {
+        FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+      });
+      audioCache.current.clear();
     };
   }, []);
 
@@ -271,6 +285,9 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
   // ── Recording ─────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
+    // Fix #4: Guard against double recording start
+    if (recordingRef.current || isRecording || isProcessing || isStoppingRef.current) return;
+
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
@@ -297,7 +314,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       // Enable metering to detect silence
       recording.setOnRecordingStatusUpdate((status) => {
-        if (!recordingRef.current) return;
+        if (!recordingRef.current || isStoppingRef.current) return;
 
         if (status.isRecording && status.metering !== undefined) {
           if (status.metering < -35) {
@@ -322,10 +339,12 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       console.error('[Recording] Start error:', err);
       addSystemMessage('Could not start recording. Please check microphone permissions.');
     }
-  }, []);
+  }, [isRecording, isProcessing]);
 
   const stopRecording = useCallback(async () => {
-    if (!recordingRef.current) return;
+    // Fix #5: Lock to prevent race condition between silence-auto-stop and manual stop
+    if (!recordingRef.current || isStoppingRef.current) return;
+    isStoppingRef.current = true;
 
     try {
       setIsRecording(false);
@@ -338,6 +357,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       if (!uri) {
         addSystemMessage('Recording failed — no audio captured.');
         setIsProcessing(false);
+        isStoppingRef.current = false;
         return;
       }
 
@@ -353,6 +373,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       if (!userText.trim()) {
         addSystemMessage("I couldn't hear you clearly. Please try again.");
         setIsProcessing(false);
+        isStoppingRef.current = false;
         return;
       }
 
@@ -362,46 +383,57 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         text: userText,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, userMsg]);
+      if (mountedRef.current) setMessages((prev) => [...prev, userMsg]);
 
       const loadingId = (Date.now() + 1).toString();
-      setMessages((prev) => [
-        ...prev,
-        { id: loadingId, role: 'assistant', text: '', timestamp: new Date(), isLoading: true },
-      ]);
+      if (mountedRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          { id: loadingId, role: 'assistant', text: '', timestamp: new Date(), isLoading: true },
+        ]);
+      }
 
       const chatResult = await chatWithReport(userText, reportContext.current, chatHistory.current);
 
+      // Fix #2: Cap chat history to prevent unbounded growth
       chatHistory.current = [
         ...chatHistory.current,
         { role: 'user', content: userText },
         { role: 'assistant', content: chatResult.reply },
-      ];
+      ].slice(-MAX_HISTORY);
 
-      let audioBase64 = '';
+      let hasAudio = false;
       try {
         const ttsResult = await textToSpeech(chatResult.reply, sttResult.language_code || 'en-IN');
-        audioBase64 = ttsResult.audio;
+        if (ttsResult.audio) {
+          // Fix #3: Store audio in ref cache instead of React state
+          audioCache.current.set(loadingId, ttsResult.audio);
+          hasAudio = true;
+        }
       } catch (ttsErr) {
         console.warn('[TTS] Error, continuing without audio:', ttsErr);
       }
 
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingId
-            ? { ...m, text: chatResult.reply, audioBase64, isLoading: false }
-            : m
-        )
-      );
+      if (mountedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === loadingId
+              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false }
+              : m
+          )
+        );
+      }
 
-      if (audioBase64) {
-        await playAudioBase64(audioBase64);
+      if (hasAudio) {
+        const cachedAudio = audioCache.current.get(loadingId);
+        if (cachedAudio) await playAudioBase64(cachedAudio);
       }
     } catch (err) {
       console.error('[Recording] Processing error:', err);
       addSystemMessage('Something went wrong processing your voice. Please try again.');
     } finally {
-      setIsProcessing(false);
+      if (mountedRef.current) setIsProcessing(false);
+      isStoppingRef.current = false;
     }
   }, []);
 
@@ -430,75 +462,98 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     try {
       const chatResult = await chatWithReport(text, reportContext.current, chatHistory.current);
 
+      // Fix #2: Cap chat history
       chatHistory.current = [
         ...chatHistory.current,
         { role: 'user', content: text },
         { role: 'assistant', content: chatResult.reply },
-      ];
+      ].slice(-MAX_HISTORY);
 
-      let audioBase64 = '';
+      let hasAudio = false;
       try {
         const ttsResult = await textToSpeech(chatResult.reply, 'en-IN');
-        audioBase64 = ttsResult.audio;
+        if (ttsResult.audio) {
+          // Fix #3: Store audio in ref cache instead of React state
+          audioCache.current.set(loadingId, ttsResult.audio);
+          hasAudio = true;
+        }
       } catch (ttsErr) {
         console.warn('[TTS] Error:', ttsErr);
       }
 
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingId
-            ? { ...m, text: chatResult.reply, audioBase64, isLoading: false }
-            : m
-        )
-      );
+      if (mountedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === loadingId
+              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false }
+              : m
+          )
+        );
+      }
 
-      if (audioBase64) {
-        await playAudioBase64(audioBase64);
+      if (hasAudio) {
+        const cachedAudio = audioCache.current.get(loadingId);
+        if (cachedAudio) await playAudioBase64(cachedAudio);
       }
     } catch (err) {
       console.error('[Chat] Error:', err);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === loadingId
-            ? { ...m, text: 'Sorry, I encountered an error. Please try again.', isLoading: false }
-            : m
-        )
-      );
+      if (mountedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === loadingId
+              ? { ...m, text: 'Sorry, I encountered an error. Please try again.', isLoading: false }
+              : m
+          )
+        );
+      }
     } finally {
-      setIsProcessing(false);
+      if (mountedRef.current) setIsProcessing(false);
     }
   }, [textInput, isProcessing]);
 
   // ── Audio Playback ────────────────────────────────────────────────────
+  // Fix #1: Write base64 to temp file instead of using data: URI to prevent OOM
   const playAudioBase64 = async (base64: string) => {
     try {
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
+        soundRef.current = null;
       }
 
-      setIsSpeaking(true);
+      if (mountedRef.current) setIsSpeaking(true);
+
+      // Write to temp file to avoid OOM from huge data: URI strings
+      const tempPath = `${FileSystem.cacheDirectory}ai_audio_${Date.now()}.wav`;
+      await FileSystem.writeAsStringAsync(tempPath, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
       const { sound } = await Audio.Sound.createAsync(
-        { uri: `data:audio/wav;base64,${base64}` },
+        { uri: tempPath },
         { shouldPlay: true }
       );
 
       soundRef.current = sound;
 
+      // Fix #6: Guard callback with mountedRef to prevent state update after unmount
       sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (status.isLoaded && status.didJustFinish) {
-          setIsSpeaking(false);
-          sound.unloadAsync();
+          if (mountedRef.current) setIsSpeaking(false);
+          sound.unloadAsync().catch(() => {});
+          soundRef.current = null;
+          // Clean up temp file
+          FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
         }
       });
     } catch (err) {
       console.error('[Audio] Playback error:', err);
-      setIsSpeaking(false);
+      if (mountedRef.current) setIsSpeaking(false);
     }
   };
 
-  const replayAudio = async (audioBase64: string) => {
-    await playAudioBase64(audioBase64);
+  const replayAudio = async (msgId: string) => {
+    const audio = audioCache.current.get(msgId);
+    if (audio) await playAudioBase64(audio);
   };
 
   // ── Stop Speaking ──────────────────────────────────────────────────────
@@ -565,6 +620,12 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     ]);
     setShowTextInput(false);
     chatHistory.current = [];
+    isStoppingRef.current = false;
+    // Clean up cached audio temp files
+    audioCache.current.forEach((filePath) => {
+      FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+    });
+    audioCache.current.clear();
   }, [report]);
 
   // ── Render Message ────────────────────────────────────────────────────
@@ -646,7 +707,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
               ) : (
                 <>
                   <Text style={[s.msgText, { color: c.text }]}>{item.text}</Text>
-                  {item.audioBase64 && (
+                  {item.hasAudio && (
                     <TouchableOpacity
                       style={[
                         s.replayBtn,
@@ -655,7 +716,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                           borderColor: Colors.brand.primary + '20',
                         },
                       ]}
-                      onPress={() => replayAudio(item.audioBase64!)}
+                      onPress={() => replayAudio(item.id)}
                       activeOpacity={0.7}
                     >
                       <Ionicons

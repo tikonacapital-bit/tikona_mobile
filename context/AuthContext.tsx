@@ -15,6 +15,7 @@ type AuthContextType = {
     profile: UserProfile | null;
     subscription: Subscription | null;
     refundRequest: RefundRequest | null;
+    isLoadingData: boolean;
     dataError: boolean;
     // Actions
     refreshUserData: () => Promise<void>;
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
     profile: null,
     subscription: null,
     refundRequest: null,
+    isLoadingData: true,
     dataError: false,
     refreshUserData: async () => { },
     signOut: async () => { },
@@ -46,9 +48,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [refundRequest, setRefundRequest] = useState<RefundRequest | null>(null);
+    const [isLoadingData, setIsLoadingData] = useState(true);
     const [dataError, setDataError] = useState(false);
 
     const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
+        setIsLoadingData(true);
         try {
             setDataError(false);
             const [kycRes, profileRes, subRes, refundRes] = await Promise.all([
@@ -77,6 +81,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {
             console.warn('Failed to fetch user data:', e);
             setDataError(true);
+        } finally {
+            setIsLoadingData(false);
         }
     }, []);
 
@@ -129,6 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 profile,
                 subscription,
                 refundRequest,
+                isLoadingData,
                 dataError,
                 refreshUserData,
                 signOut

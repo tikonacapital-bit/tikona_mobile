@@ -13,15 +13,6 @@ export default function SupportScreen() {
 
     const handleEmail = () => Linking.openURL('mailto:contact@tikonacapital.com');
     const handlePhone = () => Linking.openURL('tel:+919967271135');
-    const handleAddress = () => {
-        const addr = 'Parinee Cresenzo, C-30, G Block, BKC, Bandra (E), Mumbai - 400051';
-        const url = Platform.select({
-            ios: `maps:0,0?q=${addr}`,
-            android: `geo:0,0?q=${addr}`,
-            default: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
-        });
-        Linking.openURL(url);
-    };
 
     return (
         <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -39,14 +30,22 @@ export default function SupportScreen() {
             <ResponsiveScrollView contentContainerStyle={styles.content}>
                 <Card theme={theme} style={styles.contactCard}>
                     <Text style={[styles.sectionTitle, { color: c.textTertiary }]}>CONTACT DETAILS</Text>
-                    
-                    <TouchableOpacity style={styles.item} onPress={handleAddress} activeOpacity={0.6}>
+
+                    <TouchableOpacity style={styles.item} onPress={() => {
+                        const addr = '2C 123 Kalpataru Estate, JVLR, Andheri East, Mumbai, 400093';
+                        const url = Platform.select({
+                            ios: `maps:0,0?q=${addr}`,
+                            android: `geo:0,0?q=${addr}`,
+                            default: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
+                        });
+                        Linking.openURL(url);
+                    }} activeOpacity={0.6}>
                         <View style={[styles.iconBox, { backgroundColor: Colors.brand.primary + '10' }]}>
                             <Ionicons name="location" size={20} color={Colors.brand.primary} />
                         </View>
                         <View style={styles.itemContent}>
-                            <Text style={[styles.itemLabel, { color: c.textTertiary }]}>Office Address</Text>
-                            <Text style={[styles.itemValue, { color: c.text }]}>Parinee Cresenzo, C-30, G Block, BKC, Bandra (E), Mumbai - 400051</Text>
+                            <Text style={[styles.itemLabel, { color: c.textTertiary }]}>Registered Address</Text>
+                            <Text style={[styles.itemValue, { color: c.text }]}>2C 123 Kalpataru Estate, JVLR, Andheri East, Mumbai, 400093</Text>
                         </View>
                     </TouchableOpacity>
 
@@ -70,6 +69,7 @@ export default function SupportScreen() {
                         </View>
                     </TouchableOpacity>
 
+
                     <View style={styles.item}>
                         <View style={[styles.iconBox, { backgroundColor: c.success + '10' }]}>
                             <Ionicons name="time" size={20} color={c.success} />
@@ -77,6 +77,16 @@ export default function SupportScreen() {
                         <View style={styles.itemContent}>
                             <Text style={[styles.itemLabel, { color: c.textTertiary }]}>Office Hours</Text>
                             <Text style={[styles.itemValue, { color: c.text }]}>Mon - Fri: 9:00 AM to 6:00 PM</Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.item}>
+                        <View style={[styles.iconBox, { backgroundColor: Colors.brand.accent + '10' }]}>
+                            <Ionicons name="calendar" size={20} color={Colors.brand.accent} />
+                        </View>
+                        <View style={styles.itemContent}>
+                            <Text style={[styles.itemLabel, { color: c.textTertiary }]}>Validity</Text>
+                            <Text style={[styles.itemValue, { color: c.text }]}>Jun 13, 2022 to Jun 12, 2027</Text>
                         </View>
                     </View>
                 </Card>
