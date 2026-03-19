@@ -512,7 +512,6 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   }, [textInput, isProcessing]);
 
   // ── Audio Playback ────────────────────────────────────────────────────
-  // Fix #1: Write base64 to temp file instead of using data: URI to prevent OOM
   const playAudioBase64 = async (base64: string) => {
     try {
       if (soundRef.current) {
@@ -522,27 +521,44 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       if (mountedRef.current) setIsSpeaking(true);
 
-      // Write to temp file to avoid OOM from huge data: URI strings
-      const tempPath = `${FileSystem.cacheDirectory}ai_audio_${Date.now()}.wav`;
-      await FileSystem.writeAsStringAsync(tempPath, base64, {
-        encoding: FileSystem.EncodingType.Base64,
+      // Ensure audio mode is set for playback (not recording)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
       });
 
+      let audioUri: string;
+      let tempPath: string | null = null;
+
+      // Try writing to temp file to avoid OOM from huge data: URI strings
+      try {
+        tempPath = `${FileSystem.cacheDirectory}ai_audio_${Date.now()}.wav`;
+        await FileSystem.writeAsStringAsync(tempPath, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        audioUri = tempPath;
+      } catch (fileErr) {
+        console.warn('[Audio] Temp file write failed, using data URI fallback:', fileErr);
+        tempPath = null;
+        audioUri = `data:audio/wav;base64,${base64}`;
+      }
+
       const { sound } = await Audio.Sound.createAsync(
-        { uri: tempPath },
+        { uri: audioUri },
         { shouldPlay: true }
       );
 
       soundRef.current = sound;
+      const fileToClean = tempPath;
 
-      // Fix #6: Guard callback with mountedRef to prevent state update after unmount
       sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (status.isLoaded && status.didJustFinish) {
           if (mountedRef.current) setIsSpeaking(false);
           sound.unloadAsync().catch(() => {});
           soundRef.current = null;
-          // Clean up temp file
-          FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
+          if (fileToClean) {
+            FileSystem.deleteAsync(fileToClean, { idempotent: true }).catch(() => {});
+          }
         }
       });
     } catch (err) {
