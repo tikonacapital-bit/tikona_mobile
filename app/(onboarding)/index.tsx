@@ -30,20 +30,20 @@ const SLIDES = [
     },
     {
         id: '2',
-        icon: 'headset' as const,
-        badge: '20 yrs Experience Across Market Cycles',
-        badgeIcon: 'time-outline' as const,
-        title: 'Listen to\nResearch Reports',
-        subtitle: 'Add conviction on curated ideas \u2014 listen to AI-narrated audio summaries of our research.',
-        regNo: null,
-    },
-    {
-        id: '3',
         icon: 'document-text' as const,
         badge: 'Institutional Research Expertise',
         badgeIcon: 'business-outline' as const,
         title: 'Curated Research\nReports',
         subtitle: 'Get curated research reports based on your preference and risk profile.',
+        regNo: null,
+    },
+    {
+        id: '3',
+        icon: 'headset' as const,
+        badge: '20 yrs Experience Across Market Cycles',
+        badgeIcon: 'time-outline' as const,
+        title: 'Listen to\nResearch Reports',
+        subtitle: 'Add conviction on curated ideas \u2014 listen to AI-narrated audio summaries of our research.',
         regNo: null,
     },
 ];
@@ -353,42 +353,53 @@ export default function OnboardingScreen() {
                 })}
             </View>
 
-            <View style={styles.bottomActions}>
-                <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
-                    <Text style={[styles.skipText, { color: c.textTertiary }]}>Sign In</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleNext} activeOpacity={0.85}>
-                    <LinearGradient
-                        colors={['#1F4690', '#3A5BA0']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={styles.nextButton}
-                    >
-                        <Text style={styles.nextButtonText}>
-                            {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}
-                        </Text>
-                        <View style={styles.nextArrowCircle}>
-                            <Ionicons name="arrow-forward" size={16} color="#fff" />
-                        </View>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-
-            {/* Disclaimer — always visible at bottom */}
-            <View style={[styles.mobileDisclaimerBar, {
+            {/* Bottom Footer block containing Disclaimer and Actions */}
+            <View style={{
                 borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(31,70,144,0.08)',
+                borderTopWidth: 1,
                 backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(31,70,144,0.03)',
-            }]}>
-                <Ionicons name="information-circle-outline" size={13} color={isDark ? '#8B95A8' : c.textTertiary} style={{ marginTop: 2 }} />
-                <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, textAlign: 'left', fontSize: 10, flex: 1 }]}>
-                    {DISCLAIMER}
-                </Text>
+            }}>
+                <View style={[styles.mobileDisclaimerBar, { borderTopWidth: 0, paddingBottom: 10 }]}>
+                    <Ionicons name="information-circle-outline" size={15} color={isDark ? '#8B95A8' : c.textTertiary} style={{ marginTop: 1 }} />
+                    <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, textAlign: 'left', fontSize: 12, flex: 1 }]}>
+                        {DISCLAIMER}
+                    </Text>
+                </View>
+
+                {/* Separator Line */}
+                <View style={{ 
+                    height: 1, 
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31,70,144,0.1)', 
+                    marginHorizontal: Spacing['2xl'], 
+                    marginBottom: 16 
+                }} />
+
+                <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
+                    <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
+                        <Text style={[styles.skipText, { color: c.textTertiary }]}>Sign In</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleNext} activeOpacity={0.85}>
+                        <LinearGradient
+                            colors={['#1F4690', '#3A5BA0']}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={styles.nextButton}
+                        >
+                            <Text style={styles.nextButtonText}>
+                                {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}
+                            </Text>
+                            <View style={styles.nextArrowCircle}>
+                                <Ionicons name="arrow-forward" size={16} color="#fff" />
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
             </View>
         </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, overflow: 'hidden', width: '100%' },
 
     decoCircle1: {
         position: 'absolute', top: -80, right: -60,
