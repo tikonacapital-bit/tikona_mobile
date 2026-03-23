@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -18,7 +19,6 @@ import {
     TextInput, TouchableOpacity,
     View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const PAGE_SIZE = 12;
 
@@ -108,7 +108,10 @@ export default function ReportsScreen() {
         );
     }
 
-    const renderReport = ({ item, index }: { item: ResearchReport; index: number }) => {
+    const renderReport = ({ item, index }: { item: ResearchReport & { _spacer?: boolean }; index: number }) => {
+        if ((item as any)._spacer) {
+            return <View style={[styles.reportCard, { opacity: 0 }]} />;
+        }
         const locked = isLocked(index);
         return (
             <Card
@@ -213,8 +216,17 @@ export default function ReportsScreen() {
                 ) : (
                     <FlatList
                         key={`reports-${gridColumns}`}
-                        data={reports}
-                        renderItem={renderReport}
+                        data={(() => {
+                            const remainder = reports.length % gridColumns;
+                            if (remainder === 0 || gridColumns <= 1) return reports;
+                            const spacersNeeded = gridColumns - remainder;
+                            const spacers = Array.from({ length: spacersNeeded }, (_, i) => ({
+                                report_id: `_spacer_${i}`,
+                                _spacer: true,
+                            }));
+                            return [...reports, ...spacers] as any;
+                        })()}
+                        renderItem={renderReport as any}
                         keyExtractor={(item) => item.report_id}
                         numColumns={gridColumns}
                         columnWrapperStyle={styles.columnWrapper}

@@ -26,6 +26,7 @@ import {
 } from '@/lib/chatLogger';
 import { RateLimiter } from '@/lib/rateLimiter';
 import { useAuth } from '@/context/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
@@ -205,6 +206,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
   const { userId } = useAuth();
+  const { getToken } = useClerkAuth();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
@@ -481,7 +483,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       const blob = await response.blob();
       const base64 = await blobToBase64(blob);
 
-      const sttResult = await speechToText(base64, 'en-IN');
+      const sttResult = await speechToText(base64, 'en-IN', (await getToken()) || '');
       const userText = sttResult.transcript;
 
       if (!userText.trim()) {
@@ -507,7 +509,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         ]);
       }
 
-      const chatResult = await chatWithReport(userText, reportContext.current, chatHistory.current);
+      const chatResult = await chatWithReport(userText, reportContext.current, chatHistory.current, (await getToken()) || '');
 
       // Successfully processed, consume a rate limit token
       await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, true);
@@ -528,7 +530,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       let hasAudio = false;
       try {
-        const ttsResult = await textToSpeech(chatResult.reply, sttResult.language_code || 'en-IN');
+        const ttsResult = await textToSpeech(chatResult.reply, sttResult.language_code || 'en-IN', (await getToken()) || '');
         if (ttsResult.audio) {
           // Fix #3: Store audio in ref cache instead of React state
           audioCache.current.set(loadingId, ttsResult.audio);
@@ -593,7 +595,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     ]);
 
     try {
-      const chatResult = await chatWithReport(text, reportContext.current, chatHistory.current);
+      const chatResult = await chatWithReport(text, reportContext.current, chatHistory.current, (await getToken()) || '');
 
       // Fix #2: Cap chat history
       chatHistory.current = [
@@ -611,7 +613,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       let hasAudio = false;
       try {
-        const ttsResult = await textToSpeech(chatResult.reply, 'en-IN');
+        const ttsResult = await textToSpeech(chatResult.reply, 'en-IN', (await getToken()) || '');
         if (ttsResult.audio) {
           // Fix #3: Store audio in ref cache instead of React state
           audioCache.current.set(loadingId, ttsResult.audio);

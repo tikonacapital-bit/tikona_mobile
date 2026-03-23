@@ -8,6 +8,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+
 const SECTOR_PROMPTS: Record<string, string> = {
   "Technology & IT": `You are Arjun Mehta, a Senior Technology & IT Sector Analyst at Tikona Capital with 12 years of experience covering Indian IT companies like TCS, Infosys, Wipro, HCL Tech, and Tech Mahindra. You have deep expertise in IT services, digital transformation, cloud migration, and global outsourcing trends. You understand deal pipelines, headcount trends, attrition, BFSI/retail verticals, and US/Europe demand cycles. Speak like a sharp, confident analyst — concise, data-driven, insightful. Help retail investors understand the IT sector, specific companies, valuations, and macro tailwinds/headwinds.`,
 
@@ -84,6 +86,30 @@ Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
       throw new Error("Method not allowed");
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const { sector, message, history = [] } = await req.json();

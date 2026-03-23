@@ -5,14 +5,19 @@
  * which proxies requests to Sarvam AI APIs (STT, Chat, TTS).
  */
 
-import { supabase } from './supabase';
-
 const EDGE_FUNCTION_URL = (() => {
   // Supabase edge function URL follows pattern:
   // https://<project-ref>.supabase.co/functions/v1/<function-name>
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
   return `${supabaseUrl}/functions/v1/report-ai-chat`;
 })();
+
+function buildHeaders(token: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 interface STTResponse {
   transcript: string;
@@ -38,23 +43,15 @@ interface SpeechToSpeechResponse {
   audio: string; // base64 encoded audio
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data?.session?.access_token || '';
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
 /**
  * Convert speech audio to text using Sarvam AI STT (Saaras v3)
  */
 export async function speechToText(
   audioBase64: string,
-  languageCode: string = 'en-IN'
+  languageCode: string = 'en-IN',
+  token: string = ''
 ): Promise<STTResponse> {
-  const headers = await getAuthHeaders();
+  const headers = buildHeaders(token);
 
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -80,9 +77,10 @@ export async function speechToText(
 export async function chatWithReport(
   message: string,
   reportContext: string,
-  history: ChatHistoryEntry[] = []
+  history: ChatHistoryEntry[] = [],
+  token: string = ''
 ): Promise<ChatResponse> {
-  const headers = await getAuthHeaders();
+  const headers = buildHeaders(token);
 
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -108,9 +106,10 @@ export async function chatWithReport(
  */
 export async function textToSpeech(
   text: string,
-  languageCode: string = 'en-IN'
+  languageCode: string = 'en-IN',
+  token: string = ''
 ): Promise<TTSResponse> {
-  const headers = await getAuthHeaders();
+  const headers = buildHeaders(token);
 
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',
@@ -137,9 +136,10 @@ export async function textToSpeech(
 export async function speechToSpeech(
   audioBase64: string,
   reportContext: string,
-  languageCode: string = 'en-IN'
+  languageCode: string = 'en-IN',
+  token: string = ''
 ): Promise<SpeechToSpeechResponse> {
-  const headers = await getAuthHeaders();
+  const headers = buildHeaders(token);
 
   const res = await fetch(EDGE_FUNCTION_URL, {
     method: 'POST',

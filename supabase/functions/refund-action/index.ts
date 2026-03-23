@@ -375,37 +375,35 @@ serve(async (req: Request) => {
   if (req.method === "POST") {
     try {
       const body = await req.json();
-      const {
-        request_id, user_id, plan,
-        refund_amount, total_paid,
-        months_used, months_remaining, upi_id, reason,
-      } = body;
+      const { request_id, user_id } = body;
 
-      if (!request_id) {
+      if (!request_id || !user_id) {
         return new Response(
-          JSON.stringify({ error: "Missing request_id" }),
+          JSON.stringify({ error: "Missing request_id or user_id" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Fetch the full request from DB to ensure data integrity
+      // Fetch the full request from DB and verify it belongs to the claimed user_id
+      // This prevents any caller from triggering admin emails for arbitrary refund IDs
       const supabase = getSupabase();
-      const { data: refundReq } = await supabase
+      const { data: refundReq, error: fetchErr } = await supabase
         .from("refund_requests")
         .select("*")
         .eq("id", request_id)
+        .eq("user_id", user_id)   // ← ownership check
+        .eq("status", "pending")  // ← only fresh requests
         .single();
 
-      const requestData = refundReq || {
-        id: request_id,
-        user_id, plan,
-        refund_amount, total_paid,
-        months_used, months_remaining,
-        upi_id, reason,
-        created_at: new Date().toISOString(),
-      };
+      if (fetchErr || !refundReq) {
+        console.warn("[Refund] POST: request not found or ownership mismatch for id:", request_id);
+        return new Response(
+          JSON.stringify({ error: "Refund request not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      const emailSent = await sendAdminEmail(requestData);
+      const emailSent = await sendAdminEmail(refundReq);
 
       return new Response(
         JSON.stringify({ success: true, email_sent: emailSent }),

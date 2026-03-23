@@ -12,15 +12,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Platform,
+    ActivityIndicator, Alert, Modal, Platform,
+    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 type TabType = 'report' | 'audio' | 'video';
 
@@ -35,6 +36,7 @@ export default function ReportDetailScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);
     const [videoModalVisible, setVideoModalVisible] = useState(false);
+    const [showPdf, setShowPdf] = useState(false);
 
     const {
         track,
@@ -68,7 +70,7 @@ export default function ReportDetailScreen() {
         } else {
             setAudioScreenActive(false);
         }
-        
+
         // Cleanup on unmount
         return () => setAudioScreenActive(false);
     }, [activeTab, setAudioScreenActive]);
@@ -173,6 +175,14 @@ export default function ReportDetailScreen() {
 
     const isCurrentTrack = track?.uri === report.audio_file_url;
     const audioReady = isCurrentTrack && isLoaded;
+
+    const openPdf = async () => {
+        if (report.pdf_file_url) {
+            setShowPdf(true);
+        } else {
+            Alert.alert('Error', 'No PDF available for this report.');
+        }
+    };
 
     const handlePlayAudio = () => {
         if (report.audio_file_url) {
@@ -478,25 +488,85 @@ export default function ReportDetailScreen() {
                     </View>
                 )}
 
+                {/* Full-Screen PDF Modal */}
+                <Modal visible={showPdf} animationType="slide" onRequestClose={() => setShowPdf(false)}>
+                    <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
+                        {/* Modal Header */}
+                        <View style={styles.pdfModalHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.pdfModalTitle} numberOfLines={1}>{report.company_name} – Report</Text>
+                                <Text style={styles.pdfModalSub}>
+                                    Confidential • PDF
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.pdfModalCloseBtn}
+                                onPress={() => setShowPdf(false)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="close" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {report.pdf_file_url ? (
+                            // Loaded — show the PDF
+                            Platform.OS === 'web' ? (
+                                <iframe
+                                    src={report.pdf_file_url}
+                                    style={{ flex: 1, width: '100%', height: '100%', border: 'none', backgroundColor: '#fff' } as any}
+                                    title={`${report.company_name} Report PDF`}
+                                />
+                            ) : (
+                                <WebView
+                                    source={{ uri: report.pdf_file_url }}
+                                    style={{ flex: 1, backgroundColor: '#fff' }}
+                                    startInLoadingState={true}
+                                    renderLoading={() => (
+                                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+                                            <ActivityIndicator size="large" color={Colors.brand.primary} />
+                                        </View>
+                                    )}
+                                />
+                            )
+                        ) : (
+                            // Error state
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#0f172a' }}>
+                                <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>Failed to load PDF</Text>
+                                <TouchableOpacity
+                                    style={{ backgroundColor: Colors.brand.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 }}
+                                    onPress={() => setShowPdf(false)}
+                                >
+                                    <Text style={{ color: '#fff', fontWeight: '700' }}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </SafeAreaView>
+                </Modal>
+
                 {activeTab === 'report' && (
                     <>
                         {hasPdf && (
                             <TouchableOpacity
                                 style={[styles.pdfBtn, { backgroundColor: Colors.brand.primary }]}
-                                onPress={() => WebBrowser.openBrowserAsync(report.pdf_file_url!)}
+                                onPress={openPdf}
                             >
                                 <Ionicons name="document-text" size={18} color="#fff" />
-                                <Text style={styles.pdfBtnText}>View Full Report PDF</Text>
+                                <Text style={styles.pdfBtnText}>
+                                    View Full Report PDF
+                                </Text>
                             </TouchableOpacity>
                         )}
-                        {renderTextSection('Company Background', report.company_background)}
-                        {renderTextSection('Business Model', report.business_model)}
-                        {renderTextSection('Management Analysis', report.management_analysis)}
-                        {renderTextSection('Industry Overview', report.industry_overview)}
-                        {renderTextSection('Industry Tailwinds', report.industry_tailwinds)}
-                        {renderTextSection('Demand Drivers', report.demand_drivers)}
-                        {renderTextSection('Industry Risks', report.industry_risks)}
-                        {report.recommendation_rationale && renderTextSection('Recommendation Rationale', report.recommendation_rationale)}
+                        <>
+                            {renderTextSection('Company Background', report.company_background)}
+                            {renderTextSection('Business Model', report.business_model)}
+                            {renderTextSection('Management Analysis', report.management_analysis)}
+                            {renderTextSection('Industry Overview', report.industry_overview)}
+                            {renderTextSection('Industry Tailwinds', report.industry_tailwinds)}
+                            {renderTextSection('Demand Drivers', report.demand_drivers)}
+                            {renderTextSection('Industry Risks', report.industry_risks)}
+                            {report.recommendation_rationale && renderTextSection('Recommendation Rationale', report.recommendation_rationale)}
+                        </>
 
                         {/* SEBI Disclaimer */}
                         <View style={[styles.sebiDisclaimer, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -553,6 +623,26 @@ const styles = StyleSheet.create({
     contentContainer: { padding: Spacing.xl, paddingBottom: 120 },
     pdfBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: BorderRadius.md, marginBottom: Spacing.xl },
     pdfBtnText: { color: '#fff', fontSize: FontSize.base, fontWeight: '700' },
+    pdfModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
+        backgroundColor: '#1a1a2e',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
+        gap: Spacing.md,
+    },
+    pdfModalTitle: { fontSize: FontSize.base, fontWeight: '700', color: '#fff' },
+    pdfModalSub: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+    pdfModalCloseBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     textSection: { marginBottom: Spacing['2xl'] },
     sectionHeading: { fontSize: FontSize.md, fontWeight: '700', marginBottom: Spacing.sm },
     sectionBody: { fontSize: FontSize.base, lineHeight: 24 },

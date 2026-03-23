@@ -28,6 +28,7 @@ export interface ResearchReport {
     // Publishing
     is_published: boolean;
     published_at: string | null;
+    plan: 'midcap_wealth' | 'smallcap_alpha' | 'sme_emerging' | null;
     status: 'generating' | 'draft' | 'completed' | 'error';
     created_at: string;
     updated_at: string;

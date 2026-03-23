@@ -53,12 +53,14 @@ serve(async (req: Request) => {
     const rawBody = await req.text();
 
     // ── Verify Razorpay signature ───────────────────────────────────────
-    const secret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET") || "";
+    const secret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
+    if (!secret) {
+      console.error("[Webhook] RAZORPAY_WEBHOOK_SECRET is not configured — rejecting request.");
+      return new Response(JSON.stringify({ error: "Webhook secret not configured" }), { status: 500, headers: corsHeaders });
+    }
     const signature = req.headers.get("x-razorpay-signature") || "";
-    if (secret) {
-      if (!signature || !(await verifySignature(rawBody, signature, secret))) {
-        return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: corsHeaders });
-      }
+    if (!signature || !(await verifySignature(rawBody, signature, secret))) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: corsHeaders });
     }
 
     const webhookData = JSON.parse(rawBody);
@@ -140,6 +142,43 @@ serve(async (req: Request) => {
 
     // ── Clean up pending payment record ─────────────────────────────────
     await supabase.from("pending_payments").delete().eq("user_id", userId);
+
+    // ── Auto-assign published reports matching this plan ─────────────
+    // Use Clerk email from profiles table (not Razorpay payment email)
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const clerkEmail = profileData?.email;
+    if (clerkEmail) {
+      // Fetch reports matching the subscribed plan
+      // all_in_growth gets ALL reports
+      let reportQuery = supabase
+        .from("research_reports")
+        .select("report_id")
+        .eq("is_published", true);
+
+      if (plan !== "all_in_growth") {
+        reportQuery = reportQuery.eq("plan", plan);
+      }
+
+      const { data: publishedReports } = await reportQuery;
+
+      if (publishedReports?.length) {
+        const rows = publishedReports.map((r) => ({
+          email: clerkEmail,
+          report_id: r.report_id,
+        }));
+        await supabase
+          .from("user_report_assignments")
+          .upsert(rows, { onConflict: "email,report_id", ignoreDuplicates: true });
+        console.log("[Webhook] Assigned", publishedReports.length, "reports (plan:", plan, ") to", clerkEmail);
+      }
+    } else {
+      console.warn("[Webhook] No Clerk email in profiles for userId:", userId, "— reports not auto-assigned");
+    }
 
     console.log("[Webhook] Subscription activated:", { userId, plan });
     return new Response(JSON.stringify({ received: true, action: "subscription_activated" }), { status: 200, headers: corsHeaders });

@@ -58,7 +58,7 @@ export default function HomeScreen() {
                 .eq('is_published', true)
                 .in('report_id', assignedIds)
                 .order('published_at', { ascending: false })
-                .limit(5);
+                .limit(3);
             return data ?? [];
         },
         enabled: !!userEmail,
