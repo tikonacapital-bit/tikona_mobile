@@ -2,12 +2,14 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
 import { supabase } from '@/lib/supabase';
+import { RateLimiter } from '@/lib/rateLimiter';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
+    Alert,
     FlatList,
     Keyboard,
     KeyboardAvoidingView, Platform,
@@ -111,6 +113,15 @@ export default function AIChatScreen() {
     const sendMessage = useCallback(async (text: string) => {
         const trimmed = text.trim();
         if (!trimmed || loading || !sector) return;
+
+        const isAllowed = await RateLimiter.checkLimit('sector_analyst', 15);
+        if (!isAllowed) {
+            Alert.alert(
+                'Daily Limit Reached',
+                'You have reached your daily limit of 15 queries for the Sector Analyst AI. Please try again tomorrow.'
+            );
+            return;
+        }
 
         setInput('');
         if (Platform.OS !== 'web') Keyboard.dismiss();

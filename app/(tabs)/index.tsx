@@ -35,17 +35,33 @@ export default function HomeScreen() {
         ).start();
     }, [floatAnim]);
 
+    const userEmail = user?.primaryEmailAddress?.emailAddress;
+
     const { data: recentReports } = useQuery({
-        queryKey: ['recent_reports'],
+        queryKey: ['recent_reports', userEmail],
         queryFn: async (): Promise<ResearchReport[]> => {
+            if (!userEmail) return [];
+
+            // Fetch only reports assigned to this user's email
+            const { data: assignments } = await supabase
+                .from('user_report_assignments')
+                .select('report_id')
+                .eq('email', userEmail);
+
+            if (!assignments || assignments.length === 0) return [];
+
+            const assignedIds = assignments.map((a) => a.report_id);
+
             const { data } = await supabase
                 .from('research_reports')
                 .select('*')
                 .eq('is_published', true)
+                .in('report_id', assignedIds)
                 .order('published_at', { ascending: false })
                 .limit(5);
             return data ?? [];
         },
+        enabled: !!userEmail,
         staleTime: 60000,
     });
 
@@ -132,9 +148,9 @@ export default function HomeScreen() {
             if (prefs.reports && kycStatus === 'approved' && subscription?.is_active) {
                 try {
                     const { count } = await supabase
-                        .from('user_report_assignments')
+                        .from('research_reports')
                         .select('*', { count: 'exact', head: true })
-                        .eq('user_id', uid);
+                        .eq('is_published', true);
 
                     if (count !== null) {
                         let lastCountStr: string | null = null;
@@ -155,7 +171,7 @@ export default function HomeScreen() {
                                 await Notifications.scheduleNotificationAsync({
                                     content: {
                                         title: 'New Reports Available 📈',
-                                        body: `You have ${newCount} new research report${newCount > 1 ? 's' : ''} assigned to you. Tap to view.`,
+                                        body: `There are ${newCount} new published research report${newCount > 1 ? 's' : ''}. Tap to view.`,
                                         sound: true,
                                     },
                                     trigger: null,

@@ -25,7 +25,7 @@ const PAGE_SIZE = 12;
 export default function ReportsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
-    const { userId, subscription, kyc, profile } = useAuth();
+    const { userId, user, subscription, kyc, profile } = useAuth();
     const { gridColumns } = useResponsiveLayout();
 
     const [search, setSearch] = useState('');
@@ -37,28 +37,29 @@ export default function ReportsScreen() {
     }, [search]);
 
 
-    const { data, isLoading, error } = useQuery({
-        queryKey: ['my_reports', userId, debouncedSearch],
-        queryFn: async (): Promise<ResearchReport[]> => {
-            if (!userId) return [];
+    const userEmail = user?.primaryEmailAddress?.emailAddress;
 
-            // 1. Fetch report IDs assigned to this user
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['my_reports', userId, userEmail, debouncedSearch],
+        queryFn: async (): Promise<ResearchReport[]> => {
+            if (!userId || !userEmail) return [];
+
+            // Fetch only reports assigned to this user's email
             const { data: assignments, error: assignErr } = await supabase
                 .from('user_report_assignments')
                 .select('report_id')
-                .eq('user_id', userId);
+                .eq('email', userEmail);
 
             if (assignErr) throw new Error(assignErr.message);
             if (!assignments || assignments.length === 0) return [];
 
             const assignedIds = assignments.map((a) => a.report_id);
 
-            // 2. Fetch the actual reports that are assigned & published
             let query = supabase
                 .from('research_reports')
                 .select('*')
-                .in('report_id', assignedIds)
                 .eq('is_published', true)
+                .in('report_id', assignedIds)
                 .order('published_at', { ascending: false })
                 .limit(PAGE_SIZE);
 
@@ -71,7 +72,7 @@ export default function ReportsScreen() {
             if (dbError) throw new Error(dbError.message);
             return reports ?? [];
         },
-        enabled: !!userId,
+        enabled: !!userId && !!userEmail,
         staleTime: 60000,
 
     });

@@ -36,7 +36,7 @@ export interface ResearchReport {
 // Report assignment (links reports to individual users)
 export interface UserReportAssignment {
     id: string;
-    user_id: string;
+    email: string;
     report_id: string;
     assigned_at: string;
 }

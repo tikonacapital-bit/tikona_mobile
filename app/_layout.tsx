@@ -1,8 +1,8 @@
+import AudioPlayerBar from '@/components/AudioPlayerBar';
 import { AlertProvider } from '@/context/AlertContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { MediaPlayerProvider } from '@/context/MediaPlayerContext';
 import { ThemeProvider, useColorScheme } from '@/hooks/useColorScheme';
-import AudioPlayerBar from '@/components/AudioPlayerBar';
 import { ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';

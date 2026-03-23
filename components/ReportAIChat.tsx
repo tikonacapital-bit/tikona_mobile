@@ -24,6 +24,7 @@ import {
   type ChatLogMessage,
   type ChatSession,
 } from '@/lib/chatLogger';
+import { RateLimiter } from '@/lib/rateLimiter';
 import { useAuth } from '@/context/AuthContext';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -392,6 +393,15 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     // Fix #4: Guard against double recording start
     if (recordingRef.current || isRecording || isProcessing || isStoppingRef.current) return;
 
+    const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, false);
+    if (!isAllowed) {
+        Alert.alert(
+            'Daily Limit Reached',
+            'You have reached your daily limit of 15 voice AI interactions. Please try again tomorrow.'
+        );
+        return;
+    }
+
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== 'granted') {
@@ -499,6 +509,9 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       const chatResult = await chatWithReport(userText, reportContext.current, chatHistory.current);
 
+      // Successfully processed, consume a rate limit token
+      await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, true);
+
       // Fix #2: Cap chat history to prevent unbounded growth
       chatHistory.current = [
         ...chatHistory.current,
@@ -552,6 +565,15 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const sendTextMessage = useCallback(async () => {
     const text = textInput.trim();
     if (!text || isProcessing) return;
+
+    const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15);
+    if (!isAllowed) {
+        Alert.alert(
+            'Daily Limit Reached',
+            'You have reached your daily limit of 15 AI interactions. Please try again tomorrow.'
+        );
+        return;
+    }
 
     setTextInput('');
     setIsProcessing(true);

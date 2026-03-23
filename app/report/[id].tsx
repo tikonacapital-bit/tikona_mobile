@@ -80,9 +80,23 @@ export default function ReportDetailScreen() {
         };
     }, []);
 
+    const userEmail = user?.primaryEmailAddress?.emailAddress;
+
     const { data: report, isLoading } = useQuery({
-        queryKey: ['report_detail', id],
+        queryKey: ['report_detail', id, userEmail],
         queryFn: async (): Promise<ResearchReport | null> => {
+            if (!userEmail) return null;
+
+            // Check if this report is assigned to the user's email
+            const { data: assignment } = await supabase
+                .from('user_report_assignments')
+                .select('id')
+                .eq('email', userEmail)
+                .eq('report_id', id!)
+                .maybeSingle();
+
+            if (!assignment) return null; // Not assigned to this user
+
             const { data } = await supabase
                 .from('research_reports')
                 .select('*')
@@ -91,7 +105,7 @@ export default function ReportDetailScreen() {
                 .maybeSingle();
             return data;
         },
-        enabled: !!id,
+        enabled: !!id && !!userEmail,
     });
 
     if (isLoading) {
