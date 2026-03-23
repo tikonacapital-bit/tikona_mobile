@@ -7,6 +7,7 @@
  */
 
 import { supabase } from './supabase';
+import { logger } from './logger';
 
 export interface ChatLogMessage {
   role: 'user' | 'assistant' | 'system';
@@ -53,13 +54,13 @@ export async function createChatSession(params: {
       .single();
 
     if (error) {
-      console.error('[ChatLogger] Create session error:', error.message);
+      logger.error('[ChatLogger] Create session error:', error.message);
       return null;
     }
 
     return data.id;
   } catch (err) {
-    console.error('[ChatLogger] Create session exception:', err);
+    logger.error('[ChatLogger] Create session exception:', err);
     return null;
   }
 }
@@ -81,7 +82,7 @@ export async function appendMessages(
       .single();
 
     if (fetchErr || !current) {
-      console.error('[ChatLogger] Fetch messages error:', fetchErr?.message);
+      logger.error('[ChatLogger] Fetch messages error:', fetchErr?.message);
       return;
     }
 
@@ -97,10 +98,10 @@ export async function appendMessages(
       .eq('id', sessionId);
 
     if (updateErr) {
-      console.error('[ChatLogger] Append messages error:', updateErr.message);
+      logger.error('[ChatLogger] Append messages error:', updateErr.message);
     }
   } catch (err) {
-    console.error('[ChatLogger] Append messages exception:', err);
+    logger.error('[ChatLogger] Append messages exception:', err);
   }
 }
 
@@ -116,10 +117,10 @@ export async function closeChatSession(sessionId: string): Promise<void> {
       .eq('id', sessionId);
 
     if (error) {
-      console.error('[ChatLogger] Close session error:', error.message);
+      logger.error('[ChatLogger] Close session error:', error.message);
     }
   } catch (err) {
-    console.error('[ChatLogger] Close session exception:', err);
+    logger.error('[ChatLogger] Close session exception:', err);
   }
 }
 
@@ -143,13 +144,13 @@ export async function fetchChatSessions(
       .limit(limit);
 
     if (error) {
-      console.error('[ChatLogger] Fetch sessions error:', error.message);
+      logger.error('[ChatLogger] Fetch sessions error:', error.message);
       return [];
     }
 
     return (data ?? []) as ChatSession[];
   } catch (err) {
-    console.error('[ChatLogger] Fetch sessions exception:', err);
+    logger.error('[ChatLogger] Fetch sessions exception:', err);
     return [];
   }
 }
@@ -165,9 +166,9 @@ export async function deleteChatSession(sessionId: string): Promise<void> {
       .eq('id', sessionId);
 
     if (error) {
-      console.error('[ChatLogger] Delete session error:', error.message);
+      logger.error('[ChatLogger] Delete session error:', error.message);
     }
   } catch (err) {
-    console.error('[ChatLogger] Delete session exception:', err);
+    logger.error('[ChatLogger] Delete session exception:', err);
   }
 }

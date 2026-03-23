@@ -10,6 +10,7 @@ import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { Card, StatusChip, SectionHeader, RecommendationBadge, EmptyState, ResponsiveScrollView, ResponsiveContainer } from '@/components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -97,7 +98,7 @@ export default function HomeScreen() {
                     saved = await SecureStore.getItemAsync('notification_preferences');
                 }
             } catch (e) {
-                console.warn('[Notifications] Preference read error:', e);
+                logger.warn('[Notifications] Preference read error:', e);
             }
 
             const prefs = saved ? JSON.parse(saved) : { master: true, reports: true, kyc: true };
@@ -188,7 +189,7 @@ export default function HomeScreen() {
                         } catch (e) { }
                     }
                 } catch (e) {
-                    console.warn('[Notifications] Failed to check for new reports:', e);
+                    logger.warn('[Notifications] Failed to check for new reports:', e);
                 }
             }
         };

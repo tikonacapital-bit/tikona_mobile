@@ -6,6 +6,7 @@
  * Also supports text-based chat as a fallback.
  */
 
+import { logger } from '@/lib/logger';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import {
@@ -452,7 +453,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       if (Platform.OS !== 'web') Vibration.vibrate(50);
     } catch (err) {
-      console.error('[Recording] Start error:', err);
+      logger.error('[Recording] Start error:', err);
       addSystemMessage('Could not start recording. Please check microphone permissions.');
     }
   }, [isRecording, isProcessing]);
@@ -537,7 +538,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           hasAudio = true;
         }
       } catch (ttsErr) {
-        console.warn('[TTS] Error, continuing without audio:', ttsErr);
+        logger.warn('[TTS] Error, continuing without audio:', ttsErr);
       }
 
       if (mountedRef.current) {
@@ -555,7 +556,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         if (cachedAudio) await playAudioBase64(cachedAudio);
       }
     } catch (err) {
-      console.error('[Recording] Processing error:', err);
+      logger.error('[Recording] Processing error:', err);
       addSystemMessage('Something went wrong processing your voice. Please try again.');
     } finally {
       if (mountedRef.current) setIsProcessing(false);
@@ -620,7 +621,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           hasAudio = true;
         }
       } catch (ttsErr) {
-        console.warn('[TTS] Error:', ttsErr);
+        logger.warn('[TTS] Error:', ttsErr);
       }
 
       if (mountedRef.current) {
@@ -638,7 +639,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         if (cachedAudio) await playAudioBase64(cachedAudio);
       }
     } catch (err) {
-      console.error('[Chat] Error:', err);
+      logger.error('[Chat] Error:', err);
       if (mountedRef.current) {
         setMessages((prev) =>
           prev.map((m) =>
@@ -680,7 +681,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         });
         audioUri = tempPath;
       } catch (fileErr) {
-        console.warn('[Audio] Temp file write failed, using data URI fallback:', fileErr);
+        logger.warn('[Audio] Temp file write failed, using data URI fallback:', fileErr);
         tempPath = null;
         audioUri = `data:audio/wav;base64,${base64}`;
       }
@@ -704,7 +705,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         }
       });
     } catch (err) {
-      console.error('[Audio] Playback error:', err);
+      logger.error('[Audio] Playback error:', err);
       if (mountedRef.current) setIsSpeaking(false);
     }
   };
@@ -723,7 +724,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         soundRef.current = null;
       }
     } catch (err) {
-      console.warn('[Audio] Stop error:', err);
+      logger.warn('[Audio] Stop error:', err);
     } finally {
       setIsSpeaking(false);
     }

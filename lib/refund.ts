@@ -13,9 +13,7 @@
 import { supabase } from '@/lib/supabase';
 import { PLAN_PRICES } from '@/lib/types';
 import type { RefundRequest } from '@/lib/types';
-
-// ─── Admin Config ─────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = 'sumitpoddar@tikonacapital.com';
+import { logger } from '@/lib/logger';
 
 // ─── Refund Calculation ───────────────────────────────────────────────────────
 
@@ -79,7 +77,7 @@ export async function getRefundRequest(userId: string): Promise<RefundRequest | 
         .maybeSingle();
 
     if (error) {
-        console.warn('Error fetching refund request:', error.message);
+        logger.warn('Error fetching refund request:', error.message);
         return null;
     }
     return data as RefundRequest | null;
@@ -138,13 +136,13 @@ export async function submitRefundRequest(params: {
         .single();
 
     if (error) {
-        console.warn('Error submitting refund request:', error.message);
+        logger.warn('Error submitting refund request:', error.message);
         return { success: false, error: error.message };
     }
 
     // Notify admin (fire-and-forget, don't block the user)
     notifyAdmin(data as RefundRequest).catch((e) =>
-        console.warn('Admin notification failed:', e)
+        logger.warn('Admin notification failed:', e)
     );
 
     return { success: true, data: data as RefundRequest };
@@ -161,21 +159,13 @@ async function notifyAdmin(request: RefundRequest): Promise<void> {
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 
     if (!supabaseUrl) {
-        console.log('[Refund] No Supabase URL configured, skipping admin notification.');
+        logger.log('[Refund] No Supabase URL configured, skipping admin notification.');
         return;
     }
 
     const body = JSON.stringify({
-        admin_email: ADMIN_EMAIL,
         request_id: request.id,
         user_id: request.user_id,
-        plan: request.plan,
-        refund_amount: request.refund_amount,
-        total_paid: request.total_paid,
-        months_used: request.months_used,
-        months_remaining: request.months_remaining,
-        upi_id: request.upi_id,
-        reason: request.reason,
     });
 
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -186,15 +176,15 @@ async function notifyAdmin(request: RefundRequest): Promise<void> {
                 body,
             });
             if (response.ok) return;
-            console.warn('[Refund] Admin notification attempt', attempt, 'returned:', response.status);
+            logger.warn('[Refund] Admin notification attempt', attempt, 'returned:', response.status);
         } catch (err) {
-            console.warn('[Refund] Admin notification attempt', attempt, 'failed:', err);
+            logger.warn('[Refund] Admin notification attempt', attempt, 'failed:', err);
         }
         if (attempt < 2) {
             await new Promise(resolve => setTimeout(resolve, 3000));
         }
     }
-    console.warn('[Refund] Admin notification failed after 2 attempts for request:', request.id);
+    logger.warn('[Refund] Admin notification failed after 2 attempts for request:', request.id);
 }
 
 /**

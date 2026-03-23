@@ -8,6 +8,7 @@ import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/lib/logger';
 import { PLANS, PLAN_PRICES } from '@/lib/types';
 import type { RefundRequest } from '@/lib/types';
 import { Card, ResponsiveScrollView } from '@/components/ui';
@@ -50,7 +51,7 @@ export default function RefundScreen() {
                 setBreakdown(calc);
             }
         } catch (e) {
-            console.warn('Error loading refund data:', e);
+            logger.warn('Error loading refund data:', e);
         } finally {
             setLoading(false);
         }

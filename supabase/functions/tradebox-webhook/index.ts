@@ -89,7 +89,7 @@ serve(async (req: Request) => {
       userId = data?.user_id || "";
     }
     if (!userId) {
-      console.error("[Webhook] User not found for email:", email);
+      console.error("[Webhook] User not found for payment — manual review needed");
       return new Response(
         JSON.stringify({ received: true, action: "pending", reason: "user not found — manual review needed" }),
         { status: 200, headers: corsHeaders }
@@ -111,7 +111,7 @@ serve(async (req: Request) => {
     if (!plan) plan = AMOUNT_TO_PLAN[amount] || "";
 
     if (!plan) {
-      console.error("[Webhook] Cannot resolve plan for email:", email, "amount:", amount);
+      console.error("[Webhook] Cannot resolve plan — manual review needed");
       return new Response(
         JSON.stringify({ received: true, action: "pending", reason: "plan unknown — manual review needed" }),
         { status: 200, headers: corsHeaders }
@@ -137,7 +137,7 @@ serve(async (req: Request) => {
 
     if (error) {
       console.error("[Webhook] DB error:", error.message);
-      return new Response(JSON.stringify({ error: "DB error", detail: error.message }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "DB error" }), { status: 500, headers: corsHeaders });
     }
 
     // ── Clean up pending payment record ─────────────────────────────────
@@ -174,13 +174,13 @@ serve(async (req: Request) => {
         await supabase
           .from("user_report_assignments")
           .upsert(rows, { onConflict: "email,report_id", ignoreDuplicates: true });
-        console.log("[Webhook] Assigned", publishedReports.length, "reports (plan:", plan, ") to", clerkEmail);
+        console.log("[Webhook] Assigned", publishedReports.length, "reports for plan:", plan);
       }
     } else {
-      console.warn("[Webhook] No Clerk email in profiles for userId:", userId, "— reports not auto-assigned");
+      console.warn("[Webhook] No email in profiles — reports not auto-assigned");
     }
 
-    console.log("[Webhook] Subscription activated:", { userId, plan });
+    console.log("[Webhook] Subscription activated for plan:", plan);
     return new Response(JSON.stringify({ received: true, action: "subscription_activated" }), { status: 200, headers: corsHeaders });
 
   } catch (err) {

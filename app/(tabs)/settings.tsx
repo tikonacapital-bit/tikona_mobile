@@ -5,6 +5,7 @@ import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useThemeSettings } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/lib/logger';
 import { useAlert } from '@/context/AlertContext';
 import { Card, StatusChip, ResponsiveScrollView } from '@/components/ui';
 import * as SecureStore from 'expo-secure-store';
@@ -79,7 +80,7 @@ export default function SettingsScreen() {
                 }
                 if (saved) setNotifSettings(JSON.parse(saved));
             } catch (e) {
-                console.warn('Failed to load settings:', e);
+                logger.warn('Failed to load settings:', e);
             }
         };
         loadSettings();
@@ -93,7 +94,7 @@ export default function SettingsScreen() {
             try {
                 await registerForPushNotificationsAsync(user.id);
             } catch (error) {
-                console.warn('Failed to register notifications:', error);
+                logger.warn('Failed to register notifications:', error);
             }
         }
 
@@ -104,7 +105,7 @@ export default function SettingsScreen() {
                 await SecureStore.setItemAsync(PREFS_KEY, JSON.stringify(newSettings));
             }
         } catch (e) {
-            console.warn('Failed to save settings:', e);
+            logger.warn('Failed to save settings:', e);
         }
     };
 

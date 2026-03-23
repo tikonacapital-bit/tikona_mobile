@@ -69,7 +69,7 @@ async function speechToText(
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[STT] Error:", res.status, errText);
+    console.error("[STT] Error:", res.status);
     throw new Error(`STT failed: ${res.status} ${errText}`);
   }
 
@@ -120,7 +120,7 @@ ${reportContext}
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("[OpenRouter LLM] Error:", res.status, errText);
+    console.error("[OpenRouter LLM] Error:", res.status);
     throw new Error(`OpenRouter Chat failed: ${res.status} ${errText}`);
   }
 
@@ -227,7 +227,7 @@ async function textToSpeech(
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("[TTS] Error:", res.status, errText);
+      console.error("[TTS] Error:", res.status);
       throw new Error(`TTS failed: ${res.status} ${errText}`);
     }
 
@@ -345,20 +345,14 @@ serve(async (req: Request) => {
         const lang = language_code || "en-IN";
 
         // Step 1: STT
-        console.log("[S2S] Step 1: Speech → Text...");
         const sttResult = await speechToText(audio, lang);
-        console.log("[S2S] Transcript:", sttResult.transcript);
 
         // Step 2: Chat (use detected language from STT, with history)
-        console.log("[S2S] Step 2: Generating AI response...");
         const detectedLang = sttResult.language_code || lang;
         const aiReply = await chatCompletion(sttResult.transcript, report_context, history);
-        console.log("[S2S] AI Reply:", aiReply.substring(0, 100) + "...");
 
         // Step 3: TTS
-        console.log("[S2S] Step 3: Text → Speech...");
         const responseAudio = await textToSpeech(aiReply, detectedLang);
-        console.log("[S2S] Audio generated, length:", responseAudio.length);
 
         return new Response(
           JSON.stringify({

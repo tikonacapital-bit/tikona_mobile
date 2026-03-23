@@ -6,6 +6,7 @@ import React, {
     useState,
 } from 'react';
 import { Audio, AVPlaybackStatus } from 'expo-av';
+import { logger } from '@/lib/logger';
 
 export type MediaType = 'audio' | 'video';
 
@@ -127,7 +128,7 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
             );
             soundRef.current = sound;
         } catch (e) {
-            console.error('[MediaPlayer] Failed to create sound:', e);
+            logger.error('[MediaPlayer] Failed to create sound:', e);
             setState(s => ({ ...s, isBuffering: false }));
         }
     }, [state.track, state.isLoaded, stopAndUnload, onStatusUpdate]);

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from './logger';
 
 export class RateLimiter {
   /**
@@ -30,7 +31,7 @@ export class RateLimiter {
       }
       return true;
     } catch (e) {
-      console.error('Rate limit error:', e);
+      logger.error('Rate limit error:', e);
       return true; // Failsafe to true if storage fails
     }
   }

@@ -3,10 +3,11 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export async function registerForPushNotificationsAsync(userId: string) {
     if (!Device.isDevice) {
-        console.warn('Must use physical device for Push Notifications');
+        logger.warn('Must use physical device for Push Notifications');
         return;
     }
 
@@ -19,7 +20,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
     }
 
     if (finalStatus !== 'granted') {
-        console.warn('Failed to get push token for push notification!');
+        logger.warn('Failed to get push token for push notification!');
         return;
     }
 
@@ -37,7 +38,7 @@ export async function registerForPushNotificationsAsync(userId: string) {
             .eq('user_id', userId);
         
         if (error) {
-            console.error('Error saving push token:', error);
+            logger.error('Error saving push token:', error);
         }
     }
 

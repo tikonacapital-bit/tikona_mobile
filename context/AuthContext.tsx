@@ -3,6 +3,7 @@ import { View, Platform } from 'react-native';
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import type { KycRecord, UserProfile, Subscription, RefundRequest } from '@/lib/types';
 
 type AuthContextType = {
@@ -79,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     .eq('user_id', userId);
             }
         } catch (e) {
-            console.warn('Failed to fetch user data:', e);
+            logger.warn('Failed to fetch user data:', e);
             setDataError(true);
         } finally {
             setIsLoadingData(false);
@@ -115,7 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 await SecureStore.deleteItemAsync('__clerk_client_jwt');
             }
         } catch (error) {
-            console.warn('Clerk sign out error:', error);
+            logger.warn('Clerk sign out error:', error);
         }
         // Clear local state
         setKyc(null);

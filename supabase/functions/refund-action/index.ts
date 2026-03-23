@@ -25,8 +25,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = "tikonacapital@gmail.com";
-const FROM_EMAIL = "onboarding@resend.dev"; // Use Resend test sender (switch to refunds@tikonacapital.com after domain verification)
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") || "tikonacapital@gmail.com";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "onboarding@resend.dev";
 
 const PLAN_NAMES: Record<string, string> = {
   midcap_wealth: "Mid Cap Wealth Builders",
