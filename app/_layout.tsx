@@ -1,6 +1,8 @@
 import { AlertProvider } from '@/context/AlertContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { MediaPlayerProvider } from '@/context/MediaPlayerContext';
 import { ThemeProvider, useColorScheme } from '@/hooks/useColorScheme';
+import AudioPlayerBar from '@/components/AudioPlayerBar';
 import { ClerkProvider } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
@@ -11,6 +13,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import 'react-native-reanimated';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -54,21 +57,25 @@ function RootLayoutInner() {
     return (
         <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <AlertProvider>
-                <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
-                    <Stack.Screen name="(auth)" />
-                    <Stack.Screen name="(kyc)" options={{ headerShown: false }} />
-                    <Stack.Screen name="(profiling)" options={{ headerShown: false }} />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="report/[id]" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-                    <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
-                    <Stack.Screen name="subscription/index" options={{ headerShown: false, presentation: 'modal' }} />
-                    <Stack.Screen name="support" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-                    <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-                    <Stack.Screen name="oauth-native-callback" options={{ headerShown: false, animation: 'none' }} />
-                </Stack>
-                <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+                <View style={{ flex: 1 }}>
+                    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="(onboarding)" options={{ animation: 'fade' }} />
+                        <Stack.Screen name="(auth)" />
+                        <Stack.Screen name="(kyc)" options={{ headerShown: false }} />
+                        <Stack.Screen name="(profiling)" options={{ headerShown: false }} />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="report/[id]" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
+                        <Stack.Screen name="subscription/index" options={{ headerShown: false, presentation: 'modal' }} />
+                        <Stack.Screen name="support" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                        <Stack.Screen name="oauth-native-callback" options={{ headerShown: false, animation: 'none' }} />
+                    </Stack>
+                    {/* Global persistent audio mini-player */}
+                    <AudioPlayerBar />
+                    <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+                </View>
             </AlertProvider>
         </NavThemeProvider>
     );
@@ -91,7 +98,9 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
                 <ThemeProvider>
                     <AuthProvider>
-                        <RootLayoutInner />
+                        <MediaPlayerProvider>
+                            <RootLayoutInner />
+                        </MediaPlayerProvider>
                     </AuthProvider>
                 </ThemeProvider>
             </QueryClientProvider>

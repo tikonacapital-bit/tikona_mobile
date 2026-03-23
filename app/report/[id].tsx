@@ -15,7 +15,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Animated, Platform,
+    ActivityIndicator, Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -48,6 +48,7 @@ export default function ReportDetailScreen() {
         stopPlayback,
         handleScreenBlur,
         handleScreenFocus,
+        setAudioScreenActive,
     } = useMediaPlayer();
 
     const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
@@ -62,10 +63,15 @@ export default function ReportDetailScreen() {
 
     // Pause when switching away from audio tab or leaving the screen
     useEffect(() => {
-        if (activeTab !== 'audio') {
-            // Don't stop — just leave mini player running
+        if (activeTab === 'audio') {
+            setAudioScreenActive(true);
+        } else {
+            setAudioScreenActive(false);
         }
-    }, [activeTab]);
+        
+        // Cleanup on unmount
+        return () => setAudioScreenActive(false);
+    }, [activeTab, setAudioScreenActive]);
 
     // Handle screen focus/blur for auto-pause/resume
     useEffect(() => {
@@ -159,7 +165,7 @@ export default function ReportDetailScreen() {
             playTrack({
                 uri: report.audio_file_url,
                 type: 'audio',
-                title: `${report.company_name} – Audio Summary`,
+                title: `${report.company_name} – Podcast Summary`,
                 subtitle: report.nse_symbol,
             });
         }
@@ -195,7 +201,7 @@ export default function ReportDetailScreen() {
                         <Ionicons name="headset" size={24} color={Colors.brand.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={[styles.audioTitle, { color: c.text }]}>Audio Summary</Text>
+                        <Text style={[styles.audioTitle, { color: c.text }]}>Podcast Summary</Text>
                         <Text style={[styles.audioSub, { color: c.textTertiary }]}>AI-narrated research brief</Text>
                     </View>
                     {audioReady && (
@@ -275,7 +281,7 @@ export default function ReportDetailScreen() {
                                     {isBuffering ? 'Buffering…' : isPlaying ? 'Now Playing' : 'Paused'}
                                 </Text>
                                 <Text style={[styles.nowPlayingTitle, { color: c.text }]} numberOfLines={1}>
-                                    {report.company_name} – Audio Summary
+                                    {report.company_name} – Podcast Summary
                                 </Text>
                             </View>
 
@@ -291,15 +297,6 @@ export default function ReportDetailScreen() {
                     )}
                 </View>
 
-                {/* Mini-player hint */}
-                {audioReady && (
-                    <View style={[styles.miniHint, { borderTopColor: c.border }]}>
-                        <Ionicons name="information-circle-outline" size={12} color={c.textTertiary} />
-                        <Text style={[styles.miniHintText, { color: c.textTertiary }]}>
-                            Audio continues playing even when you navigate away
-                        </Text>
-                    </View>
-                )}
             </View>
         );
     };
@@ -310,64 +307,71 @@ export default function ReportDetailScreen() {
 
         return (
             <>
-                <View style={[styles.videoCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: c.border }]}>
-                    {/* Gradient accent */}
-                    <LinearGradient
-                        colors={['#7c3aed', '#4f46e5']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.audioCardAccent}
-                    />
-
-                    {/* Thumbnail placeholder */}
-                    <View style={styles.videoThumbnailWrap}>
+                <TouchableOpacity
+                    style={[styles.videoCard, { backgroundColor: isDark ? '#0d0d18' : '#0d0d18', borderColor: 'rgba(124,58,237,0.25)' }]}
+                    onPress={() => setVideoModalVisible(true)}
+                    activeOpacity={0.92}
+                >
+                    {/* Full-card cinematic thumbnail */}
+                    <View style={styles.videoThumb}>
                         <LinearGradient
-                            colors={[isDark ? '#1a1f2e' : '#eef2ff', isDark ? '#0f1420' : '#e0e7ff']}
-                            style={styles.videoThumbnail}
-                        >
-                            <View style={[styles.videoPlayOverlay]}>
-                                <LinearGradient
-                                    colors={['#7c3aed', '#4f46e5']}
-                                    style={styles.videoPlayBtnGradient}
-                                >
-                                    <Ionicons name="play" size={28} color="#fff" style={{ marginLeft: 4 }} />
-                                </LinearGradient>
-                            </View>
-                            <View style={styles.hdBadge}>
-                                <Text style={styles.hdBadgeText}>HD</Text>
-                            </View>
-                        </LinearGradient>
-                    </View>
-
-                    {/* Info */}
-                    <View style={styles.videoInfo}>
-                        <View style={styles.videoInfoRow}>
-                            <View style={[styles.audioIconWrap, { backgroundColor: '#7c3aed18' }]}>
-                                <Ionicons name="videocam" size={22} color="#7c3aed" />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.audioTitle, { color: c.text }]}>Video Research Brief</Text>
-                                <Text style={[styles.audioSub, { color: c.textTertiary }]}>AI-generated visual summary</Text>
-                            </View>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.watchBtn}
-                            onPress={() => setVideoModalVisible(true)}
-                            activeOpacity={0.85}
-                        >
+                            colors={['#180d2e', '#0d0820', '#1a0a35']}
+                            style={StyleSheet.absoluteFill}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        />
+                        {/* Film grain overlay lines */}
+                        {[0.15, 0.35, 0.55, 0.75, 0.90].map((top, i) => (
+                            <View
+                                key={i}
+                                style={{
+                                    position: 'absolute',
+                                    left: 0, right: 0,
+                                    top: `${top * 100}%` as any,
+                                    height: 1,
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                }}
+                            />
+                        ))}
+                        {/* Glow behind button */}
+                        <View style={styles.videoGlow} />
+                        {/* Big play button */}
+                        <View style={styles.videoPlayBtn}>
                             <LinearGradient
-                                colors={['#7c3aed', '#4f46e5']}
+                                colors={['#9333ea', '#6d28d9']}
+                                style={styles.videoPlayBtnGrad}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
-                                style={styles.watchBtnInner}
                             >
-                                <Ionicons name="play-circle" size={20} color="#fff" />
-                                <Text style={styles.watchBtnText}>Watch Video</Text>
+                                <Ionicons name="play" size={30} color="#fff" style={{ marginLeft: 5 }} />
                             </LinearGradient>
-                        </TouchableOpacity>
+                        </View>
+                        {/* HD badge */}
+                        <View style={styles.hdBadge}>
+                            <Text style={styles.hdText}>HD</Text>
+                        </View>
+                        {/* Duration placeholder */}
+                        <View style={styles.durationBadge}>
+                            <Ionicons name="time-outline" size={10} color="rgba(255,255,255,0.6)" />
+                            <Text style={styles.durationText}>Watch Now</Text>
+                        </View>
                     </View>
-                </View>
+
+                    {/* Bottom info strip */}
+                    <View style={[styles.videoInfoStrip, { backgroundColor: isDark ? '#110e1f' : '#110e1f' }]}>
+                        <View style={[styles.videoIconSmall, { backgroundColor: 'rgba(124,58,237,0.18)' }]}>
+                            <Ionicons name="videocam" size={18} color="#9333ea" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.videoCardTitle}>Video Research Brief</Text>
+                            <Text style={styles.videoCardSub}>Tap to watch in full screen</Text>
+                        </View>
+                        <View style={styles.videoPlayChip}>
+                            <Ionicons name="play-circle" size={14} color="#9333ea" />
+                            <Text style={styles.videoPlayChipText}>Play</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
 
                 {/* Video Modal */}
                 <VideoPlayerModal
@@ -380,6 +384,7 @@ export default function ReportDetailScreen() {
             </>
         );
     };
+
 
     return (
         <View style={[styles.container, { backgroundColor: c.background }]}>
@@ -683,76 +688,84 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: Spacing.xl,
         shadowColor: '#7c3aed',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 8,
     },
-    videoThumbnailWrap: {
+    videoThumb: {
         width: '100%',
         aspectRatio: 16 / 9,
         overflow: 'hidden',
-    },
-    videoThumbnail: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    videoPlayOverlay: {
-        shadowColor: '#7c3aed',
+    videoGlow: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: 'rgba(124,58,237,0.25)',
+    },
+    videoPlayBtn: {
+        shadowColor: '#9333ea',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 12,
+        shadowOpacity: 0.7,
+        shadowRadius: 24,
+        elevation: 14,
     },
-    videoPlayBtnGradient: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        justifyContent: 'center',
-        alignItems: 'center',
+    videoPlayBtnGrad: {
+        width: 76, height: 76, borderRadius: 38,
+        justifyContent: 'center', alignItems: 'center',
     },
     hdBadge: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
+        position: 'absolute', top: 10, right: 10,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        paddingHorizontal: 7, paddingVertical: 3,
         borderRadius: 6,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     },
-    hdBadgeText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 1,
+    hdText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+    durationBadge: {
+        position: 'absolute', bottom: 10, left: 10,
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
     },
-    videoInfo: { padding: Spacing.xl },
-    videoInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginBottom: Spacing.lg,
+    durationText: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600' },
+    videoInfoStrip: {
+        flexDirection: 'row', alignItems: 'center',
+        gap: 12, paddingHorizontal: 16, paddingVertical: 14,
     },
-    watchBtn: {
-        borderRadius: BorderRadius.lg,
-        overflow: 'hidden',
+    videoIconSmall: {
+        width: 38, height: 38, borderRadius: 12,
+        justifyContent: 'center', alignItems: 'center',
     },
-    watchBtnInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 15,
-        borderRadius: BorderRadius.lg,
+    videoCardTitle: { color: '#fff', fontSize: FontSize.sm, fontWeight: '700' },
+    videoCardSub: { color: 'rgba(255,255,255,0.4)', fontSize: FontSize.xs, marginTop: 1 },
+    videoPlayChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        backgroundColor: 'rgba(147,51,234,0.18)',
+        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
     },
-    watchBtnText: {
-        color: '#fff',
-        fontSize: FontSize.md,
-        fontWeight: '700',
-    },
+    videoPlayChipText: { color: '#9333ea', fontSize: 11, fontWeight: '700' },
 
-    fab: { position: 'absolute', bottom: Platform.select({ ios: 40, default: 24 }), right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
+    fab: {
+        position: 'absolute',
+        bottom: Platform.select({ ios: 40, default: 24 }),
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        zIndex: 950,
+    },
     sebiDisclaimer: { marginTop: Spacing['2xl'], padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1 },
     sebiDisclaimerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm },
     sebiDisclaimerTitle: { fontSize: FontSize.xs, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },

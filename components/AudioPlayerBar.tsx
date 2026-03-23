@@ -6,7 +6,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    PanResponder,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -35,6 +34,7 @@ export default function AudioPlayerBar() {
         positionMillis,
         durationMillis,
         isBuffering,
+        isAudioScreenActive,
         togglePlay,
         stopPlayback,
         seekTo,
@@ -44,9 +44,12 @@ export default function AudioPlayerBar() {
     const opacityAnim = useRef(new Animated.Value(0)).current;
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    const visible = track?.type === 'audio' && (isLoaded || isBuffering);
+    // Show only when: audio is loaded/buffering AND user is NOT on the in-screen audio player
+    const visible =
+        track?.type === 'audio' &&
+        (isLoaded || isBuffering) &&
+        !isAudioScreenActive;
 
-    // Slide in / out
     useEffect(() => {
         Animated.parallel([
             Animated.spring(slideAnim, {
@@ -63,21 +66,13 @@ export default function AudioPlayerBar() {
         ]).start();
     }, [visible]);
 
-    // Pulse animation when playing
+    // Pulse when playing
     useEffect(() => {
         if (isPlaying) {
             Animated.loop(
                 Animated.sequence([
-                    Animated.timing(pulseAnim, {
-                        toValue: 1.12,
-                        duration: 700,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(pulseAnim, {
-                        toValue: 1,
-                        duration: 700,
-                        useNativeDriver: true,
-                    }),
+                    Animated.timing(pulseAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
                 ])
             ).start();
         } else {
@@ -87,17 +82,13 @@ export default function AudioPlayerBar() {
     }, [isPlaying]);
 
     const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
-
-    // Seekable progress bar via touch
     const progressBarWidth = useRef(0);
     const handleSeek = (x: number) => {
         if (!progressBarWidth.current || !durationMillis) return;
-        const ratio = Math.max(0, Math.min(1, x / progressBarWidth.current));
-        seekTo(ratio * durationMillis);
+        seekTo(Math.max(0, Math.min(1, x / progressBarWidth.current)) * durationMillis);
     };
 
-    if (!visible) return null;
-
+    // Always render (for animation), just invisible when not visible
     return (
         <Animated.View
             style={[
@@ -105,40 +96,35 @@ export default function AudioPlayerBar() {
                 {
                     transform: [{ translateY: slideAnim }],
                     opacity: opacityAnim,
-                    bottom: Platform.select({ ios: 98, default: 72 }),
-                },
+                    bottom: Platform.select({ ios: 100, default: 74 }),
+                    pointerEvents: visible ? 'box-none' : 'none',
+                } as any,
             ]}
-            pointerEvents="box-none"
         >
-            {/* Glassmorphism background */}
+            {/* Background */}
             {isDark ? (
                 <LinearGradient
-                    colors={['rgba(15,19,24,0.97)', 'rgba(21,25,33,0.99)']}
+                    colors={['rgba(13,17,23,0.98)', 'rgba(17,22,30,0.99)']}
                     style={StyleSheet.absoluteFill}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                 />
             ) : (
                 Platform.OS !== 'web' ? (
-                    <BlurView
-                        intensity={85}
-                        tint="light"
-                        style={StyleSheet.absoluteFill}
-                    />
+                    <BlurView intensity={90} tint="light" style={StyleSheet.absoluteFill} />
                 ) : (
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.95)' }]} />
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.96)' }]} />
                 )
             )}
 
-            {/* Top Accent Border */}
+            {/* Rainbow top accent */}
             <LinearGradient
                 colors={[Colors.brand.primary, Colors.brand.secondary, Colors.brand.accent]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.topBorder}
             />
 
-            {/* Progress Bar — seekable */}
+            {/* Seek bar */}
             <View
                 style={styles.progressTrack}
                 onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
@@ -146,49 +132,36 @@ export default function AudioPlayerBar() {
                 onResponderGrant={(e) => handleSeek(e.nativeEvent.locationX)}
                 onResponderMove={(e) => handleSeek(e.nativeEvent.locationX)}
             >
-                <View style={[styles.progressFill, { width: `${progress * 100}%` as any }]}>
+                <View style={[styles.progressFill, { width: `${(progress * 100).toFixed(2)}%` as any }]}>
                     <LinearGradient
                         colors={[Colors.brand.primary, Colors.brand.accent]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={StyleSheet.absoluteFill}
                     />
                 </View>
-                {/* Scrubber knob */}
-                <View
-                    style={[
-                        styles.scrubberKnob,
-                        { left: `${progress * 100}%` as any },
-                    ]}
-                />
+                <View style={[styles.knob, { left: `${(progress * 100).toFixed(2)}%` as any }]} />
             </View>
 
-            {/* Main Row */}
+            {/* Controls row */}
             <View style={styles.row}>
-                {/* Animated icon */}
+                {/* Pulsing icon */}
                 <Animated.View
                     style={[
                         styles.iconWrap,
-                        {
-                            backgroundColor: Colors.brand.primary + '20',
-                            transform: [{ scale: pulseAnim }],
-                        },
+                        { backgroundColor: Colors.brand.primary + '1A', transform: [{ scale: pulseAnim }] },
                     ]}
                 >
                     <Ionicons
-                        name={isBuffering ? 'radio-outline' : 'headset'}
-                        size={18}
+                        name={isBuffering ? 'radio-outline' : 'mic'}
+                        size={17}
                         color={Colors.brand.primary}
                     />
                 </Animated.View>
 
-                {/* Track info */}
+                {/* Info */}
                 <View style={styles.info}>
-                    <Text
-                        style={[styles.trackTitle, { color: c.text }]}
-                        numberOfLines={1}
-                    >
-                        {track?.title ?? 'Audio Summary'}
+                    <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
+                        {track?.title ?? 'Podcast Summary'}
                     </Text>
                     <View style={styles.timeRow}>
                         <Text style={[styles.timeText, { color: c.textTertiary }]}>
@@ -199,38 +172,32 @@ export default function AudioPlayerBar() {
                             {formatTime(durationMillis)}
                         </Text>
                         {isBuffering && (
-                            <Text style={[styles.bufferingBadge, { color: Colors.brand.accent }]}>
-                              · Loading…
+                            <Text style={[styles.bufLabel, { color: Colors.brand.accent }]}>
+                                · Loading…
                             </Text>
                         )}
                     </View>
                 </View>
 
-                {/* Play/Pause */}
-                <TouchableOpacity
-                    onPress={togglePlay}
-                    style={styles.playBtn}
-                    activeOpacity={0.8}
-                >
+                {/* Play / Pause */}
+                <TouchableOpacity onPress={togglePlay} style={styles.playBtn} activeOpacity={0.8}>
                     <LinearGradient
                         colors={[Colors.brand.primary, Colors.brand.secondary]}
-                        style={styles.playBtnGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                        style={styles.playBtnGrad}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     >
                         <Ionicons
                             name={isPlaying ? 'pause' : 'play'}
-                            size={18}
-                            color="#fff"
+                            size={18} color="#fff"
                             style={{ marginLeft: isPlaying ? 0 : 2 }}
                         />
                     </LinearGradient>
                 </TouchableOpacity>
 
-                {/* Stop / close */}
+                {/* Close */}
                 <TouchableOpacity
                     onPress={stopPlayback}
-                    style={[styles.stopBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
+                    style={[styles.closeBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' }]}
                     activeOpacity={0.7}
                 >
                     <Ionicons name="close" size={16} color={c.textSecondary} />
@@ -243,108 +210,46 @@ export default function AudioPlayerBar() {
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        left: 12,
-        right: 12,
+        left: 12, right: 12,
         borderRadius: BorderRadius['2xl'],
         overflow: 'hidden',
-        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.18,
+        shadowOpacity: 0.2,
         shadowRadius: 20,
         elevation: 16,
-        zIndex: 999,
+        zIndex: 900,          // below FAB (zIndex 950)
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.08)',
     },
-    topBorder: {
-        height: 2,
-        width: '100%',
-    },
+    topBorder: { height: 2, width: '100%' },
     progressTrack: {
         height: 3,
         backgroundColor: 'rgba(128,128,128,0.18)',
-        marginHorizontal: 16,
-        marginTop: 8,
-        borderRadius: 2,
-        overflow: 'visible',
+        marginHorizontal: 16, marginTop: 8,
+        borderRadius: 2, overflow: 'visible',
     },
-    progressFill: {
-        height: '100%',
-        borderRadius: 2,
-        overflow: 'hidden',
-    },
-    scrubberKnob: {
-        position: 'absolute',
-        top: -4,
-        width: 11,
-        height: 11,
-        borderRadius: 6,
-        backgroundColor: Colors.brand.primary,
-        marginLeft: -5.5,
+    progressFill: { height: '100%', borderRadius: 2, overflow: 'hidden' },
+    knob: {
+        position: 'absolute', top: -4,
+        width: 11, height: 11, borderRadius: 6,
+        backgroundColor: Colors.brand.primary, marginLeft: -5.5,
         shadowColor: Colors.brand.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 4,
-        elevation: 4,
+        shadowOpacity: 0.8, shadowRadius: 4, elevation: 4,
     },
     row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        paddingBottom: 14,
-        gap: 10,
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 14, paddingVertical: 12, paddingBottom: 14, gap: 10,
     },
-    iconWrap: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    info: {
-        flex: 1,
-    },
-    trackTitle: {
-        fontSize: FontSize.sm,
-        fontWeight: '700',
-        letterSpacing: -0.2,
-        marginBottom: 2,
-    },
-    timeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    timeText: {
-        fontSize: 11,
-        fontWeight: '600',
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    },
-    timeSep: {
-        fontSize: 11,
-    },
-    bufferingBadge: {
-        fontSize: 11,
-        fontWeight: '600',
-        fontStyle: 'italic',
-    },
-    playBtn: {
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    playBtnGradient: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    stopBtn: {
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    iconWrap: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    info: { flex: 1 },
+    title: { fontSize: FontSize.sm, fontWeight: '700', letterSpacing: -0.2, marginBottom: 2 },
+    timeRow: { flexDirection: 'row', alignItems: 'center' },
+    timeText: { fontSize: 11, fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+    timeSep: { fontSize: 11 },
+    bufLabel: { fontSize: 11, fontWeight: '600', fontStyle: 'italic' },
+    playBtn: { borderRadius: 14, overflow: 'hidden' },
+    playBtnGrad: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    closeBtn: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
 });

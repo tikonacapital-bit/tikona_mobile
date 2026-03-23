@@ -23,6 +23,8 @@ interface MediaPlayerState {
     positionMillis: number;
     durationMillis: number;
     isBuffering: boolean;
+    /** True while user is viewing the in-screen audio player — hides mini bar */
+    isAudioScreenActive: boolean;
 }
 
 interface MediaPlayerContextValue extends MediaPlayerState {
@@ -34,13 +36,12 @@ interface MediaPlayerContextValue extends MediaPlayerState {
     seekTo: (millis: number) => Promise<void>;
     togglePlay: () => Promise<void>;
     onStatusUpdate: (status: AVPlaybackStatus) => void;
-    /** Call when leaving a screen that has the player, to auto-pause */
     handleScreenBlur: () => void;
-    /** Call when returning to the screen that has the player, to auto-resume */
     handleScreenFocus: () => void;
-    /** Whether audio is actively playing (for FAB bar visibility) */
     hasActiveAudio: boolean;
     clearTrack: () => void;
+    /** Call when user navigates to the audio tab (hides mini bar) */
+    setAudioScreenActive: (active: boolean) => void;
 }
 
 const MediaPlayerContext = createContext<MediaPlayerContextValue | null>(null);
@@ -53,11 +54,15 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
         positionMillis: 0,
         durationMillis: 0,
         isBuffering: false,
+        isAudioScreenActive: false,
     });
 
     const soundRef = useRef<Audio.Sound | null>(null);
-    // Whether we should resume when returning to the screen
     const wasPlayingBeforeBlur = useRef(false);
+
+    const setAudioScreenActive = useCallback((active: boolean) => {
+        setState(s => ({ ...s, isAudioScreenActive: active }));
+    }, []);
 
     const onStatusUpdate = useCallback((status: AVPlaybackStatus) => {
         if (!status.isLoaded) {
@@ -85,7 +90,6 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
     }, []);
 
     const playTrack = useCallback(async (track: MediaTrack) => {
-        // If same track uri, just resume
         if (
             state.track?.uri === track.uri &&
             soundRef.current &&
@@ -95,7 +99,6 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
             return;
         }
 
-        // New track — unload old
         await stopAndUnload();
 
         setState(s => ({
@@ -163,6 +166,7 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
             positionMillis: 0,
             durationMillis: 0,
             isBuffering: false,
+            isAudioScreenActive: false,
         });
     }, [stopAndUnload]);
 
@@ -173,11 +177,8 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
     }, [state.isLoaded]);
 
     const togglePlay = useCallback(async () => {
-        if (state.isPlaying) {
-            await pausePlayback();
-        } else {
-            await resumePlayback();
-        }
+        if (state.isPlaying) { await pausePlayback(); }
+        else { await resumePlayback(); }
     }, [state.isPlaying, pausePlayback, resumePlayback]);
 
     const handleScreenBlur = useCallback(() => {
@@ -215,6 +216,7 @@ export function MediaPlayerProvider({ children }: { children: React.ReactNode })
                 handleScreenFocus,
                 hasActiveAudio,
                 clearTrack,
+                setAudioScreenActive,
             }}
         >
             {children}
