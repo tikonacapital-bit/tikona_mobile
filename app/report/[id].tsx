@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, Linking as RNLinking,
-    ActivityIndicator, Platform,
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/context/AuthContext';
-import { RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
 import ReportAIChat from '@/components/ReportAIChat';
-import { useUser } from '@clerk/clerk-expo';
-import * as WebBrowser from 'expo-web-browser';
-// Audio/Video opened via external links (Linking.openURL)
+import { RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
+import VideoPlayerModal from '@/components/VideoPlayerModal';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
+import { useMediaPlayer } from '@/context/MediaPlayerContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
+import { useUser } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator, Animated, Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 type TabType = 'report' | 'audio' | 'video';
 
@@ -23,11 +28,51 @@ export default function ReportDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const theme = useColorScheme();
     const c = Colors[theme];
+    const isDark = theme === 'dark';
     const { subscription, kyc, profile } = useAuth();
     const { user } = useUser();
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);
+    const [videoModalVisible, setVideoModalVisible] = useState(false);
+
+    const {
+        track,
+        isPlaying,
+        isLoaded,
+        positionMillis,
+        durationMillis,
+        isBuffering,
+        playTrack,
+        togglePlay,
+        stopPlayback,
+        handleScreenBlur,
+        handleScreenFocus,
+    } = useMediaPlayer();
+
+    const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
+
+    const formatTime = (millis: number) => {
+        if (!millis || isNaN(millis)) return '0:00';
+        const totalSeconds = Math.floor(millis / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    };
+
+    // Pause when switching away from audio tab or leaving the screen
+    useEffect(() => {
+        if (activeTab !== 'audio') {
+            // Don't stop — just leave mini player running
+        }
+    }, [activeTab]);
+
+    // Handle screen focus/blur for auto-pause/resume
+    useEffect(() => {
+        return () => {
+            // Called when screen unmounts — don't stop, keep mini player
+        };
+    }, []);
 
     const { data: report, isLoading } = useQuery({
         queryKey: ['report_detail', id],
@@ -106,6 +151,20 @@ export default function ReportDetailScreen() {
         { key: 'video', label: 'Video', icon: 'videocam', available: hasVideo, locked: !canVideo },
     ];
 
+    const isCurrentTrack = track?.uri === report.audio_file_url;
+    const audioReady = isCurrentTrack && isLoaded;
+
+    const handlePlayAudio = () => {
+        if (report.audio_file_url) {
+            playTrack({
+                uri: report.audio_file_url,
+                type: 'audio',
+                title: `${report.company_name} – Audio Summary`,
+                subtitle: report.nse_symbol,
+            });
+        }
+    };
+
     const renderTextSection = (title: string, content: string | null) => {
         if (!content) return null;
         return (
@@ -113,6 +172,212 @@ export default function ReportDetailScreen() {
                 <Text style={[styles.sectionHeading, { color: c.text }]} selectable={false}>{title}</Text>
                 <Text style={[styles.sectionBody, { color: c.textSecondary }]} selectable={false}>{content}</Text>
             </View>
+        );
+    };
+
+    // ─── Premium Audio Player UI ───
+    const renderAudioPlayer = () => {
+        if (!hasAudio || !canAudio) return null;
+
+        return (
+            <View style={[styles.audioCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: c.border }]}>
+                {/* Gradient top accent */}
+                <LinearGradient
+                    colors={[Colors.brand.primary, Colors.brand.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.audioCardAccent}
+                />
+
+                {/* Header */}
+                <View style={styles.audioHeader}>
+                    <View style={[styles.audioIconWrap, { backgroundColor: Colors.brand.primary + '18' }]}>
+                        <Ionicons name="headset" size={24} color={Colors.brand.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.audioTitle, { color: c.text }]}>Audio Summary</Text>
+                        <Text style={[styles.audioSub, { color: c.textTertiary }]}>AI-narrated research brief</Text>
+                    </View>
+                    {audioReady && (
+                        <View style={[styles.liveChip, { backgroundColor: Colors.brand.primary + '15' }]}>
+                            <View style={[styles.liveDot, { backgroundColor: isPlaying ? '#22c55e' : Colors.brand.primary }]} />
+                            <Text style={[styles.liveChipText, { color: isPlaying ? '#22c55e' : Colors.brand.primary }]}>
+                                {isPlaying ? 'Playing' : 'Paused'}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+
+                {/* Progress bar (only when loaded) */}
+                {audioReady && (
+                    <View style={styles.progressSection}>
+                        <View style={[styles.progressTrack, { backgroundColor: c.border }]}>
+                            <View style={[styles.progressFill, { width: `${progress * 100}%` as any }]}>
+                                <LinearGradient
+                                    colors={[Colors.brand.primary, Colors.brand.accent]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={StyleSheet.absoluteFill}
+                                />
+                            </View>
+                            <View style={[styles.progressKnob, { left: `${progress * 100}%` as any }]} />
+                        </View>
+                        <View style={styles.timeRow}>
+                            <Text style={[styles.timeText, { color: c.textTertiary }]}>{formatTime(positionMillis)}</Text>
+                            <Text style={[styles.timeText, { color: c.textTertiary }]}>{formatTime(durationMillis)}</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* Controls */}
+                <View style={styles.audioControls}>
+                    {!audioReady ? (
+                        // Not yet playing — Show Play button
+                        <TouchableOpacity
+                            style={styles.playAudioBtn}
+                            onPress={handlePlayAudio}
+                            activeOpacity={0.85}
+                        >
+                            <LinearGradient
+                                colors={[Colors.brand.primary, Colors.brand.secondary]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.playAudioBtnInner}
+                            >
+                                <Ionicons name="play" size={20} color="#fff" style={{ marginLeft: 3 }} />
+                                <Text style={styles.playAudioBtnText}>Play Audio</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    ) : (
+                        // Loaded — show full controls
+                        <View style={styles.playerControls}>
+                            {/* Main Play/Pause */}
+                            <TouchableOpacity
+                                onPress={togglePlay}
+                                style={styles.mainCtrlBtn}
+                                activeOpacity={0.85}
+                            >
+                                <LinearGradient
+                                    colors={[Colors.brand.primary, Colors.brand.secondary]}
+                                    style={styles.mainCtrlBtnGradient}
+                                >
+                                    <Ionicons
+                                        name={isPlaying ? 'pause' : 'play'}
+                                        size={22}
+                                        color="#fff"
+                                        style={{ marginLeft: isPlaying ? 0 : 3 }}
+                                    />
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.nowPlayingLabel, { color: c.textTertiary }]}>
+                                    {isBuffering ? 'Buffering…' : isPlaying ? 'Now Playing' : 'Paused'}
+                                </Text>
+                                <Text style={[styles.nowPlayingTitle, { color: c.text }]} numberOfLines={1}>
+                                    {report.company_name} – Audio Summary
+                                </Text>
+                            </View>
+
+                            {/* Stop */}
+                            <TouchableOpacity
+                                onPress={stopPlayback}
+                                style={[styles.stopBtn, { backgroundColor: c.border }]}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="stop" size={16} color={c.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </View>
+
+                {/* Mini-player hint */}
+                {audioReady && (
+                    <View style={[styles.miniHint, { borderTopColor: c.border }]}>
+                        <Ionicons name="information-circle-outline" size={12} color={c.textTertiary} />
+                        <Text style={[styles.miniHintText, { color: c.textTertiary }]}>
+                            Audio continues playing even when you navigate away
+                        </Text>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
+    // ─── Premium Video Player UI ───
+    const renderVideoPlayer = () => {
+        if (!hasVideo || !canVideo) return null;
+
+        return (
+            <>
+                <View style={[styles.videoCard, { backgroundColor: isDark ? '#111827' : '#fff', borderColor: c.border }]}>
+                    {/* Gradient accent */}
+                    <LinearGradient
+                        colors={['#7c3aed', '#4f46e5']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.audioCardAccent}
+                    />
+
+                    {/* Thumbnail placeholder */}
+                    <View style={styles.videoThumbnailWrap}>
+                        <LinearGradient
+                            colors={[isDark ? '#1a1f2e' : '#eef2ff', isDark ? '#0f1420' : '#e0e7ff']}
+                            style={styles.videoThumbnail}
+                        >
+                            <View style={[styles.videoPlayOverlay]}>
+                                <LinearGradient
+                                    colors={['#7c3aed', '#4f46e5']}
+                                    style={styles.videoPlayBtnGradient}
+                                >
+                                    <Ionicons name="play" size={28} color="#fff" style={{ marginLeft: 4 }} />
+                                </LinearGradient>
+                            </View>
+                            <View style={styles.hdBadge}>
+                                <Text style={styles.hdBadgeText}>HD</Text>
+                            </View>
+                        </LinearGradient>
+                    </View>
+
+                    {/* Info */}
+                    <View style={styles.videoInfo}>
+                        <View style={styles.videoInfoRow}>
+                            <View style={[styles.audioIconWrap, { backgroundColor: '#7c3aed18' }]}>
+                                <Ionicons name="videocam" size={22} color="#7c3aed" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.audioTitle, { color: c.text }]}>Video Research Brief</Text>
+                                <Text style={[styles.audioSub, { color: c.textTertiary }]}>AI-generated visual summary</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.watchBtn}
+                            onPress={() => setVideoModalVisible(true)}
+                            activeOpacity={0.85}
+                        >
+                            <LinearGradient
+                                colors={['#7c3aed', '#4f46e5']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.watchBtnInner}
+                            >
+                                <Ionicons name="play-circle" size={20} color="#fff" />
+                                <Text style={styles.watchBtnText}>Watch Video</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Video Modal */}
+                <VideoPlayerModal
+                    visible={videoModalVisible}
+                    uri={report.video_file_url!}
+                    title={report.company_name}
+                    subtitle="Video Research Brief"
+                    onClose={() => setVideoModalVisible(false)}
+                />
+            </>
         );
     };
 
@@ -163,10 +428,7 @@ export default function ReportDetailScreen() {
                 ))}
                 {/* Ask AI Tab */}
                 <TouchableOpacity
-                    style={[
-                        styles.tab,
-                        { borderBottomColor: 'transparent' },
-                    ]}
+                    style={[styles.tab, { borderBottomColor: 'transparent' }]}
                     onPress={() => setShowAIChat(true)}
                 >
                     <Ionicons name="sparkles" size={16} color={Colors.brand.accent} />
@@ -196,6 +458,7 @@ export default function ReportDetailScreen() {
                         ))}
                     </View>
                 )}
+
                 {activeTab === 'report' && (
                     <>
                         {hasPdf && (
@@ -231,39 +494,9 @@ export default function ReportDetailScreen() {
                     </>
                 )}
 
-                {activeTab === 'audio' && hasAudio && canAudio && (
-                    <View style={[styles.mediaCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                        <View style={[styles.mediaIconCircle, { backgroundColor: Colors.brand.primary + '15' }]}>
-                            <Ionicons name="headset" size={32} color={Colors.brand.primary} />
-                        </View>
-                        <Text style={[styles.mediaTitle, { color: c.text }]}>Audio Summary</Text>
-                        <Text style={[styles.mediaSub, { color: c.textSecondary }]}>AI-narrated research brief</Text>
-                        <TouchableOpacity
-                            style={[styles.playBtn, { backgroundColor: Colors.brand.primary }]}
-                            onPress={() => RNLinking.openURL(report.audio_file_url!)}
-                        >
-                            <Ionicons name="play" size={18} color="#fff" />
-                            <Text style={styles.playBtnText}>Play Audio</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {activeTab === 'audio' && renderAudioPlayer()}
 
-                {activeTab === 'video' && hasVideo && canVideo && (
-                    <View style={[styles.mediaCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                        <View style={[styles.mediaIconCircle, { backgroundColor: Colors.brand.primary + '15' }]}>
-                            <Ionicons name="videocam" size={32} color={Colors.brand.primary} />
-                        </View>
-                        <Text style={[styles.mediaTitle, { color: c.text }]}>Video Research Brief</Text>
-                        <Text style={[styles.mediaSub, { color: c.textSecondary }]}>AI-generated video summary</Text>
-                        <TouchableOpacity
-                            style={[styles.playBtn, { backgroundColor: Colors.brand.primary }]}
-                            onPress={() => RNLinking.openURL(report.video_file_url!)}
-                        >
-                            <Ionicons name="play" size={18} color="#fff" />
-                            <Text style={styles.playBtnText}>Watch Video</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {activeTab === 'video' && renderVideoPlayer()}
             </ResponsiveScrollView>
 
             {/* Floating AI Chat Button */}
@@ -298,18 +531,227 @@ const styles = StyleSheet.create({
     tabRow: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: Spacing.xl },
     tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 12 },
     tabLabel: { fontSize: FontSize.sm, fontWeight: '600' },
-    contentContainer: { padding: Spacing.xl, paddingBottom: 40 },
+    contentContainer: { padding: Spacing.xl, paddingBottom: 120 },
     pdfBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: BorderRadius.md, marginBottom: Spacing.xl },
     pdfBtnText: { color: '#fff', fontSize: FontSize.base, fontWeight: '700' },
     textSection: { marginBottom: Spacing['2xl'] },
     sectionHeading: { fontSize: FontSize.md, fontWeight: '700', marginBottom: Spacing.sm },
     sectionBody: { fontSize: FontSize.base, lineHeight: 24 },
-    mediaCard: { alignItems: 'center', padding: Spacing['3xl'], borderRadius: BorderRadius.xl, borderWidth: 1 },
-    mediaIconCircle: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.lg },
-    mediaTitle: { fontSize: FontSize.lg, fontWeight: '700' },
-    mediaSub: { fontSize: FontSize.sm, marginTop: 4, marginBottom: Spacing.xl },
-    playBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 14, borderRadius: BorderRadius.md },
-    playBtnText: { color: '#fff', fontSize: FontSize.md, fontWeight: '700' },
+
+    // ─── Audio Card ───
+    audioCard: {
+        borderRadius: BorderRadius['2xl'],
+        borderWidth: 1,
+        overflow: 'hidden',
+        marginBottom: Spacing.xl,
+        shadowColor: Colors.brand.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    audioCardAccent: {
+        height: 3,
+        width: '100%',
+    },
+    audioHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: Spacing.xl,
+        paddingBottom: Spacing.md,
+    },
+    audioIconWrap: {
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    audioTitle: { fontSize: FontSize.md, fontWeight: '800', letterSpacing: -0.3 },
+    audioSub: { fontSize: FontSize.xs, marginTop: 2 },
+    liveChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: BorderRadius.full,
+    },
+    liveDot: { width: 6, height: 6, borderRadius: 3 },
+    liveChipText: { fontSize: 11, fontWeight: '700' },
+
+    // Progress
+    progressSection: { paddingHorizontal: Spacing.xl, paddingTop: 4 },
+    progressTrack: {
+        height: 5,
+        borderRadius: 3,
+        overflow: 'visible',
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressKnob: {
+        position: 'absolute',
+        top: -4,
+        width: 13,
+        height: 13,
+        borderRadius: 7,
+        backgroundColor: Colors.brand.primary,
+        marginLeft: -6.5,
+        shadowColor: Colors.brand.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.7,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    timeRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 6,
+    },
+    timeText: { fontSize: 11, fontWeight: '600', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+
+    // Audio Controls
+    audioControls: { padding: Spacing.xl, paddingTop: Spacing.lg },
+    playAudioBtn: {
+        borderRadius: BorderRadius.lg,
+        overflow: 'hidden',
+        alignSelf: 'stretch',
+    },
+    playAudioBtnInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 15,
+        borderRadius: BorderRadius.lg,
+    },
+    playAudioBtnText: {
+        color: '#fff',
+        fontSize: FontSize.md,
+        fontWeight: '700',
+    },
+    playerControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+    },
+    mainCtrlBtn: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: Colors.brand.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    mainCtrlBtnGradient: {
+        width: 54,
+        height: 54,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    nowPlayingLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
+    nowPlayingTitle: { fontSize: FontSize.sm, fontWeight: '700' },
+    stopBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    // Mini player hint
+    miniHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderTopWidth: 1,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: 10,
+    },
+    miniHintText: { fontSize: 11, flex: 1, lineHeight: 16 },
+
+    // ─── Video Card ───
+    videoCard: {
+        borderRadius: BorderRadius['2xl'],
+        borderWidth: 1,
+        overflow: 'hidden',
+        marginBottom: Spacing.xl,
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    videoThumbnailWrap: {
+        width: '100%',
+        aspectRatio: 16 / 9,
+        overflow: 'hidden',
+    },
+    videoThumbnail: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    videoPlayOverlay: {
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+        elevation: 12,
+    },
+    videoPlayBtnGradient: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    hdBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
+    },
+    hdBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    videoInfo: { padding: Spacing.xl },
+    videoInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginBottom: Spacing.lg,
+    },
+    watchBtn: {
+        borderRadius: BorderRadius.lg,
+        overflow: 'hidden',
+    },
+    watchBtnInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 15,
+        borderRadius: BorderRadius.lg,
+    },
+    watchBtnText: {
+        color: '#fff',
+        fontSize: FontSize.md,
+        fontWeight: '700',
+    },
+
     fab: { position: 'absolute', bottom: Platform.select({ ios: 40, default: 24 }), right: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6 },
     sebiDisclaimer: { marginTop: Spacing['2xl'], padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1 },
     sebiDisclaimerHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm },

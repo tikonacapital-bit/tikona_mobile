@@ -65,10 +65,6 @@ export default function AIAnalystScreen() {
                         <View style={styles.cardBody}>
                             <View style={styles.topRow}>
                                 <Text style={[styles.sectorName, { color: c.text }]}>{a.sector}</Text>
-                                <View style={styles.onlinePill}>
-                                    <View style={styles.onlineDot} />
-                                    <Text style={styles.onlineText}>Online</Text>
-                                </View>
                             </View>
                             <Text style={[styles.analystName, { color: a.color }]}>
                                 {a.analyst} · {a.title}
@@ -143,14 +139,6 @@ const styles = StyleSheet.create({
     cardBody: { flex: 1 },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
     sectorName: { fontSize: FontSize.base, fontWeight: '700' },
-    onlinePill: {
-        flexDirection: 'row', alignItems: 'center', gap: 4,
-        backgroundColor: '#22c55e18',
-        paddingHorizontal: 7, paddingVertical: 2,
-        borderRadius: BorderRadius.full,
-    },
-    onlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#22c55e' },
-    onlineText: { color: '#22c55e', fontSize: 10, fontWeight: '700' },
     analystName: { fontSize: 11, fontWeight: '600', marginBottom: 3 },
     description: { fontSize: 11, lineHeight: 16 },
     arrowWrap: {

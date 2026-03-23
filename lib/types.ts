@@ -154,6 +154,27 @@ export const PLAN_PRICES: Record<string, number> = {
     all_in_growth: 74999,
 };
 
+// AI Chat Session (logs of AI chat conversations)
+export interface AIChatSession {
+    id: string;
+    user_id: string;
+    report_id: string;
+    company_name: string;
+    nse_symbol: string;
+    messages: {
+        role: 'user' | 'assistant' | 'system';
+        text: string;
+        timestamp: string;
+        input_mode?: 'voice' | 'text';
+        has_audio?: boolean;
+    }[];
+    message_count: number;
+    started_at: string;
+    ended_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 // Portfolio
 export interface CustomerPortfolio {
     id: string;

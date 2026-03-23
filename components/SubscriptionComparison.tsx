@@ -15,14 +15,17 @@ interface FeatureComparison {
 }
 
 const COMPARISON_DATA: FeatureComparison[] = [
-    { name: 'Research Coverage', midcap: 'Mid Cap Only', smallcap: 'Small Cap Only', sme: 'SME Only', bundle: 'Full Access' },
-    { name: 'Detailed Reports', midcap: true, smallcap: true, sme: true, bundle: true },
-    { name: 'Entry/Exit Alerts', midcap: true, smallcap: true, sme: true, bundle: true },
-    { name: 'Portfolio Tracker', midcap: true, smallcap: true, sme: true, bundle: true },
-    { name: 'Telegram Access', midcap: true, smallcap: true, sme: true, bundle: true },
-    { name: 'Research Calls', midcap: false, smallcap: false, sme: false, bundle: 'Personalised' },
-    { name: 'Portfolio Advisory', midcap: false, smallcap: false, sme: false, bundle: 'Priority' },
-    { name: 'Support', midcap: 'Email', smallcap: 'Priority', sme: 'Priority', bundle: 'Dedicated' },
+    { name: 'Research Coverage', midcap: 'Top 101st to 250th based on market cap', smallcap: '251st company onwards', sme: 'SME listed companies', bundle: 'Full Access' },
+    { name: 'Key Proposition', midcap: 'High growth and Large Caps of tomorrow', smallcap: 'Capable companies to transform to Midcaps', sme: 'Early-stage high potential businesses', bundle: 'All segments combined' },
+    { name: 'Detailed Reports', midcap: 'In-depth fundamental reports with valuation', smallcap: 'Deep-dive reports with growth triggers', sme: 'Focused reports with business understanding', bundle: 'Access to all reports' },
+    { name: 'Podcast Summary', midcap: true, smallcap: true, sme: true, bundle: true },
+    { name: 'Video Summary', midcap: true, smallcap: true, sme: true, bundle: true },
+    { name: 'Talk to Report', midcap: true, smallcap: true, sme: true, bundle: true },
+    { name: 'Entry/Exit Strategy', midcap: 'Clear strategy for BUY, HOLD and SELL', smallcap: 'Tactical entry & exit with risk levels', sme: 'High-risk high-reward strategy guidance', bundle: 'Strategies for respective stocks' },
+    { name: 'Portfolio Tracker', midcap: 'Track recommended stocks', smallcap: 'Track smallcap portfolio', sme: 'Track SME picks', bundle: 'Track all at each plan level' },
+    { name: 'Telegram Access', midcap: 'Dedicated updates channel', smallcap: 'Dedicated updates channel', sme: 'Dedicated updates channel', bundle: 'Premium combined channel' },
+    { name: 'Timely Research Calls', midcap: 'Regular conviction calls', smallcap: 'High-growth opportunity alerts', sme: 'Early-stage opportunity alerts', bundle: 'All calls' },
+    { name: 'Priority Support', midcap: 'Email / Telegram', smallcap: 'Email / Telegram', sme: 'Email / Telegram', bundle: 'Email / Telegram' },
 ];
 
 export function SubscriptionComparison() {
@@ -45,7 +48,7 @@ export function SubscriptionComparison() {
         }
         return (
             <View style={[styles.cell, isLast && styles.lastCell, isDesktop && styles.webCell]}>
-                <Text style={[styles.cellText, { color: c.textSecondary }]} numberOfLines={1}>{value}</Text>
+                <Text style={[styles.cellText, { color: c.textSecondary }]}>{value}</Text>
             </View>
         );
     };
@@ -142,17 +145,18 @@ const styles = StyleSheet.create({
         paddingLeft: 8,
     },
     cell: {
-        width: 100,
+        width: 140,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 12,
+        paddingHorizontal: 8,
     },
     webCell: {
         flex: 1,
         width: 'auto',
     },
     lastCell: {
-        width: 110,
+        width: 150,
     },
     headerText: {
         fontSize: 11,

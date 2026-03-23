@@ -15,6 +15,16 @@ import {
   textToSpeech,
   type ChatHistoryEntry,
 } from '@/lib/sarvamAI';
+import {
+  createChatSession,
+  appendMessages,
+  closeChatSession,
+  fetchChatSessions,
+  deleteChatSession,
+  type ChatLogMessage,
+  type ChatSession,
+} from '@/lib/chatLogger';
+import { useAuth } from '@/context/AuthContext';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
@@ -23,6 +33,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   AppState,
   FlatList,
@@ -192,6 +203,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const c = Colors[theme];
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
+  const { userId } = useAuth();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
@@ -199,6 +211,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [pastSessions, setPastSessions] = useState<ChatSession[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [viewingPastSession, setViewingPastSession] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -208,8 +225,95 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const isStoppingRef = useRef(false);
   const mountedRef = useRef(true);
   const audioCache = useRef<Map<string, string>>(new Map());
+  const sessionIdRef = useRef<string | null>(null);
+  const savedLiveMessages = useRef<ChatMessage[]>([]);
 
   const MAX_HISTORY = 10;
+
+  // ── Chat Session Logging Helpers ─────────────────────────────────
+  const ensureSession = useCallback(async () => {
+    if (sessionIdRef.current || !userId) return;
+    const id = await createChatSession({
+      userId,
+      reportId: report.report_id,
+      companyName: report.company_name,
+      nseSymbol: report.nse_symbol,
+    });
+    sessionIdRef.current = id;
+  }, [userId, report]);
+
+  const logMessages = useCallback(async (msgs: ChatLogMessage[]) => {
+    if (!sessionIdRef.current) return;
+    // Fire-and-forget — don't block the chat UX
+    appendMessages(sessionIdRef.current, msgs).catch(() => {});
+  }, []);
+
+  const endSession = useCallback(async () => {
+    if (sessionIdRef.current) {
+      closeChatSession(sessionIdRef.current).catch(() => {});
+      sessionIdRef.current = null;
+    }
+  }, []);
+
+  // ── Chat History Helpers ──────────────────────────────────────────
+  const loadHistory = useCallback(async () => {
+    if (!userId) return;
+    setLoadingHistory(true);
+    const sessions = await fetchChatSessions(userId, report.report_id);
+    setPastSessions(sessions);
+    setLoadingHistory(false);
+    setShowHistory(true);
+  }, [userId, report.report_id]);
+
+  const loadPastSession = useCallback((session: ChatSession) => {
+    // Save current live messages so we can restore them
+    if (!viewingPastSession) {
+      savedLiveMessages.current = messages;
+    }
+
+    // Convert stored messages to ChatMessage format
+    const pastMessages: ChatMessage[] = session.messages.map((msg, i) => ({
+      id: `past-${session.id}-${i}`,
+      role: msg.role,
+      text: msg.text,
+      timestamp: new Date(msg.timestamp),
+    }));
+
+    setMessages(pastMessages);
+    setViewingPastSession(true);
+    setShowHistory(false);
+  }, [messages, viewingPastSession]);
+
+  const backToLiveChat = useCallback(() => {
+    setMessages(savedLiveMessages.current.length > 0 ? savedLiveMessages.current : [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        text: `Hi! I'm your AI research assistant. I've fully analyzed the report on ${report.company_name} (${report.nse_symbol}). Ask me anything — financials, risks, valuation, or growth outlook.`,
+        timestamp: new Date(),
+      },
+    ]);
+    setViewingPastSession(false);
+    savedLiveMessages.current = [];
+  }, [report]);
+
+  const handleDeleteSession = useCallback((session: ChatSession) => {
+    setSessionToDelete(session);
+  }, []);
+
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    const id = sessionToDelete.id;
+    // Hide modal immediately
+    setSessionToDelete(null);
+
+    // Optimistic update
+    setPastSessions((prev) => prev.filter((s) => s.id !== id));
+    if (viewingPastSession && messages.every(m => m.id.startsWith(`past-${id}`))) {
+         backToLiveChat();
+    }
+    await deleteChatSession(id);
+  };
 
   // Mic button glow animation
   const micGlow = useRef(new Animated.Value(0)).current;
@@ -402,6 +506,13 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         { role: 'assistant', content: chatResult.reply },
       ].slice(-MAX_HISTORY);
 
+      // Log this exchange to Supabase (fire-and-forget)
+      await ensureSession();
+      logMessages([
+        { role: 'user', text: userText, timestamp: new Date().toISOString(), input_mode: 'voice' },
+        { role: 'assistant', text: chatResult.reply, timestamp: new Date().toISOString() },
+      ]);
+
       let hasAudio = false;
       try {
         const ttsResult = await textToSpeech(chatResult.reply, sttResult.language_code || 'en-IN');
@@ -468,6 +579,13 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         { role: 'user', content: text },
         { role: 'assistant', content: chatResult.reply },
       ].slice(-MAX_HISTORY);
+
+      // Log this exchange to Supabase (fire-and-forget)
+      await ensureSession();
+      logMessages([
+        { role: 'user', text, timestamp: new Date().toISOString(), input_mode: 'text' },
+        { role: 'assistant', text: chatResult.reply, timestamp: new Date().toISOString() },
+      ]);
 
       let hasAudio = false;
       try {
@@ -609,11 +727,15 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
   // Just hide the modal — keep audio playing & messages intact
   const handleMinimize = () => {
+    endSession();
     onClose();
   };
 
   // Full reset — starts a new chat session
   const handleNewChat = useCallback(() => {
+    // Close the current logging session before resetting
+    endSession();
+
     if (soundRef.current) {
       soundRef.current.stopAsync().catch(() => {});
       soundRef.current.unloadAsync().catch(() => {});
@@ -642,7 +764,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
     });
     audioCache.current.clear();
-  }, [report]);
+  }, [report, endSession]);
 
   // ── Render Message ────────────────────────────────────────────────────
   const renderMessage = ({ item }: { item: ChatMessage }) => {
@@ -807,12 +929,159 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
             </View>
           </View>
 
+          <TouchableOpacity onPress={loadHistory} style={s.headerBtn} activeOpacity={0.7}>
+            <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+              <Ionicons name="time-outline" size={18} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={handleNewChat} style={s.headerBtn} activeOpacity={0.7}>
             <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
               <Ionicons name="refresh" size={18} color="#fff" />
             </View>
           </TouchableOpacity>
         </LinearGradient>
+
+        {/* ── Viewing Past Session Banner ──────────────────────────────── */}
+        {viewingPastSession && (
+          <TouchableOpacity
+            onPress={backToLiveChat}
+            style={[s.pastSessionBanner, { backgroundColor: isDark ? '#1e293b' : '#EFF4FF' }]}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back-circle" size={18} color={Colors.brand.primary} />
+            <Text style={[s.pastSessionBannerText, { color: Colors.brand.primary }]}>
+              Viewing past chat · Tap to return to live chat
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── History Panel Overlay ────────────────────────────────────── */}
+        {showHistory && (
+          <View style={[s.historyOverlay, { backgroundColor: c.background }]}> 
+            <View style={[s.historyHeader, { borderBottomColor: c.border }]}>
+              <Text style={[s.historyTitle, { color: c.text }]}>Chat History</Text>
+              <TouchableOpacity onPress={() => setShowHistory(false)} style={s.historyCloseBtn} activeOpacity={0.7}>
+                <Ionicons name="close" size={22} color={c.text} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingHistory ? (
+              <View style={s.historyLoading}>
+                <ActivityIndicator size="large" color={Colors.brand.primary} />
+                <Text style={[s.historyLoadingText, { color: c.textTertiary }]}>Loading past chats...</Text>
+              </View>
+            ) : pastSessions.length === 0 ? (
+              <View style={s.historyEmpty}>
+                <Ionicons name="chatbubbles-outline" size={48} color={c.textTertiary} />
+                <Text style={[s.historyEmptyTitle, { color: c.text }]}>No Past Chats</Text>
+                <Text style={[s.historyEmptyText, { color: c.textTertiary }]}>
+                  Your conversations with the AI assistant will appear here.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={pastSessions}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={s.historyList}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const firstUserMsg = item.messages.find((m) => m.role === 'user');
+                  const sessionDate = new Date(item.started_at);
+                  const isToday = new Date().toDateString() === sessionDate.toDateString();
+                  const dateStr = isToday
+                    ? `Today · ${sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : sessionDate.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                  return (
+                    <View
+                      style={[
+                        s.historyCard,
+                        {
+                          backgroundColor: isDark ? c.surfaceElevated : '#F9FAFB',
+                          borderColor: isDark ? c.border : '#E5E7EB',
+                        },
+                      ]}
+                    >
+                      <View style={s.historyCardTop}>
+                        <TouchableOpacity
+                          style={s.historyCardMainClick}
+                          onPress={() => loadPastSession(item)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[s.historyCardIcon, { backgroundColor: Colors.brand.primary + '12' }]}>
+                            <Ionicons name="chatbubble-ellipses" size={16} color={Colors.brand.primary} />
+                          </View>
+                          <View style={s.historyCardMeta}>
+                            <Text style={[s.historyCardDate, { color: c.textSecondary }]}>{dateStr}</Text>
+                            <Text style={[s.historyCardCount, { color: c.textTertiary }]}>
+                              {item.message_count} message{item.message_count !== 1 ? 's' : ''}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={s.historyCardDeleteBtn}
+                          onPress={() => handleDeleteSession(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      {firstUserMsg && (
+                        <TouchableOpacity
+                          style={s.historyCardPreviewWrap}
+                          onPress={() => loadPastSession(item)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[s.historyCardPreview, { color: c.text }]}
+                            numberOfLines={2}
+                          >
+                            "{firstUserMsg.text}"
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                }}
+              />
+            )}
+
+            {/* ── Custom Premium Delete Confirmation Modal ──────────────── */}
+            {sessionToDelete && (
+              <View style={s.deleteModalOverlay}>
+                <View style={[s.deleteModalCard, { backgroundColor: isDark ? c.surfaceElevated : '#fff' }]}>
+                  <View style={s.deleteModalIconWrap}>
+                    <Ionicons name="warning" size={32} color="#EF4444" />
+                  </View>
+                  <Text style={[s.deleteModalTitle, { color: c.text }]}>Delete Chat</Text>
+                  <Text style={[s.deleteModalText, { color: c.textSecondary }]}>
+                    Are you sure you want to permanently delete this chat history? This action cannot be undone.
+                  </Text>
+                  
+                  <View style={s.deleteModalActions}>
+                    <TouchableOpacity
+                      style={[s.deleteModalBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }]}
+                      onPress={() => setSessionToDelete(null)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.deleteModalBtnText, { color: c.text }]}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.deleteModalBtn, { backgroundColor: '#EF4444' }]}
+                      onPress={confirmDeleteSession}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.deleteModalBtnText, { color: '#fff' }]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ── Disclaimer ─────────────────────────────────────────────── */}
         <View style={[s.disclaimerBar, { backgroundColor: isDark ? Colors.brand.primary + '08' : '#FEF9EF' }]}>
@@ -1537,5 +1806,186 @@ const s = StyleSheet.create({
     width: 3,
     height: 18,
     borderRadius: 2,
+  },
+
+  // ── History panel ──────────────────────────────────────────────────
+  historyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    paddingTop: 0,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  historyCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyLoadingText: {
+    fontSize: FontSize.sm,
+  },
+  historyEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    padding: Spacing['2xl'],
+  },
+  historyEmptyTitle: {
+    fontSize: FontSize.md,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  historyEmptyText: {
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  historyList: {
+    padding: Spacing.lg,
+    gap: 10,
+  },
+  historyCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: 8,
+    marginBottom: 10,
+  },
+  historyCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  historyCardMainClick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  historyCardDeleteBtn: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  historyCardMeta: {
+    flex: 1,
+    gap: 1,
+  },
+  historyCardDate: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+  },
+  historyCardCount: {
+    fontSize: FontSize.xs,
+  },
+  historyCardPreviewWrap: {
+    paddingLeft: 46,
+    marginTop: -4,
+  },
+  historyCardPreview: {
+    fontSize: FontSize.sm,
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+
+  // ── Past session banner ───────────────────────────────────────────
+  pastSessionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.lg,
+  },
+  pastSessionBannerText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+  },
+
+  // ── Custom Delete Modal ───────────────────────────────────────────
+  deleteModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+    padding: Spacing.xl,
+  },
+  deleteModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    padding: Spacing['xl'],
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  deleteModalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  deleteModalTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  deleteModalText: {
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: Spacing.lg,
+    paddingHorizontal: 8,
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteModalBtnText: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
   },
 });
