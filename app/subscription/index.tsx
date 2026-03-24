@@ -176,7 +176,7 @@ export default function SubscriptionScreen() {
                         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                             <Ionicons name="chevron-back" size={24} color="#fff" />
                         </TouchableOpacity>
-                        
+
                         {isRefreshing ? (
                             <View style={styles.headerBadge}>
                                 <ActivityIndicator size="small" color="#fff" />

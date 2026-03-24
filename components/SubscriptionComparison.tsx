@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from './ui';
 
 interface FeatureComparison {
@@ -38,10 +38,10 @@ export function SubscriptionComparison() {
         if (typeof value === 'boolean') {
             return (
                 <View style={[styles.cell, isLast && styles.lastCell, isDesktop && styles.webCell]}>
-                    <Ionicons 
-                        name={value ? "checkmark-circle" : "close-circle"} 
-                        size={20} 
-                        color={value ? c.success : c.textTertiary} 
+                    <Ionicons
+                        name={value ? "checkmark-circle" : "close-circle"}
+                        size={20}
+                        color={value ? c.success : c.textTertiary}
                     />
                 </View>
             );
@@ -86,7 +86,6 @@ export function SubscriptionComparison() {
     return (
         <Card theme={theme} style={styles.container}>
             <View style={styles.headerRow}>
-                <Ionicons name="git-compare-outline" size={20} color={Colors.brand.primary} />
                 <Text style={[styles.title, { color: c.text }]}>Detailed Comparison</Text>
             </View>
 

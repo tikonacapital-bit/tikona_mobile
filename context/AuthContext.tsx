@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { View, Platform } from 'react-native';
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
@@ -52,13 +52,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [dataError, setDataError] = useState(false);
 
+    const getTokenRef = useRef(getToken);
+    getTokenRef.current = getToken;
+    const isFetchingRef = useRef(false);
+    const lastSyncedEmailRef = useRef<string | null>(null);
+
     const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
         setIsLoadingData(true);
         try {
             setDataError(false);
 
             // Get a Clerk JWT for Supabase so RLS policies can identify the user
-            const token = await getToken({ template: 'supabase' });
+            const token = await getTokenRef.current({ template: 'supabase' });
             if (!token) {
                 logger.warn('No Clerk token available — cannot fetch user data with RLS');
                 setDataError(true);
@@ -74,17 +81,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 client.from('refund_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             ]);
             // Tradebox instant e-KYC: an active subscription means KYC was successful.
-            const kycData = subRes.data?.is_active 
-                ? ({ status: 'approved' } as any) 
+            const kycData = subRes.data?.is_active
+                ? ({ status: 'approved' } as any)
                 : (kycRes.data ?? null);
-            
+
             setKyc(kycData);
             setProfile(profileRes.data ?? null);
             setSubscription(subRes.data ?? null);
             setRefundRequest(refundRes.data as RefundRequest | null ?? null);
 
-            // Keep email synced in profiles so Razorpay webhook can look up user_id by email
-            if (primaryEmail && profileRes.data) {
+            // Keep email synced in profiles — only if it actually changed
+            if (primaryEmail && profileRes.data && primaryEmail !== lastSyncedEmailRef.current && primaryEmail !== profileRes.data.email) {
+                lastSyncedEmailRef.current = primaryEmail;
                 await client
                     .from('profiles')
                     .update({ email: primaryEmail })
@@ -94,9 +102,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             logger.warn('Failed to fetch user data:', e);
             setDataError(true);
         } finally {
+            isFetchingRef.current = false;
             setIsLoadingData(false);
         }
-    }, [getToken]);
+    }, []);
 
     const refreshUserData = useCallback(async () => {
         if (user?.id) {

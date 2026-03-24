@@ -28,8 +28,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  *   const client = getAuthenticatedSupabase(await getToken({ template: 'supabase' }));
  *   const { data } = await client.from('profiles').select('*');
  */
+let _cachedClient: SupabaseClient | null = null;
+let _cachedToken: string | null = null;
+
 export function getAuthenticatedSupabase(clerkToken: string | null): SupabaseClient {
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    if (_cachedClient && _cachedToken === clerkToken) {
+        return _cachedClient;
+    }
+    _cachedToken = clerkToken;
+    _cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
         global: {
             headers: {
                 Authorization: `Bearer ${clerkToken}`,
@@ -41,5 +48,6 @@ export function getAuthenticatedSupabase(clerkToken: string | null): SupabaseCli
             detectSessionInUrl: false,
         },
     });
+    return _cachedClient;
 }
 

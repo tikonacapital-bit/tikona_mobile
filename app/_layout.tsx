@@ -41,7 +41,7 @@ function RootLayoutInner() {
         if (!isLoaded) return;
 
         // Hide splash screen once auth state is settled
-        SplashScreen.hideAsync();
+        SplashScreen.hideAsync().catch(() => {});
 
         const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback';
 
