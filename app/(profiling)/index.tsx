@@ -4,10 +4,11 @@ import {
     ActivityIndicator, Alert, Dimensions, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@/context/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { useAlert } from '@/context/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import type { ProfilingQuestion, RiskProfileLevel, DisplayLabel, ProfileMethod } from '@/lib/types';
@@ -41,7 +42,8 @@ const LEVEL_OPTIONS: { label: DisplayLabel; risk: RiskProfileLevel; emoji: strin
 type Screen = 'choice' | 'quiz' | 'result' | 'manual' | 'success';
 
 export default function ProfilingScreen() {
-    const { user, refreshUserData } = useAuth();
+    const { user, refreshUserData, subscription } = useAuth();
+    const { getToken } = useClerkAuth();
     const theme = useColorScheme();
     const c = Colors[theme];
     const { showAlert } = useAlert();
@@ -93,7 +95,18 @@ export default function ProfilingScreen() {
         setLoading(true);
         const displayLabel = RISK_DISPLAY_MAP[riskProfile];
 
-        const { error } = await supabase.from('profiles').upsert({
+        // Get authenticated Supabase client for RLS
+        let client;
+        try {
+            const token = await getToken({ template: 'supabase' });
+            client = getAuthenticatedSupabase(token);
+        } catch {
+            showAlert('Auth Error', 'Could not authenticate. Please try again.');
+            setLoading(false);
+            return;
+        }
+
+        const { error } = await client.from('profiles').upsert({
             user_id: user.id,
             risk_score: score,
             risk_profile: riskProfile,
@@ -109,11 +122,13 @@ export default function ProfilingScreen() {
         }
 
         // Also create a free subscription if none exists
-        await supabase.from('subscriptions').upsert({
-            user_id: user.id,
-            plan: 'free',
-            is_active: true,
-        }, { onConflict: 'user_id' });
+        if (!subscription) {
+            await client.from('subscriptions').upsert({
+                user_id: user.id,
+                plan: 'free',
+                is_active: true,
+            }, { onConflict: 'user_id' });
+        }
 
         await refreshUserData();
         setLoading(false);

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { View, Platform } from 'react-native';
 import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import * as SecureStore from 'expo-secure-store';
-import { supabase } from '@/lib/supabase';
+import { supabase, getAuthenticatedSupabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import type { KycRecord, UserProfile, Subscription, RefundRequest } from '@/lib/types';
 
@@ -41,7 +41,7 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const { isLoaded, isSignedIn, userId: clerkUserId } = useClerkAuth();
+    const { isLoaded, isSignedIn, userId: clerkUserId, getToken } = useClerkAuth();
     const { user } = useUser();
     const { signOut: clerkSignOut } = useClerk();
 
@@ -56,11 +56,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoadingData(true);
         try {
             setDataError(false);
+
+            // Get a Clerk JWT for Supabase so RLS policies can identify the user
+            const token = await getToken({ template: 'supabase' });
+            if (!token) {
+                logger.warn('No Clerk token available — cannot fetch user data with RLS');
+                setDataError(true);
+                setIsLoadingData(false);
+                return;
+            }
+            const client = getAuthenticatedSupabase(token);
+
             const [kycRes, profileRes, subRes, refundRes] = await Promise.all([
-                supabase.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
-                supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
-                supabase.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
-                supabase.from('refund_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                client.from('kyc').select('*').eq('user_id', userId).maybeSingle(),
+                client.from('profiles').select('*').eq('user_id', userId).maybeSingle(),
+                client.from('subscriptions').select('*').eq('user_id', userId).maybeSingle(),
+                client.from('refund_requests').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             ]);
             // Tradebox instant e-KYC: an active subscription means KYC was successful.
             const kycData = subRes.data?.is_active 
@@ -74,7 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             // Keep email synced in profiles so Razorpay webhook can look up user_id by email
             if (primaryEmail && profileRes.data) {
-                await supabase
+                await client
                     .from('profiles')
                     .update({ email: primaryEmail })
                     .eq('user_id', userId);
@@ -85,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } finally {
             setIsLoadingData(false);
         }
-    }, []);
+    }, [getToken]);
 
     const refreshUserData = useCallback(async () => {
         if (user?.id) {

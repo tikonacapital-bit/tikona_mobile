@@ -6,9 +6,20 @@
  * Also supports text-based chat as a fallback.
  */
 
-import { logger } from '@/lib/logger';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import {
+  appendMessages,
+  closeChatSession,
+  createChatSession,
+  deleteChatSession,
+  fetchChatSessions,
+  type ChatLogMessage,
+  type ChatSession,
+} from '@/lib/chatLogger';
+import { logger } from '@/lib/logger';
+import { RateLimiter } from '@/lib/rateLimiter';
 import {
   buildReportContext,
   chatWithReport,
@@ -16,19 +27,8 @@ import {
   textToSpeech,
   type ChatHistoryEntry,
 } from '@/lib/sarvamAI';
-import {
-  createChatSession,
-  appendMessages,
-  closeChatSession,
-  fetchChatSessions,
-  deleteChatSession,
-  type ChatLogMessage,
-  type ChatSession,
-} from '@/lib/chatLogger';
-import { RateLimiter } from '@/lib/rateLimiter';
-import { useAuth } from '@/context/AuthContext';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import type { ResearchReport } from '@/lib/types';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
@@ -249,12 +249,12 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const logMessages = useCallback(async (msgs: ChatLogMessage[]) => {
     if (!sessionIdRef.current) return;
     // Fire-and-forget — don't block the chat UX
-    appendMessages(sessionIdRef.current, msgs).catch(() => {});
+    appendMessages(sessionIdRef.current, msgs).catch(() => { });
   }, []);
 
   const endSession = useCallback(async () => {
     if (sessionIdRef.current) {
-      closeChatSession(sessionIdRef.current).catch(() => {});
+      closeChatSession(sessionIdRef.current).catch(() => { });
       sessionIdRef.current = null;
     }
   }, []);
@@ -314,7 +314,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     // Optimistic update
     setPastSessions((prev) => prev.filter((s) => s.id !== id));
     if (viewingPastSession && messages.every(m => m.id.startsWith(`past-${id}`))) {
-         backToLiveChat();
+      backToLiveChat();
     }
     await deleteChatSession(id);
   };
@@ -364,7 +364,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       }
       // Clean up cached audio temp files
       audioCache.current.forEach((filePath) => {
-        FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+        FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => { });
       });
       audioCache.current.clear();
     };
@@ -375,13 +375,13 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         if (soundRef.current) {
-          soundRef.current.stopAsync().catch(() => {});
-          soundRef.current.unloadAsync().catch(() => {});
+          soundRef.current.stopAsync().catch(() => { });
+          soundRef.current.unloadAsync().catch(() => { });
           soundRef.current = null;
           setIsSpeaking(false);
         }
         if (recordingRef.current) {
-          recordingRef.current.stopAndUnloadAsync().catch(() => {});
+          recordingRef.current.stopAndUnloadAsync().catch(() => { });
           recordingRef.current = null;
           setIsRecording(false);
         }
@@ -398,11 +398,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
     const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, false);
     if (!isAllowed) {
-        Alert.alert(
-            'Daily Limit Reached',
-            'You have reached your daily limit of 15 voice AI interactions. Please try again tomorrow.'
-        );
-        return;
+      Alert.alert(
+        'Daily Limit Reached',
+        'You have reached your daily limit of 15 voice AI interactions. Please try again tomorrow.'
+      );
+      return;
     }
 
     try {
@@ -571,11 +571,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
     const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15);
     if (!isAllowed) {
-        Alert.alert(
-            'Daily Limit Reached',
-            'You have reached your daily limit of 15 AI interactions. Please try again tomorrow.'
-        );
-        return;
+      Alert.alert(
+        'Daily Limit Reached',
+        'You have reached your daily limit of 15 AI interactions. Please try again tomorrow.'
+      );
+      return;
     }
 
     setTextInput('');
@@ -697,10 +697,10 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (status.isLoaded && status.didJustFinish) {
           if (mountedRef.current) setIsSpeaking(false);
-          sound.unloadAsync().catch(() => {});
+          sound.unloadAsync().catch(() => { });
           soundRef.current = null;
           if (fileToClean) {
-            FileSystem.deleteAsync(fileToClean, { idempotent: true }).catch(() => {});
+            FileSystem.deleteAsync(fileToClean, { idempotent: true }).catch(() => { });
           }
         }
       });
@@ -762,12 +762,12 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     endSession();
 
     if (soundRef.current) {
-      soundRef.current.stopAsync().catch(() => {});
-      soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current.stopAsync().catch(() => { });
+      soundRef.current.unloadAsync().catch(() => { });
       soundRef.current = null;
     }
     if (recordingRef.current) {
-      recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      recordingRef.current.stopAndUnloadAsync().catch(() => { });
       recordingRef.current = null;
     }
     setIsSpeaking(false);
@@ -786,7 +786,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     isStoppingRef.current = false;
     // Clean up cached audio temp files
     audioCache.current.forEach((filePath) => {
-      FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => {});
+      FileSystem.deleteAsync(filePath, { idempotent: true }).catch(() => { });
     });
     audioCache.current.clear();
   }, [report, endSession]);
@@ -983,7 +983,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
         {/* ── History Panel Overlay ────────────────────────────────────── */}
         {showHistory && (
-          <View style={[s.historyOverlay, { backgroundColor: c.background }]}> 
+          <View style={[s.historyOverlay, { backgroundColor: c.background }]}>
             <View style={[s.historyHeader, { borderBottomColor: c.border }]}>
               <Text style={[s.historyTitle, { color: c.text }]}>Chat History</Text>
               <TouchableOpacity onPress={() => setShowHistory(false)} style={s.historyCloseBtn} activeOpacity={0.7}>
@@ -1053,7 +1053,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                           <Ionicons name="trash-outline" size={18} color="#EF4444" />
                         </TouchableOpacity>
                       </View>
-                      
+
                       {firstUserMsg && (
                         <TouchableOpacity
                           style={s.historyCardPreviewWrap}
@@ -1085,7 +1085,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                   <Text style={[s.deleteModalText, { color: c.textSecondary }]}>
                     Are you sure you want to permanently delete this chat history? This action cannot be undone.
                   </Text>
-                  
+
                   <View style={s.deleteModalActions}>
                     <TouchableOpacity
                       style={[s.deleteModalBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6' }]}

@@ -19,7 +19,9 @@ create table public.subscriptions (
       array[
         'midcap_wealth'::text,
         'smallcap_alpha'::text,
-        'all_in_growth'::text
+        'sme_emerging'::text,
+        'all_in_growth'::text,
+        'free'::text
       ]
     )
   )
@@ -47,7 +49,9 @@ create trigger set_subscriptions_updated_at
 --     array[
 --       'midcap_wealth'::text,
 --       'smallcap_alpha'::text,
---       'all_in_growth'::text
+--       'sme_emerging'::text,
+--       'all_in_growth'::text,
+--       'free'::text
 --     ]
 --   )
 -- );

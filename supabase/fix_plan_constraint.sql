@@ -14,7 +14,8 @@ ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_plan_check CHECK (
       'midcap_wealth'::text,
       'smallcap_alpha'::text,
       'sme_emerging'::text,
-      'all_in_growth'::text
+      'all_in_growth'::text,
+      'free'::text
     ]
   )
 );

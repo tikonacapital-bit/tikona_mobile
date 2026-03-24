@@ -4,8 +4,9 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { PLANS } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
@@ -40,6 +41,7 @@ export default function SubscriptionScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const { subscription, refreshUserData, userId } = useAuth();
+    const { getToken } = useClerkAuth();
     const subscriptionRef = useRef(subscription);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectingPlan, setSelectingPlan] = useState<PlanKey | null>(null);
@@ -120,10 +122,16 @@ export default function SubscriptionScreen() {
 
         // Store selected plan before opening Tradebox so the webhook knows which plan to activate
         if (userId) {
-            await supabase.from('pending_payments').upsert(
-                { user_id: userId, plan: planKey },
-                { onConflict: 'user_id' }
-            );
+            try {
+                const token = await getToken({ template: 'supabase' });
+                const client = getAuthenticatedSupabase(token);
+                await client.from('pending_payments').upsert(
+                    { user_id: userId, plan: planKey },
+                    { onConflict: 'user_id' }
+                );
+            } catch (e) {
+                // Non-critical: webhook can fallback to amount-based plan detection
+            }
         }
 
         isRedirectingRef.current = true;
