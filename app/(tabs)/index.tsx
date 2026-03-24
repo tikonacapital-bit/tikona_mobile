@@ -10,8 +10,9 @@ import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
+import { supabase, getAuthenticatedSupabase } from '@/lib/supabase';
 import { Card, StatusChip, SectionHeader, RecommendationBadge, EmptyState, ResponsiveScrollView, ResponsiveContainer } from '@/components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ResearchReport } from '@/lib/types';
@@ -21,6 +22,7 @@ export default function HomeScreen() {
     const c = Colors[theme];
     const isDark = theme === 'dark';
     const { user, kyc, profile, subscription, refreshUserData, isLoadingData } = useAuth();
+    const { getToken } = useClerkAuth();
     const queryClient = useQueryClient();
     const [refreshing, setRefreshing] = useState(false);
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
@@ -43,8 +45,11 @@ export default function HomeScreen() {
         queryFn: async (): Promise<ResearchReport[]> => {
             if (!userEmail) return [];
 
-            // Fetch only reports assigned to this user's email
-            const { data: assignments } = await supabase
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+
+            // Fetch only reports assigned to this user's email (RLS enforced)
+            const { data: assignments } = await client
                 .from('user_report_assignments')
                 .select('report_id')
                 .eq('email', userEmail);
@@ -53,9 +58,9 @@ export default function HomeScreen() {
 
             const assignedIds = assignments.map((a) => a.report_id);
 
-            const { data } = await supabase
+            const { data } = await client
                 .from('research_reports')
-                .select('*')
+                .select('report_id, company_name, nse_symbol, recommendation, target_price, published_at, pdf_file_url, audio_file_url, video_file_url')
                 .eq('is_published', true)
                 .in('report_id', assignedIds)
                 .order('published_at', { ascending: false })
@@ -150,7 +155,7 @@ export default function HomeScreen() {
                 try {
                     const { count } = await supabase
                         .from('research_reports')
-                        .select('*', { count: 'exact', head: true })
+                        .select('report_id', { count: 'exact', head: true })
                         .eq('is_published', true);
 
                     if (count !== null) {

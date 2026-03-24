@@ -5,9 +5,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { Card, RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
+import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
+import { RecommendationBadge, Card, ResponsiveScrollView } from '@/components/ui';
 import type { EquityUniverse, ResearchReport } from '@/lib/types';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 
 // ── Formatters ──
 const fmtPrice = (v: number | null | undefined) =>
@@ -75,6 +76,7 @@ export default function StockDetailScreen() {
     const { symbol } = useLocalSearchParams<{ symbol: string }>();
     const theme = useColorScheme();
     const c = Colors[theme];
+    const { getToken } = useClerkAuth();
 
     const { data: stock, isLoading } = useQuery({
         queryKey: ['stock', symbol],
@@ -88,9 +90,13 @@ export default function StockDetailScreen() {
     const { data: reports } = useQuery({
         queryKey: ['stock_reports', symbol],
         queryFn: async (): Promise<ResearchReport[]> => {
-            const { data } = await supabase
+            const token = await getToken({ template: 'supabase' });
+            if (!token) return [];
+            const client = getAuthenticatedSupabase(token);
+
+            const { data } = await client
                 .from('research_reports')
-                .select('*')
+                .select('report_id, company_name, nse_symbol, recommendation, target_price, published_at, pdf_file_url, audio_file_url, video_file_url')
                 .eq('is_published', true)
                 .eq('nse_symbol', symbol!)
                 .order('published_at', { ascending: false })

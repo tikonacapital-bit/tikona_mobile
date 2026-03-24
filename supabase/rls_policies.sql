@@ -154,16 +154,28 @@
     -- ── 8. PUBLIC TABLES (read-only for everyone) ───────────────────────
     -- These tables should be readable by any authenticated or anon user
 
-    -- Research reports (published ones are public)
+    -- Research reports (Users can only read assigned published reports)
     ALTER TABLE public.research_reports ENABLE ROW LEVEL SECURITY;
 
-    CREATE POLICY "Anyone can view published reports"
+    CREATE POLICY "Users can view assigned published reports"
         ON public.research_reports FOR SELECT
-        USING (is_published = true);
+        USING (
+            is_published = true AND
+            EXISTS (
+                SELECT 1 FROM public.user_report_assignments
+                WHERE user_report_assignments.report_id::text = research_reports.report_id::text
+                  AND user_report_assignments.email = (auth.jwt() ->> 'email')
+            )
+        );
 
-    -- User report assignments (already has RLS, keep existing policy)
-    -- ALTER TABLE public.user_report_assignments ENABLE ROW LEVEL SECURITY;
-    -- Policy "Users can view own assignments" already exists with USING (true)
+    -- User report assignments — restrict to own email via JWT
+    -- Run this to replace the old USING (true) policy:
+    --   DROP POLICY IF EXISTS "Users can view own assignments" ON public.user_report_assignments;
+    ALTER TABLE public.user_report_assignments ENABLE ROW LEVEL SECURITY;
+
+    CREATE POLICY "Users can view own assignments"
+        ON public.user_report_assignments FOR SELECT
+        USING (email = (auth.jwt() ->> 'email'));
 
     -- Equity universe (public data)
     ALTER TABLE public.equity_universe ENABLE ROW LEVEL SECURITY;

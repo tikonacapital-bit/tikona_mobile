@@ -5,9 +5,9 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useMediaPlayer } from '@/context/MediaPlayerContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,6 +32,7 @@ export default function ReportDetailScreen() {
     const isDark = theme === 'dark';
     const { subscription, kyc, profile } = useAuth();
     const { user } = useUser();
+    const { getToken } = useClerkAuth();
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);
@@ -89,22 +90,17 @@ export default function ReportDetailScreen() {
         queryFn: async (): Promise<ResearchReport | null> => {
             if (!userEmail) return null;
 
-            // Check if this report is assigned to the user's email
-            const { data: assignment } = await supabase
-                .from('user_report_assignments')
-                .select('id')
-                .eq('email', userEmail)
-                .eq('report_id', id!)
-                .maybeSingle();
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
 
-            if (!assignment) return null; // Not assigned to this user
-
-            const { data } = await supabase
+            // Client queries research_reports directly; RLS handles authorization natively.
+            const { data } = await client
                 .from('research_reports')
-                .select('*')
+                .select('report_id, company_name, nse_symbol, recommendation, target_price, recommendation_rationale, company_background, business_model, management_analysis, industry_overview, industry_tailwinds, demand_drivers, industry_risks, pdf_file_url, audio_file_url, video_file_url, published_at')
                 .eq('report_id', id!)
                 .eq('is_published', true)
                 .maybeSingle();
+            
             return data;
         },
         enabled: !!id && !!userEmail,

@@ -3,9 +3,10 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { supabase } from '@/lib/supabase';
+import { supabase, getAuthenticatedSupabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -26,6 +27,7 @@ export default function ReportsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const { userId, user, subscription, kyc, profile } = useAuth();
+    const { getToken } = useClerkAuth();
     const { gridColumns } = useResponsiveLayout();
 
     const [search, setSearch] = useState('');
@@ -44,22 +46,14 @@ export default function ReportsScreen() {
         queryFn: async (): Promise<ResearchReport[]> => {
             if (!userId || !userEmail) return [];
 
-            // Fetch only reports assigned to this user's email
-            const { data: assignments, error: assignErr } = await supabase
-                .from('user_report_assignments')
-                .select('report_id')
-                .eq('email', userEmail);
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
 
-            if (assignErr) throw new Error(assignErr.message);
-            if (!assignments || assignments.length === 0) return [];
-
-            const assignedIds = assignments.map((a) => a.report_id);
-
-            let query = supabase
+            // RLS naturally filters out research_reports not assigned to this user's email
+            let query = client
                 .from('research_reports')
-                .select('*')
+                .select('report_id, company_name, nse_symbol, recommendation, target_price, published_at, pdf_file_url, audio_file_url, video_file_url')
                 .eq('is_published', true)
-                .in('report_id', assignedIds)
                 .order('published_at', { ascending: false })
                 .limit(PAGE_SIZE);
 

@@ -4,7 +4,8 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import type { EnrichedHolding } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -33,6 +34,7 @@ export default function PortfolioScreen() {
     const isDark = theme === 'dark';
     const c = Colors[theme];
     const { user } = useAuth();
+    const { getToken } = useClerkAuth();
     const { showAlert } = useAlert();
     const queryClient = useQueryClient();
     const [refreshing, setRefreshing] = useState(false);
@@ -98,10 +100,13 @@ export default function PortfolioScreen() {
         queryKey: ['portfolio', user?.id],
         queryFn: async () => {
             if (!user?.id) return null;
-            const { data: existing, error: fetchError } = await supabase.from('customer_portfolios').select('*').eq('user_id', user.id).limit(1);
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+
+            const { data: existing, error: fetchError } = await client.from('customer_portfolios').select('id, user_id, name, created_at, updated_at').eq('user_id', user.id).limit(1);
             if (fetchError) throw new Error(fetchError.message);
             if (existing && existing.length > 0) return existing[0];
-            const { data: created, error: insertError } = await supabase.from('customer_portfolios').insert({ user_id: user.id, name: 'My Portfolio' }).select().single();
+            const { data: created, error: insertError } = await client.from('customer_portfolios').insert({ user_id: user.id, name: 'My Portfolio' }).select('id, user_id, name, created_at, updated_at').single();
             if (insertError) throw new Error(insertError.message);
             return created;
         },
@@ -112,7 +117,10 @@ export default function PortfolioScreen() {
         queryKey: ['holdings', portfolio?.id],
         queryFn: async (): Promise<EnrichedHolding[]> => {
             if (!portfolio?.id) return [];
-            const { data: raw } = await supabase.from('portfolio_holdings').select('*').eq('portfolio_id', portfolio.id).order('created_at', { ascending: false });
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+
+            const { data: raw } = await client.from('portfolio_holdings').select('id, portfolio_id, nse_symbol, company_name, quantity, buy_price, created_at, updated_at').eq('portfolio_id', portfolio.id).order('created_at', { ascending: false });
             if (!raw?.length) return [];
             const symbols = [...new Set(raw.map((h: any) => h.nse_symbol))];
             const { data: universe } = await supabase.from('equity_universe').select('nse_code, current_price, sector').in('nse_code', symbols);
@@ -205,7 +213,10 @@ export default function PortfolioScreen() {
         mutationFn: async () => {
             if (!symbol || !qty || !buyPrice) throw new Error('Fill all fields');
             if (!portfolio?.id) throw new Error('Portfolio not ready');
-            const { error } = await supabase.from('portfolio_holdings').insert({
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+
+            const { error } = await client.from('portfolio_holdings').insert({
                 portfolio_id: portfolio.id,
                 nse_symbol: symbol.toUpperCase().trim(),
                 company_name: symbol.toUpperCase().trim(),
@@ -226,7 +237,9 @@ export default function PortfolioScreen() {
 
     const deleteMutation = useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase.from('portfolio_holdings').delete().eq('id', id);
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+            const { error } = await client.from('portfolio_holdings').delete().eq('id', id);
             if (error) throw error;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['holdings'] }),

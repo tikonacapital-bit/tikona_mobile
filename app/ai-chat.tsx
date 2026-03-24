@@ -1,7 +1,8 @@
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
-import { supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
+import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { RateLimiter } from '@/lib/rateLimiter';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -84,6 +85,7 @@ export default function AIChatScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
+    const { getToken } = useClerkAuth();
 
     const analyst = SECTOR_ANALYSTS.find((a) => a.sector === sector);
     const analystColor = analyst?.color ?? Colors.brand.secondary;
@@ -140,7 +142,9 @@ export default function AIChatScreen() {
             .map((m) => ({ role: m.role, content: m.content }));
 
         try {
-            const { data, error } = await supabase.functions.invoke('sector-ai-chat', {
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+            const { data, error } = await client.functions.invoke('sector-ai-chat', {
                 body: { sector, message: trimmed, history },
             });
             if (error) throw error;

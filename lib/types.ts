@@ -6,32 +6,32 @@
 
 export interface ResearchReport {
     report_id: string;
-    session_id: string;
+    session_id?: string;
     company_name: string;
     nse_symbol: string;
     recommendation: 'BUY' | 'SELL' | 'HOLD' | null;
     target_price: number | null;
-    recommendation_rationale: string | null;
+    recommendation_rationale?: string | null;
     // Sections
-    company_background: string | null;
-    business_model: string | null;
-    management_analysis: string | null;
-    industry_overview: string | null;
-    industry_tailwinds: string | null;
-    demand_drivers: string | null;
-    industry_risks: string | null;
+    company_background?: string | null;
+    business_model?: string | null;
+    management_analysis?: string | null;
+    industry_overview?: string | null;
+    industry_tailwinds?: string | null;
+    demand_drivers?: string | null;
+    industry_risks?: string | null;
     // Media
-    pdf_file_id: string | null;
-    pdf_file_url: string | null;
-    audio_file_url: string | null;
-    video_file_url: string | null;
+    pdf_file_id?: string | null;
+    pdf_file_url?: string | null;
+    audio_file_url?: string | null;
+    video_file_url?: string | null;
     // Publishing
-    is_published: boolean;
-    published_at: string | null;
-    plan: 'midcap_wealth' | 'smallcap_alpha' | 'sme_emerging' | null;
-    status: 'generating' | 'draft' | 'completed' | 'error';
-    created_at: string;
-    updated_at: string;
+    is_published?: boolean;
+    published_at?: string | null;
+    plan?: 'midcap_wealth' | 'smallcap_alpha' | 'sme_emerging' | null;
+    status?: 'generating' | 'draft' | 'completed' | 'error';
+    created_at?: string;
+    updated_at?: string;
 }
 
 // Report assignment (links reports to individual users)
@@ -111,6 +111,7 @@ export interface UserProfile {
     profile_method: ProfileMethod;          // how the profile was determined
     display_label: DisplayLabel | null;     // user-friendly label
     answers: Record<string, number> | null; // raw quiz answers
+    email?: string | null;                  // synced user email
     created_at: string;
     updated_at: string;
 }
@@ -123,8 +124,10 @@ export interface Subscription {
     started_at: string;
     expires_at: string | null;
     is_active: boolean;
-    amount_paid: number | null;
+    amount_paid?: number | null;
+    razorpay_payment_id?: string | null;
     created_at: string;
+    updated_at?: string;
 }
 
 // Refund request
