@@ -17,6 +17,7 @@ import {
     ViewToken,
     useWindowDimensions
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SLIDES = [
     {
@@ -48,7 +49,7 @@ const SLIDES = [
     },
 ];
 
-const DISCLAIMER = 'Investment in securities market are subject to market risks. Read all the related documents carefully before investing.';
+const DISCLAIMER = 'Investment in securities market are subject to market risks.\nRead all the related documents carefully before investing.';
 
 const CARD_WIDTH = 860;
 const LEFT_PANEL_W = 300;
@@ -61,6 +62,7 @@ export default function OnboardingScreen() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const scrollX = useRef(new Animated.Value(0)).current;
     const flatListRef = useRef<FlatList>(null);
+    const insets = useSafeAreaInsets();
 
     const isWideWeb = Platform.OS === 'web' && width >= 768;
     const isSmallScreen = height < 680;
@@ -141,25 +143,24 @@ export default function OnboardingScreen() {
     const renderMobileSlide = ({ item }: { item: typeof SLIDES[0] }) => (
         <View style={[styles.slide, { width }]}>
 
-            {/* ── Top: Logo + Badge ── */}
-            <View style={{ alignItems: 'center' as const, marginBottom: 30 }}>
-                <View style={{ marginBottom: 32 }}>
-                    <Logo size={isSmallScreen ? 58 : 68} fontSize={isSmallScreen ? 15 : 17} stacked={true} textColor="#3A5BA0" />
-                </View>
+            {/* ── Top: Logo ── */}
+            <View style={{ alignItems: 'center' as const, marginBottom: 20 }}>
+                <Logo size={isSmallScreen ? 58 : 68} fontSize={isSmallScreen ? 15 : 17} stacked={true} textColor="#3A5BA0" />
+            </View>
+
+            {/* ── Middle: Badge + Title + Subtitle (expands to fill space) ── */}
+            <View style={{ flex: 1, justifyContent: 'flex-start' as const, alignItems: 'center' as const, paddingTop: 30 }}>
                 <LinearGradient
                     colors={isDark ? ['#FFA50030', '#FFA50018'] : ['#FFA50014', '#FFA50008']}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={styles.sebiBadge}
+                    style={[styles.sebiBadge, { marginBottom: 30 }]}
                 >
                     <Ionicons name={item.badgeIcon} size={12} color={isDark ? '#FFB84D' : '#FFA500'} />
                     <Text style={[styles.sebiBadgeText, { color: isDark ? '#FFB84D' : '#E8950A' }]}>
                         {item.badge}
                     </Text>
                 </LinearGradient>
-            </View>
 
-            {/* ── Middle: Title + Subtitle (expands to fill space) ── */}
-            <View style={{ flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, paddingVertical: 16 }}>
                 <Text style={[styles.slideTitle, {
                     color: isDark ? '#FFFFFF' : c.text,
                     fontSize: isSmallScreen ? 21 : 24,
@@ -308,8 +309,7 @@ export default function OnboardingScreen() {
 
                     {/* Disclaimer below card */}
                     <View style={[styles.desktopDisclaimer, { alignSelf: 'center' }]}>
-                        <Ionicons name="information-circle-outline" size={14} color={isDark ? '#8B95A8' : c.textTertiary} />
-                        <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, fontSize: 11 }]}>
+                        <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, fontSize: 11, textAlign: 'center' }]}>
                             {DISCLAIMER}
                         </Text>
                     </View>
@@ -360,21 +360,20 @@ export default function OnboardingScreen() {
                 backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(31,70,144,0.03)',
             }}>
                 <View style={[styles.mobileDisclaimerBar, { borderTopWidth: 0, paddingBottom: 10 }]}>
-                    <Ionicons name="information-circle-outline" size={15} color={isDark ? '#8B95A8' : c.textTertiary} style={{ marginTop: 1 }} />
-                    <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, textAlign: 'left', fontSize: 12, flex: 1 }]}>
+                    <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, textAlign: 'center', fontSize: 10, flex: 1 }]}>
                         {DISCLAIMER}
                     </Text>
                 </View>
 
                 {/* Separator Line */}
-                <View style={{ 
-                    height: 1, 
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31,70,144,0.1)', 
-                    marginHorizontal: Spacing['2xl'], 
-                    marginBottom: 16 
+                <View style={{
+                    height: 1,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31,70,144,0.1)',
+                    marginHorizontal: Spacing['2xl'],
+                    marginBottom: 16
                 }} />
 
-                <View style={[styles.bottomActions, { paddingBottom: Platform.OS === 'ios' ? 34 : 24 }]}>
+                <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                     <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
                         <Text style={[styles.skipText, { color: c.textTertiary }]}>Sign In</Text>
                     </TouchableOpacity>
@@ -618,7 +617,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         justifyContent: 'center',
         gap: 6,
-        paddingHorizontal: Spacing['2xl'],
+        paddingHorizontal: 16,
         paddingVertical: 10,
         borderTopWidth: 1,
         paddingBottom: Platform.OS === 'ios' ? 20 : 10,

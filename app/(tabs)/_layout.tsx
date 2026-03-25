@@ -3,6 +3,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -301,6 +302,7 @@ export default function TabLayout() {
   const theme = useColorScheme();
   const c = Colors[theme];
   const { isWideWeb } = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -320,13 +322,13 @@ export default function TabLayout() {
               borderTopWidth: 1,
               ...Platform.select({
                 ios: {
-                  height: 88,
-                  paddingBottom: 28,
+                  height: 60 + Math.max(insets.bottom, 20),
+                  paddingBottom: Math.max(insets.bottom, 20),
                   paddingTop: 8,
                 },
                 default: {
-                  minHeight: 64,
-                  paddingBottom: 8,
+                  minHeight: 60 + insets.bottom,
+                  paddingBottom: Math.max(insets.bottom, 12),
                   paddingTop: 8,
                 }
               })

@@ -22,6 +22,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
@@ -51,6 +52,7 @@ export default function LoginScreen() {
     const isDark = theme === 'dark';
     const { showAlert } = useAlert();
     const { isWideWeb } = useResponsiveLayout();
+    const insets = useSafeAreaInsets();
 
     const { signIn, setActive, isLoaded } = useSignIn();
     const clerk = useClerk();
@@ -323,7 +325,10 @@ export default function LoginScreen() {
     return (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView
-                contentContainerStyle={[styles.mobileContainer, { backgroundColor: c.background }]}
+                contentContainerStyle={[
+                    styles.mobileContainer, 
+                    { backgroundColor: c.background, paddingBottom: 30 + insets.bottom }
+                ]}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
