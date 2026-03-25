@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as ScreenCapture from 'expo-screen-capture';
+import * as WebBrowser from 'expo-web-browser';
 import PdfViewer from '@/components/PdfViewer';
 
 type TabType = 'report' | 'audio' | 'video';
@@ -606,7 +607,7 @@ export default function ReportDetailScreen() {
                                 />
                             ) : (
                                 <PdfViewer
-                                    source={{ uri: getDirectDownloadUrl(securePdfUrl), cache: true }}
+                                    source={{ uri: securePdfUrl }}
                                     style={{ flex: 1, backgroundColor: '#fff' }}
                                     activityIndicatorColor={Colors.brand.primary}
                                 />
