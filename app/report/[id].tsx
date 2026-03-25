@@ -1,3 +1,4 @@
+import PdfViewer from '@/components/PdfViewer';
 import ReportAIChat from '@/components/ReportAIChat';
 import { RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
 import VideoPlayerModal from '@/components/VideoPlayerModal';
@@ -5,13 +6,14 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useMediaPlayer } from '@/context/MediaPlayerContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
+import { getAuthenticatedSupabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
 import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as ScreenCapture from 'expo-screen-capture';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator, Alert, Linking, Modal, Platform,
@@ -21,10 +23,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
-import * as ScreenCapture from 'expo-screen-capture';
-import * as WebBrowser from 'expo-web-browser';
-import PdfViewer from '@/components/PdfViewer';
 
 type TabType = 'report' | 'audio' | 'video';
 
@@ -56,9 +54,9 @@ export default function ReportDetailScreen() {
 
     useEffect(() => {
         if (Platform.OS !== 'web') {
-            ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+            ScreenCapture.preventScreenCaptureAsync().catch(() => { });
             return () => {
-                ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+                ScreenCapture.allowScreenCaptureAsync().catch(() => { });
             };
         }
     }, []);
@@ -67,6 +65,7 @@ export default function ReportDetailScreen() {
     const [showAIChat, setShowAIChat] = useState(false);
     const [videoModalVisible, setVideoModalVisible] = useState(false);
     const [showPdf, setShowPdf] = useState(false);
+    const [pendingPlay, setPendingPlay] = useState(false);
 
     const {
         track,
@@ -115,6 +114,7 @@ export default function ReportDetailScreen() {
     const [securePdfUrl, setSecurePdfUrl] = useState<string | null>(null);
     const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
     const [secureAudioUrl, setSecureAudioUrl] = useState<string | null>(null);
+    const playedAudioUriRef = React.useRef<string | null>(null);
 
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
@@ -133,7 +133,7 @@ export default function ReportDetailScreen() {
                 .eq('report_id', id!)
                 .eq('is_published', true)
                 .maybeSingle();
-            
+
             return data;
         },
         enabled: !!id && !!userEmail,
@@ -145,7 +145,7 @@ export default function ReportDetailScreen() {
             try {
                 const token = await getToken({ template: 'supabase' });
                 const client = getAuthenticatedSupabase(token);
-                
+
                 // Fetch PDF signed URL
                 if (report?.pdf_file_url) {
                     if (report.pdf_file_url.startsWith('http')) {
@@ -155,14 +155,14 @@ export default function ReportDetailScreen() {
                         if (isMounted) setSecurePdfUrl(data?.signedUrl || report.pdf_file_url);
                     }
                 }
-                
+
                 // Fetch Video signed URL (long TTL for streaming)
                 if (report?.video_file_url) {
                     if (report.video_file_url.startsWith('http')) {
                         if (isMounted) setSecureVideoUrl(report.video_file_url);
                     } else {
                         // 14400 seconds = 4 hours, ensuring the URL stays valid during long podcast watches
-                        const { data } = await client.storage.from('secure_video').createSignedUrl(report.video_file_url, 14400); 
+                        const { data } = await client.storage.from('secure_video').createSignedUrl(report.video_file_url, 14400);
                         if (isMounted) setSecureVideoUrl(data?.signedUrl || report.video_file_url);
                     }
                 }
@@ -172,18 +172,39 @@ export default function ReportDetailScreen() {
                         if (isMounted) setSecureAudioUrl(report.audio_file_url);
                     } else {
                         // 14400 seconds = 4 hours
-                        const { data } = await client.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400); 
-                        if (isMounted) setSecureAudioUrl(data?.signedUrl || report.audio_file_url);
+                        const { data, error: storageError } = await client.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400);
+                        if (storageError) {
+                            console.log('Podcast Storage Error:', storageError);
+                            if (isMounted) setSecureAudioUrl(null);
+                        } else if (isMounted) {
+                            setSecureAudioUrl(data?.signedUrl || null);
+                        }
                     }
                 }
             } catch (err) {
                 console.log('Error generating signed URLs:', err);
             }
         }
-        
+
         if (report) fetchSecureUrls();
         return () => { isMounted = false; };
     }, [report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken]);
+
+    // Auto-play as soon as the signed URL arrives if user tapped early
+    // NOTE: Must stay above early returns to satisfy Rules of Hooks
+    useEffect(() => {
+        if (pendingPlay && secureAudioUrl) {
+            setPendingPlay(false);
+            playedAudioUriRef.current = secureAudioUrl;
+            playTrack({
+                uri: secureAudioUrl,
+                type: 'audio',
+                title: `${report?.company_name ?? ''} – Podcast Summary`,
+                subtitle: report?.nse_symbol ?? '',
+            });
+        }
+    }, [pendingPlay, secureAudioUrl]);
+
 
     if (isLoading) {
         return (
@@ -248,7 +269,7 @@ export default function ReportDetailScreen() {
         { key: 'video', label: 'Video', icon: 'videocam', available: hasVideo, locked: !canVideo },
     ];
 
-    const isCurrentTrack = track?.uri === report.audio_file_url;
+    const isCurrentTrack = !!playedAudioUriRef.current && track?.uri === playedAudioUriRef.current;
     const audioReady = isCurrentTrack && isLoaded;
 
     const openPdf = async () => {
@@ -260,15 +281,22 @@ export default function ReportDetailScreen() {
     };
 
     const handlePlayAudio = () => {
-        const urlToPlay = secureAudioUrl || report.audio_file_url;
-        if (urlToPlay) {
-            playTrack({
-                uri: urlToPlay,
-                type: 'audio',
-                title: `${report.company_name} – Podcast Summary`,
-                subtitle: report.nse_symbol,
-            });
+        if (!report?.audio_file_url) {
+            Alert.alert('Podcast Unavailable', 'No audio summary was found for this report.');
+            return;
         }
+        if (!secureAudioUrl) {
+            // URL still being fetched — queue it up and auto-play when ready
+            setPendingPlay(true);
+            return;
+        }
+        playedAudioUriRef.current = secureAudioUrl;
+        playTrack({
+            uri: secureAudioUrl,
+            type: 'audio',
+            title: `${report.company_name} – Podcast Summary`,
+            subtitle: report.nse_symbol,
+        });
     };
 
     const renderTextSection = (title: string, content: string | null | undefined) => {
@@ -304,17 +332,40 @@ export default function ReportDetailScreen() {
                         <Text style={[styles.audioTitle, { color: c.text }]}>Podcast Summary</Text>
                         <Text style={[styles.audioSub, { color: c.textTertiary }]}>AI-narrated research brief</Text>
                     </View>
-                    {audioReady && (
+                    {/* Status chip — show during connecting and playback */}
+                    {isCurrentTrack && (
                         <View style={[styles.liveChip, { backgroundColor: Colors.brand.primary + '15' }]}>
-                            <View style={[styles.liveDot, { backgroundColor: isPlaying ? '#22c55e' : Colors.brand.primary }]} />
-                            <Text style={[styles.liveChipText, { color: isPlaying ? '#22c55e' : Colors.brand.primary }]}>
-                                {isPlaying ? 'Playing' : 'Paused'}
+                            {!isLoaded ? (
+                                <ActivityIndicator size={10} color={Colors.brand.primary} style={{ marginRight: 4 }} />
+                            ) : (
+                                <View style={[styles.liveDot, { backgroundColor: isPlaying ? '#22c55e' : Colors.brand.primary }]} />
+                            )}
+                            <Text style={[styles.liveChipText, { color: isPlaying && isLoaded ? '#22c55e' : Colors.brand.primary }]}>
+                                {!isLoaded ? 'Connecting…' : isPlaying ? 'Playing' : 'Paused'}
                             </Text>
                         </View>
                     )}
                 </View>
 
-                {/* Progress bar (only when loaded) */}
+                {/* Buffering skeleton bar — visible while connecting */}
+                {isCurrentTrack && !isLoaded && (
+                    <View style={[styles.progressSection, { opacity: 0.4 }]}>
+                        <View style={[styles.progressTrack, { backgroundColor: c.border }]}>
+                            <LinearGradient
+                                colors={[Colors.brand.primary + '60', Colors.brand.secondary + '60']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={[StyleSheet.absoluteFill, { borderRadius: 3 }]}
+                            />
+                        </View>
+                        <View style={styles.timeRow}>
+                            <Text style={[styles.timeText, { color: c.textTertiary }]}>0:00</Text>
+                            <Text style={[styles.timeText, { color: c.textTertiary }]}>–:––</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* Real progress bar — only when fully loaded */}
                 {audioReady && (
                     <View style={styles.progressSection}>
                         <View style={[styles.progressTrack, { backgroundColor: c.border }]}>
@@ -335,14 +386,15 @@ export default function ReportDetailScreen() {
                     </View>
                 )}
 
-                {/* Controls */}
+                {/* Controls — 3 clear states */}
                 <View style={styles.audioControls}>
-                    {!audioReady ? (
-                        // Not yet playing — Show Play button
+                    {/* STATE 1: Not started yet */}
+                    {!isCurrentTrack && (
                         <TouchableOpacity
-                            style={styles.playAudioBtn}
+                            style={[styles.playAudioBtn, !secureAudioUrl && { opacity: 0.65 }]}
                             onPress={handlePlayAudio}
-                            activeOpacity={0.85}
+                            activeOpacity={secureAudioUrl ? 0.85 : 1}
+                            disabled={!secureAudioUrl && !pendingPlay}
                         >
                             <LinearGradient
                                 colors={[Colors.brand.primary, Colors.brand.secondary]}
@@ -350,19 +402,39 @@ export default function ReportDetailScreen() {
                                 end={{ x: 1, y: 1 }}
                                 style={styles.playAudioBtnInner}
                             >
-                                <Ionicons name="play" size={20} color="#fff" style={{ marginLeft: 3 }} />
-                                <Text style={styles.playAudioBtnText}>Play Audio</Text>
+                                {!secureAudioUrl ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Ionicons name="play" size={20} color="#fff" style={{ marginLeft: 3 }} />
+                                )}
+                                <Text style={styles.playAudioBtnText}>
+                                    {!secureAudioUrl
+                                        ? (pendingPlay ? 'Starting soon…' : 'Loading Podcast…')
+                                        : 'Play Podcast'}
+                                </Text>
                             </LinearGradient>
                         </TouchableOpacity>
-                    ) : (
-                        // Loaded — show full controls
+                    )}
+
+                    {/* STATE 2: Track selected — connecting / buffering */}
+                    {isCurrentTrack && !isLoaded && (
+                        <View style={styles.bufferingRow}>
+                            <View style={[styles.mainCtrlBtn, { backgroundColor: Colors.brand.primary + '20', justifyContent: 'center', alignItems: 'center' }]}>
+                                <ActivityIndicator size="small" color={Colors.brand.primary} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.nowPlayingLabel, { color: c.textTertiary }]}>Connecting to stream…</Text>
+                                <Text style={[styles.nowPlayingTitle, { color: c.text }]} numberOfLines={1}>
+                                    {report.company_name} – Podcast Summary
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* STATE 3: Loaded — full controls */}
+                    {audioReady && (
                         <View style={styles.playerControls}>
-                            {/* Main Play/Pause */}
-                            <TouchableOpacity
-                                onPress={togglePlay}
-                                style={styles.mainCtrlBtn}
-                                activeOpacity={0.85}
-                            >
+                            <TouchableOpacity onPress={togglePlay} style={styles.mainCtrlBtn} activeOpacity={0.85}>
                                 <LinearGradient
                                     colors={[Colors.brand.primary, Colors.brand.secondary]}
                                     style={styles.mainCtrlBtnGradient}
@@ -385,9 +457,8 @@ export default function ReportDetailScreen() {
                                 </Text>
                             </View>
 
-                            {/* Stop */}
                             <TouchableOpacity
-                                onPress={stopPlayback}
+                                onPress={() => { playedAudioUriRef.current = null; stopPlayback(); }}
                                 style={[styles.stopBtn, { backgroundColor: c.border }]}
                                 activeOpacity={0.7}
                             >
@@ -543,27 +614,6 @@ export default function ReportDetailScreen() {
 
             {/* Content */}
             <ResponsiveScrollView style={{ flex: 1 }} contentContainerStyle={styles.contentContainer}>
-                {user && (
-                    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                        {Array.from({ length: 20 }).map((_, i) => (
-                            <Text
-                                key={i}
-                                style={{
-                                    color: c.textTertiary,
-                                    opacity: 0.1,
-                                    fontSize: 14,
-                                    transform: [{ rotate: '-45deg' }],
-                                    position: 'absolute',
-                                    top: Math.random() * 1000 + (i * 50),
-                                    left: Math.random() * 400 - 100,
-                                }}
-                            >
-                                {user.primaryEmailAddress?.emailAddress || user.id}
-                            </Text>
-                        ))}
-                    </View>
-                )}
-
                 {/* Full-Screen PDF Modal */}
                 <Modal visible={showPdf} animationType="slide" onRequestClose={() => setShowPdf(false)}>
                     <SafeAreaView style={{ flex: 1, backgroundColor: '#1a1a2e' }}>
@@ -834,6 +884,11 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     playerControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+    },
+    bufferingRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
