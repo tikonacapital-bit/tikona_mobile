@@ -1,3 +1,8 @@
+import { FontSize } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
@@ -10,10 +15,6 @@ import {
     View,
     useWindowDimensions,
 } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, FontSize } from '@/constants/theme';
 
 interface VideoPlayerModalProps {
     visible: boolean;
@@ -74,8 +75,26 @@ export default function VideoPlayerModal({
             setShowSpeedPicker(false); setDidFinish(false);
             setControlsVisible(true); controlsAnim.setValue(1);
             setIsFullscreen(false);
+            // Allow physical hardware rotation while video modal is open
+            if (Platform.OS !== 'web') {
+                ScreenOrientation.unlockAsync().catch(() => { });
+            }
+        } else {
+            // Relock to portrait if modal closes
+            if (Platform.OS !== 'web') {
+                ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { });
+            }
         }
     }, [visible]);
+
+    // Safety cleanup against orphaned native locks
+    useEffect(() => {
+        return () => {
+            if (Platform.OS !== 'web') {
+                ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { });
+            }
+        };
+    }, []);
 
     const onPlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
         if (!status.isLoaded) return;
@@ -175,12 +194,24 @@ export default function VideoPlayerModal({
     }, [showControlsFn]);
 
     const toggleFullscreen = useCallback(() => {
-        setIsFullscreen(prev => !prev);
+        setIsFullscreen(prev => {
+            const next = !prev;
+            if (Platform.OS !== 'web') {
+                if (next) {
+                    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT).catch(() => { });
+                } else {
+                    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => { });
+                    // Re-allow free rotation after manually un-toggling fullscreen
+                    setTimeout(() => ScreenOrientation.unlockAsync().catch(() => { }), 500);
+                }
+            }
+            return next;
+        });
     }, []);
 
     const handleClose = useCallback(async () => {
         if (videoRef.current) {
-            try { await videoRef.current.pauseAsync(); } catch (_) {}
+            try { await videoRef.current.pauseAsync(); } catch (_) { }
         }
         onClose();
     }, [onClose]);
@@ -239,6 +270,7 @@ export default function VideoPlayerModal({
                         <Video
                             ref={videoRef}
                             style={styles.video}
+                            videoStyle={{ width: '100%', height: '100%', display: 'flex', alignSelf: 'center', objectFit: 'contain' } as any}
                             source={{ uri }}
                             resizeMode={ResizeMode.CONTAIN}
                             shouldPlay
@@ -443,8 +475,8 @@ const styles = StyleSheet.create({
     lockBtnActive: { backgroundColor: 'rgba(245,158,11,0.15)' },
 
     /* ── Video ── */
-    videoBox: { width: '100%', backgroundColor: '#000' },
-    video: { width: '100%', height: '100%' },
+    videoBox: { width: '100%', backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    video: { alignSelf: 'stretch', width: '100%', height: '100%' },
 
     overlayCenter: {
         ...StyleSheet.absoluteFillObject,

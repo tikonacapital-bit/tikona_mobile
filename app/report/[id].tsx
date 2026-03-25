@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Modal, Platform,
+    ActivityIndicator, Alert, Linking, Modal, Platform,
     SafeAreaView,
     StyleSheet,
     Text,
@@ -22,8 +22,27 @@ import {
     View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as ScreenCapture from 'expo-screen-capture';
+import PdfViewer from '@/components/PdfViewer';
 
 type TabType = 'report' | 'audio' | 'video';
+
+const getEmbedUrl = (url: string | null | undefined) => {
+    if (!url) return '';
+    if (url.includes('drive.google.com')) {
+        return url.replace(/\/(view|edit)([?#]|$)/, '/preview$2');
+    }
+    return url;
+};
+
+const getDirectDownloadUrl = (url: string | null | undefined) => {
+    if (!url) return '';
+    const fileIdMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileIdMatch && fileIdMatch[1]) {
+        return `https://drive.google.com/uc?export=download&id=${fileIdMatch[1]}`;
+    }
+    return url;
+};
 
 export default function ReportDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +52,15 @@ export default function ReportDetailScreen() {
     const { subscription, kyc, profile } = useAuth();
     const { user } = useUser();
     const { getToken } = useClerkAuth();
+
+    useEffect(() => {
+        if (Platform.OS !== 'web') {
+            ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+            return () => {
+                ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+            };
+        }
+    }, []);
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);
@@ -83,6 +111,10 @@ export default function ReportDetailScreen() {
         };
     }, []);
 
+    const [securePdfUrl, setSecurePdfUrl] = useState<string | null>(null);
+    const [secureVideoUrl, setSecureVideoUrl] = useState<string | null>(null);
+    const [secureAudioUrl, setSecureAudioUrl] = useState<string | null>(null);
+
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data: report, isLoading } = useQuery({
@@ -105,6 +137,52 @@ export default function ReportDetailScreen() {
         },
         enabled: !!id && !!userEmail,
     });
+
+    useEffect(() => {
+        let isMounted = true;
+        async function fetchSecureUrls() {
+            try {
+                const token = await getToken({ template: 'supabase' });
+                const client = getAuthenticatedSupabase(token);
+                
+                // Fetch PDF signed URL
+                if (report?.pdf_file_url) {
+                    if (report.pdf_file_url.startsWith('http')) {
+                        if (isMounted) setSecurePdfUrl(report.pdf_file_url);
+                    } else {
+                        const { data } = await client.storage.from('secure_reports').createSignedUrl(report.pdf_file_url, 120);
+                        if (isMounted) setSecurePdfUrl(data?.signedUrl || report.pdf_file_url);
+                    }
+                }
+                
+                // Fetch Video signed URL (long TTL for streaming)
+                if (report?.video_file_url) {
+                    if (report.video_file_url.startsWith('http')) {
+                        if (isMounted) setSecureVideoUrl(report.video_file_url);
+                    } else {
+                        // 14400 seconds = 4 hours, ensuring the URL stays valid during long podcast watches
+                        const { data } = await client.storage.from('secure_video').createSignedUrl(report.video_file_url, 14400); 
+                        if (isMounted) setSecureVideoUrl(data?.signedUrl || report.video_file_url);
+                    }
+                }
+                // Fetch Audio signed URL (long TTL for streaming)
+                if (report?.audio_file_url) {
+                    if (report.audio_file_url.startsWith('http')) {
+                        if (isMounted) setSecureAudioUrl(report.audio_file_url);
+                    } else {
+                        // 14400 seconds = 4 hours
+                        const { data } = await client.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400); 
+                        if (isMounted) setSecureAudioUrl(data?.signedUrl || report.audio_file_url);
+                    }
+                }
+            } catch (err) {
+                console.log('Error generating signed URLs:', err);
+            }
+        }
+        
+        if (report) fetchSecureUrls();
+        return () => { isMounted = false; };
+    }, [report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken]);
 
     if (isLoading) {
         return (
@@ -165,7 +243,7 @@ export default function ReportDetailScreen() {
 
     const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; available: boolean; locked: boolean }[] = [
         { key: 'report', label: 'Report', icon: 'document-text', available: hasPdf, locked: false },
-        { key: 'audio', label: 'Audio', icon: 'headset', available: hasAudio, locked: !canAudio },
+        { key: 'audio', label: 'Podcast', icon: 'headset', available: hasAudio, locked: !canAudio },
         { key: 'video', label: 'Video', icon: 'videocam', available: hasVideo, locked: !canVideo },
     ];
 
@@ -181,9 +259,10 @@ export default function ReportDetailScreen() {
     };
 
     const handlePlayAudio = () => {
-        if (report.audio_file_url) {
+        const urlToPlay = secureAudioUrl || report.audio_file_url;
+        if (urlToPlay) {
             playTrack({
-                uri: report.audio_file_url,
+                uri: urlToPlay,
                 type: 'audio',
                 title: `${report.company_name} – Podcast Summary`,
                 subtitle: report.nse_symbol,
@@ -191,7 +270,7 @@ export default function ReportDetailScreen() {
         }
     };
 
-    const renderTextSection = (title: string, content: string | null) => {
+    const renderTextSection = (title: string, content: string | null | undefined) => {
         if (!content) return null;
         return (
             <View style={styles.textSection}>
@@ -396,7 +475,7 @@ export default function ReportDetailScreen() {
                 {/* Video Modal */}
                 <VideoPlayerModal
                     visible={videoModalVisible}
-                    uri={report.video_file_url!}
+                    uri={secureVideoUrl || report.video_file_url!}
                     title={report.company_name}
                     subtitle="Video Research Brief"
                     onClose={() => setVideoModalVisible(false)}
@@ -495,35 +574,49 @@ export default function ReportDetailScreen() {
                                     Confidential • PDF
                                 </Text>
                             </View>
-                            <TouchableOpacity
-                                style={styles.pdfModalCloseBtn}
-                                onPress={() => setShowPdf(false)}
-                                activeOpacity={0.8}
-                            >
-                                <Ionicons name="close" size={20} color="#fff" />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                                {Platform.OS === 'web' && (
+                                    <TouchableOpacity
+                                        style={styles.pdfModalCloseBtn}
+                                        onPress={() => {
+                                            if (securePdfUrl) Linking.openURL(securePdfUrl);
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Ionicons name="open-outline" size={20} color="#fff" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={styles.pdfModalCloseBtn}
+                                    onPress={() => setShowPdf(false)}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="close" size={20} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
-                        {report.pdf_file_url ? (
+                        {securePdfUrl ? (
                             // Loaded — show the PDF
                             Platform.OS === 'web' ? (
                                 <iframe
-                                    src={report.pdf_file_url}
+                                    src={getEmbedUrl(securePdfUrl)}
                                     style={{ flex: 1, width: '100%', height: '100%', border: 'none', backgroundColor: '#fff' } as any}
                                     title={`${report.company_name} Report PDF`}
                                 />
                             ) : (
-                                <WebView
-                                    source={{ uri: report.pdf_file_url }}
+                                <PdfViewer
+                                    source={{ uri: getDirectDownloadUrl(securePdfUrl), cache: true }}
                                     style={{ flex: 1, backgroundColor: '#fff' }}
-                                    startInLoadingState={true}
-                                    renderLoading={() => (
-                                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-                                            <ActivityIndicator size="large" color={Colors.brand.primary} />
-                                        </View>
-                                    )}
+                                    activityIndicatorColor={Colors.brand.primary}
                                 />
                             )
+                        ) : !securePdfUrl && report.pdf_file_url ? (
+                            // Loading state
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
+                                <ActivityIndicator size="large" color={Colors.brand.primary} />
+                                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginTop: 12 }}>Decrypting File...</Text>
+                            </View>
                         ) : (
                             // Error state
                             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#0f172a' }}>

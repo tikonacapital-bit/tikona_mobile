@@ -97,7 +97,7 @@ export default function AudioPlayerBar() {
                     transform: [{ translateY: slideAnim }],
                     opacity: opacityAnim,
                     bottom: Platform.select({ ios: 100, default: 74 }),
-                    pointerEvents: visible ? 'box-none' : 'none',
+                    pointerEvents: visible ? 'auto' : 'none',
                 } as any,
             ]}
         >
