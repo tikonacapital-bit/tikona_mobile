@@ -341,6 +341,28 @@ export default function VideoPlayerModal({
                                     </TouchableOpacity>
                                 </View>
 
+                                {/* Scrubber Area in Overlay */}
+                                <View style={styles.scrubberContainer}>
+                                    <View
+                                        style={styles.track}
+                                        onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
+                                        onStartShouldSetResponder={() => !isLocked}
+                                        onResponderGrant={(e) => handleProgressSeek(e.nativeEvent.locationX)}
+                                        onResponderMove={(e) => handleProgressSeek(e.nativeEvent.locationX)}
+                                    >
+                                        <View style={[styles.fill, { width: progressPct as any }]}>
+                                            <LinearGradient
+                                                colors={['#7c3aed', '#a855f7']}
+                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                                style={StyleSheet.absoluteFill}
+                                            />
+                                        </View>
+                                        {/* Buffered (lighter) */}
+                                        <View style={[styles.buffered, { width: progressPct as any }]} />
+                                        <View style={[styles.knob, { left: progressPct as any }]} />
+                                    </View>
+                                </View>
+
                                 {/* Bottom controls: mute | speed | time */}
                                 <View style={styles.bottomBar}>
                                     {/* Mute */}
@@ -393,34 +415,6 @@ export default function VideoPlayerModal({
                         ) : null}
                     </View>
                 </TouchableWithoutFeedback>
-
-                {/* ── Progress bar ── */}
-                {!isFullscreen && (
-                    <View style={styles.progressSection}>
-                        <View
-                            style={styles.track}
-                            onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
-                            onStartShouldSetResponder={() => !isLocked}
-                            onResponderGrant={(e) => handleProgressSeek(e.nativeEvent.locationX)}
-                            onResponderMove={(e) => handleProgressSeek(e.nativeEvent.locationX)}
-                        >
-                            <View style={[styles.fill, { width: progressPct as any }]}>
-                                <LinearGradient
-                                    colors={['#7c3aed', '#a855f7']}
-                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                            </View>
-                            {/* Buffered (lighter) */}
-                            <View style={[styles.buffered, { width: progressPct as any }]} />
-                            <View style={[styles.knob, { left: progressPct as any }]} />
-                        </View>
-                        <View style={styles.timeRow}>
-                            <Text style={styles.timeText}>{formatTime(positionMillis)}</Text>
-                            <Text style={styles.timeText}>{formatTime(durationMillis)}</Text>
-                        </View>
-                    </View>
-                )}
 
                 {/* ── Info Panel ── */}
                 {!isFullscreen && (
@@ -523,6 +517,14 @@ const styles = StyleSheet.create({
     mainBtnInner: { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center' },
 
     /* Bottom controls bar */
+    scrubberContainer: {
+        position: 'absolute',
+        bottom: 54,
+        left: 14,
+        right: 14,
+        height: 20,
+        justifyContent: 'center',
+    },
     bottomBar: {
         position: 'absolute', bottom: 10, left: 12, right: 12,
         flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -566,7 +568,6 @@ const styles = StyleSheet.create({
     speedItemTextActive: { color: '#a855f7', fontWeight: '800' },
 
     /* Progress */
-    progressSection: { paddingHorizontal: 18, paddingTop: 16, gap: 6 },
     track: {
         height: 4, backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 2, overflow: 'visible',
@@ -585,11 +586,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 1, shadowRadius: 6, elevation: 6,
     },
-    timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    timeText: {
-        color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600',
-        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    },
+
 
     /* Info */
     infoSection: { paddingHorizontal: 18, paddingTop: 20, gap: 5 },

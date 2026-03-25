@@ -81,7 +81,7 @@ export default function OnboardingScreen() {
             flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
         } else {
             try { await AsyncStorage.setItem('has_seen_onboarding', 'true'); } catch { }
-            router.replace('/(auth)/login');
+            router.replace('/(auth)/register');
         }
     };
 
@@ -295,7 +295,7 @@ export default function OnboardingScreen() {
                                         style={[styles.nextButton, { paddingLeft: 28, paddingVertical: 9 }]}
                                     >
                                         <Text style={[styles.nextButtonText, { fontSize: FontSize.md }]}>
-                                            {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}
+                                            {currentIndex === SLIDES.length - 1 ? 'Create Account' : 'Next'}
                                         </Text>
                                         <View style={[styles.nextArrowCircle, { width: 38, height: 38 }]}>
                                             <Ionicons name="arrow-forward" size={17} color="#fff" />
@@ -384,7 +384,7 @@ export default function OnboardingScreen() {
                             style={styles.nextButton}
                         >
                             <Text style={styles.nextButtonText}>
-                                {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}
+                                {currentIndex === SLIDES.length - 1 ? 'Create Account' : 'Next'}
                             </Text>
                             <View style={styles.nextArrowCircle}>
                                 <Ionicons name="arrow-forward" size={16} color="#fff" />

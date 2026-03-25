@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
@@ -95,15 +96,17 @@ export default function RootLayout() {
 
     return (
         <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-            <QueryClientProvider client={queryClient}>
-                <ThemeProvider>
-                    <AuthProvider>
-                        <MediaPlayerProvider>
-                            <RootLayoutInner />
-                        </MediaPlayerProvider>
-                    </AuthProvider>
-                </ThemeProvider>
-            </QueryClientProvider>
+            <SafeAreaProvider>
+                <QueryClientProvider client={queryClient}>
+                    <ThemeProvider>
+                        <AuthProvider>
+                            <MediaPlayerProvider>
+                                <RootLayoutInner />
+                            </MediaPlayerProvider>
+                        </AuthProvider>
+                    </ThemeProvider>
+                </QueryClientProvider>
+            </SafeAreaProvider>
         </ClerkProvider>
     );
 }

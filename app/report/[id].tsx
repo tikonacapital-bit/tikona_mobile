@@ -17,12 +17,12 @@ import * as ScreenCapture from 'expo-screen-capture';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator, Alert, Linking, Modal, Platform,
-    SafeAreaView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'report' | 'audio' | 'video';
 
