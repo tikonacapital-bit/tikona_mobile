@@ -144,12 +144,12 @@ export default function OnboardingScreen() {
         <View style={[styles.slide, { width }]}>
 
             {/* ── Top: Logo ── */}
-            <View style={{ alignItems: 'center' as const, marginBottom: 20 }}>
+            <View style={{ alignItems: 'center' as const, marginBottom: isSmallScreen ? 20 : 36 }}>
                 <Logo size={isSmallScreen ? 58 : 68} fontSize={isSmallScreen ? 15 : 17} stacked={true} textColor="#3A5BA0" />
             </View>
 
-            {/* ── Middle: Badge + Title + Subtitle (expands to fill space) ── */}
-            <View style={{ flex: 1, justifyContent: 'flex-start' as const, alignItems: 'center' as const, paddingTop: 30 }}>
+            {/* ── Middle: Badge + Title + Subtitle ── */}
+            <View style={{ justifyContent: 'center' as const, alignItems: 'center' as const }}>
                 <LinearGradient
                     colors={isDark ? ['#FFA50030', '#FFA50018'] : ['#FFA50014', '#FFA50008']}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -176,8 +176,8 @@ export default function OnboardingScreen() {
                 </Text>
             </View>
 
-            {/* ── Bottom: Icon or RegNo (anchored at bottom) ── */}
-            <View style={{ alignItems: 'center' as const, paddingBottom: isSmallScreen ? 12 : 20 }}>
+            {/* ── Bottom: Icon or RegNo ── */}
+            <View style={{ alignItems: 'center' as const, marginTop: isSmallScreen ? 24 : 40 }}>
                 {item.regNo ? (
                     <View style={{ alignItems: 'center', gap: 4 }}>
                         {item.regNo.split('\n').map((line, index) => (
@@ -189,9 +189,9 @@ export default function OnboardingScreen() {
                 ) : (
                     <LinearGradient
                         colors={isDark ? ['#3A5BA028', '#FFA50018'] : ['#1F469015', '#FFA50010']}
-                        style={[styles.featureIconCircle, { width: isSmallScreen ? 80 : 96, height: isSmallScreen ? 80 : 96 }]}
+                        style={[styles.featureIconCircle, { width: isSmallScreen ? 72 : 84, height: isSmallScreen ? 72 : 84 }]}
                     >
-                        <Ionicons name={item.icon} size={isSmallScreen ? 36 : 44} color={isDark ? '#7B9FD4' : Colors.brand.secondary} />
+                        <Ionicons name={item.icon} size={isSmallScreen ? 30 : 36} color={isDark ? '#7B9FD4' : Colors.brand.secondary} />
                     </LinearGradient>
                 )}
             </View>
@@ -510,10 +510,9 @@ const styles = StyleSheet.create({
     slide: {
         flex: 1,
         flexDirection: 'column',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 28,
-        paddingTop: 60,
     },
 
     sebiBadge: {
