@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
 
@@ -13,9 +14,8 @@ export default function AIAnalystScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             {/* Premium Header */}
             <LinearGradient
                 colors={isDark
@@ -83,7 +83,7 @@ export default function AIAnalystScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -22,7 +22,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'report' | 'audio' | 'video';
 
@@ -51,6 +51,7 @@ export default function ReportDetailScreen() {
     const { subscription, kyc, profile } = useAuth();
     const { user } = useUser();
     const { getToken } = useClerkAuth();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (Platform.OS !== 'web') {
@@ -116,6 +117,14 @@ export default function ReportDetailScreen() {
     const [secureAudioUrl, setSecureAudioUrl] = useState<string | null>(null);
     const playedAudioUriRef = React.useRef<string | null>(null);
 
+    // Reset secure URLs when the report ID changes
+    useEffect(() => {
+        setSecurePdfUrl(null);
+        setSecureVideoUrl(null);
+        setSecureAudioUrl(null);
+        playedAudioUriRef.current = null;
+    }, [id]);
+
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data: report, isLoading } = useQuery({
@@ -147,7 +156,7 @@ export default function ReportDetailScreen() {
                 const client = getAuthenticatedSupabase(token);
 
                 // Fetch PDF signed URL
-                if (report?.pdf_file_url) {
+                if (report?.pdf_file_url && !securePdfUrl) {
                     if (report.pdf_file_url.startsWith('http')) {
                         if (isMounted) setSecurePdfUrl(report.pdf_file_url);
                     } else {
@@ -157,7 +166,7 @@ export default function ReportDetailScreen() {
                 }
 
                 // Fetch Video signed URL (long TTL for streaming)
-                if (report?.video_file_url) {
+                if (report?.video_file_url && !secureVideoUrl) {
                     if (report.video_file_url.startsWith('http')) {
                         if (isMounted) setSecureVideoUrl(report.video_file_url);
                     } else {
@@ -167,7 +176,7 @@ export default function ReportDetailScreen() {
                     }
                 }
                 // Fetch Audio signed URL (long TTL for streaming)
-                if (report?.audio_file_url) {
+                if (report?.audio_file_url && !secureAudioUrl) {
                     if (report.audio_file_url.startsWith('http')) {
                         if (isMounted) setSecureAudioUrl(report.audio_file_url);
                     } else {
@@ -188,7 +197,7 @@ export default function ReportDetailScreen() {
 
         if (report) fetchSecureUrls();
         return () => { isMounted = false; };
-    }, [report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken]);
+    }, [report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken, id]);
 
     // Auto-play as soon as the signed URL arrives if user tapped early
     // NOTE: Must stay above early returns to satisfy Rules of Hooks
@@ -558,7 +567,7 @@ export default function ReportDetailScreen() {
 
 
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -743,7 +752,7 @@ export default function ReportDetailScreen() {
                 onClose={() => setShowAIChat(false)}
                 report={report}
             />
-        </View>
+        </SafeAreaView>
     );
 }
 

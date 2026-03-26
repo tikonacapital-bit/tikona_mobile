@@ -17,7 +17,7 @@ import {
     ViewToken,
     useWindowDimensions
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SLIDES = [
     {
@@ -203,6 +203,7 @@ export default function OnboardingScreen() {
     if (isWideWeb) {
         const slide = SLIDES[currentIndex];
         return (
+            <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0C0F14' : '#EEF2FF' }]}>
             <LinearGradient
                 colors={isDark ? ['#0C0F14', '#111827', '#0C0F14'] : ['#EEF2FF', '#F8FAFF', '#EEF2FF']}
                 style={styles.container}
@@ -315,11 +316,13 @@ export default function OnboardingScreen() {
                     </View>
                 </View>
             </LinearGradient>
+            </SafeAreaView>
         );
     }
 
     // ─── Mobile layout ────────────────────────────────────────────────────────
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0C0F14' : '#F0F4FF' }]}>
         <LinearGradient
             colors={isDark ? ['#0C0F14', '#111827', '#0C0F14'] : ['#F0F4FF', '#FFFFFF', '#F0FFF4']}
             style={styles.container}
@@ -394,6 +397,7 @@ export default function OnboardingScreen() {
                 </View>
             </View>
         </LinearGradient>
+        </SafeAreaView>
     );
 }
 

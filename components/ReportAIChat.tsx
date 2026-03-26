@@ -50,7 +50,9 @@ import {
   TouchableOpacity,
   Vibration,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -208,6 +210,8 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const flatListRef = useRef<FlatList>(null);
   const { userId } = useAuth();
   const { getToken } = useClerkAuth();
+  const insets = useSafeAreaInsets();
+  const { width: SW, height: SH } = useWindowDimensions();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
@@ -931,7 +935,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           colors={isDark ? ['#0f172a', '#1e293b'] : [Colors.brand.primary, '#1e3a8a']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={s.header}
+          style={[s.header, { paddingTop: Math.max(insets.top, 16) }]}
         >
           <TouchableOpacity onPress={handleMinimize} style={s.headerBtn} activeOpacity={0.7}>
             <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
@@ -983,7 +987,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
         {/* ── History Panel Overlay ────────────────────────────────────── */}
         {showHistory && (
-          <View style={[s.historyOverlay, { backgroundColor: c.background }]}>
+          <View style={[s.historyOverlay, { backgroundColor: c.background, paddingTop: Math.max(insets.top, 0) }]}>
             <View style={[s.historyHeader, { borderBottomColor: c.border }]}>
               <Text style={[s.historyTitle, { color: c.text }]}>Chat History</Text>
               <TouchableOpacity onPress={() => setShowHistory(false)} style={s.historyCloseBtn} activeOpacity={0.7}>
@@ -1243,7 +1247,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
           {/* Input Area */}
           {!isRecording && !isProcessing && !isSpeaking && (
-            <View style={s.inputArea}>
+            <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               {showTextInput ? (
                 <View style={s.textInputRow}>
                   <TouchableOpacity
@@ -1356,7 +1360,6 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: Platform.select({ ios: 56, web: 16, default: 48 }),
     paddingBottom: Spacing.md,
     paddingHorizontal: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1563,7 +1566,6 @@ const s = StyleSheet.create({
   // ── Bottom bar ────────────────────────────────────────────────────────
   bottomBar: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingBottom: Platform.select({ ios: 34, default: 16 }),
     paddingTop: 0,
     paddingHorizontal: Spacing.lg,
   },

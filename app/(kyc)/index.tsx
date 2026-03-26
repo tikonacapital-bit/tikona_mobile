@@ -15,6 +15,7 @@ import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type KycStatus = 'not_initiated' | 'pending' | 'approved' | 'rejected' | undefined;
 
@@ -72,8 +73,9 @@ export default function KycStatusScreen() {
     const hasSubscription = !!subscription?.is_active;
 
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <ScrollView
-            style={[styles.container, { backgroundColor: c.background }]}
+            style={{ flex: 1 }}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
         >
@@ -163,6 +165,7 @@ export default function KycStatusScreen() {
 
             <View style={{ height: 40 }} />
         </ScrollView>
+        </SafeAreaView>
     );
 }
 

@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Card, ResponsiveScrollView } from '@/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SupportScreen() {
     const theme = useColorScheme();
@@ -15,7 +16,7 @@ export default function SupportScreen() {
     const handlePhone = () => Linking.openURL('tel:+919967271135');
 
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             <LinearGradient
                 colors={[Colors.brand.primary, '#1e3a8a']}
                 style={styles.header}
@@ -96,7 +97,7 @@ export default function SupportScreen() {
                     <Text style={[styles.footerVersion, { color: c.textTertiary }]}>v1.0.3</Text>
                 </View>
             </ResponsiveScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

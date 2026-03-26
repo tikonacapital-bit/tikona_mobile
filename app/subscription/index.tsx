@@ -21,6 +21,7 @@ import {
     Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type PlanKey = 'midcap_wealth' | 'smallcap_alpha' | 'sme_emerging' | 'all_in_growth';
 
@@ -162,7 +163,7 @@ export default function SubscriptionScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
 
             {/* Premium Header */}
             <View>
@@ -355,7 +356,7 @@ export default function SubscriptionScreen() {
 
                 <View style={{ height: 40 }} />
             </ResponsiveScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { useAlert } from '@/context/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ProfilingQuestion, RiskProfileLevel, DisplayLabel, ProfileMethod } from '@/lib/types';
 import { RISK_DISPLAY_MAP, DISPLAY_RISK_MAP } from '@/lib/types';
 
@@ -166,7 +167,7 @@ export default function ProfilingScreen() {
     if (screen === 'success' && savedProfile) {
         const successLevel = LEVEL_OPTIONS.find(l => l.risk === savedProfile.risk)!;
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={styles.successContent}>
                     <View style={[styles.successIconCircle, { backgroundColor: successLevel.color + '15' }]}>
                         <Text style={styles.successEmoji}>{successLevel.emoji}</Text>
@@ -196,14 +197,14 @@ export default function ProfilingScreen() {
                         <Ionicons name="arrow-forward" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
-            </View>
+            </SafeAreaView>
         );
     }
 
     // ─── SCREEN: CHOICE ───
     if (screen === 'choice') {
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={styles.header}>
                     <View style={styles.headerTop}>
                         <View style={[styles.stepBadge, { backgroundColor: Colors.brand.primary + '15' }]}>
@@ -252,7 +253,7 @@ export default function ProfilingScreen() {
                         </Text>
                     </TouchableOpacity>
                 </ScrollView>
-            </View>
+            </SafeAreaView>
         );
     }
 
@@ -260,7 +261,7 @@ export default function ProfilingScreen() {
     if (screen === 'result' && assignedLevel) {
         const assigned = LEVEL_OPTIONS.find(l => l.risk === assignedLevel)!;
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={styles.header}>
                     <View style={styles.headerTop}>
                         <View style={[styles.stepBadge, { backgroundColor: Colors.brand.primary + '15' }]}>
@@ -313,14 +314,14 @@ export default function ProfilingScreen() {
                         </Text>
                     </TouchableOpacity>
                 </ScrollView>
-            </View>
+            </SafeAreaView>
         );
     }
 
     // ─── SCREEN: MANUAL SELECTION ───
     if (screen === 'manual') {
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={styles.header}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity onPress={() => setScreen(quizScore ? 'result' : 'choice')} style={{ marginRight: 8 }}>
@@ -386,13 +387,13 @@ export default function ProfilingScreen() {
                         )}
                     </TouchableOpacity>
                 </ScrollView>
-            </View>
+            </SafeAreaView>
         );
     }
 
     // ─── SCREEN: QUIZ ───
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             {/* Header */}
             <View style={styles.header}>
                 <View style={styles.headerTop}>
@@ -486,7 +487,7 @@ export default function ProfilingScreen() {
                     )}
                 </View>
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
@@ -15,6 +16,7 @@ import {
     View,
     useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface VideoPlayerModalProps {
     visible: boolean;
@@ -61,6 +63,8 @@ export default function VideoPlayerModal({
     const controlsAnim = useRef(new Animated.Value(1)).current;
     const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    const { width: SW, height: SH } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
     const progressBarWidth = useRef(0);
     const progress = durationMillis > 0 ? positionMillis / durationMillis : 0;
     const progressPct = `${(progress * 100).toFixed(2)}%`;
@@ -216,7 +220,6 @@ export default function VideoPlayerModal({
         onClose();
     }, [onClose]);
 
-    const { width: SW, height: SH } = useWindowDimensions();
     // On web/landscape tablet, we want the video to flex entirely rather than restrict to a small percentage of the huge width.
     const isLandscapeOrWeb = SW > SH;
     const videoFlexStyle = (isFullscreen || isLandscapeOrWeb)
@@ -233,12 +236,14 @@ export default function VideoPlayerModal({
             supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
         >
             <View style={styles.root}>
+                {/* Hide status bar in fullscreen */}
+                <StatusBar hidden={isFullscreen && visible} />
                 {/* Dark background */}
                 <LinearGradient colors={['#060310', '#0c0820', '#060310']} style={StyleSheet.absoluteFill} />
 
                 {/* ── Header ── */}
                 {!isFullscreen && (
-                    <View style={styles.header}>
+                    <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
                         <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.8}>
                             <LinearGradient
                                 colors={['rgba(255,255,255,0.13)', 'rgba(255,255,255,0.06)']}
@@ -305,7 +310,17 @@ export default function VideoPlayerModal({
 
                         {/* Controls overlay */}
                         {controlsVisible && !isLocked ? (
-                            <Animated.View style={[styles.overlayCenter, { opacity: controlsAnim }]} pointerEvents="box-none">
+                            <Animated.View
+                                style={[
+                                    styles.overlayCenter,
+                                    { opacity: controlsAnim },
+                                    isFullscreen && {
+                                        paddingHorizontal: Math.max(insets.left, insets.right, 20),
+                                        paddingBottom: Math.max(insets.bottom, 10),
+                                    }
+                                ]}
+                                pointerEvents="box-none"
+                            >
                                 {/* Gradient scrim */}
                                 <LinearGradient
                                     colors={['rgba(0,0,0,0.6)', 'transparent', 'rgba(0,0,0,0.75)']}
@@ -342,14 +357,21 @@ export default function VideoPlayerModal({
                                 </View>
 
                                 {/* Scrubber Area in Overlay */}
-                                <View style={styles.scrubberContainer}>
-                                    <View
-                                        style={styles.track}
-                                        onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
-                                        onStartShouldSetResponder={() => !isLocked}
-                                        onResponderGrant={(e) => handleProgressSeek(e.nativeEvent.locationX)}
-                                        onResponderMove={(e) => handleProgressSeek(e.nativeEvent.locationX)}
-                                    >
+                                <View
+                                    style={[
+                                        styles.scrubberContainer,
+                                        {
+                                            left: Math.max(insets.left, 14),
+                                            right: Math.max(insets.right, 14),
+                                            bottom: isFullscreen ? Math.max(insets.bottom, 10) + 44 : 54
+                                        }
+                                    ]}
+                                    onLayout={(e) => { progressBarWidth.current = e.nativeEvent.layout.width; }}
+                                    onStartShouldSetResponder={() => !isLocked}
+                                    onResponderGrant={(e) => handleProgressSeek(e.nativeEvent.locationX)}
+                                    onResponderMove={(e) => handleProgressSeek(e.nativeEvent.locationX)}
+                                >
+                                    <View style={styles.track} pointerEvents="none">
                                         <View style={[styles.fill, { width: progressPct as any }]}>
                                             <LinearGradient
                                                 colors={['#7c3aed', '#a855f7']}
@@ -364,7 +386,14 @@ export default function VideoPlayerModal({
                                 </View>
 
                                 {/* Bottom controls: mute | speed | time */}
-                                <View style={styles.bottomBar}>
+                                <View style={[
+                                    styles.bottomBar,
+                                    {
+                                        left: Math.max(insets.left, 12),
+                                        right: Math.max(insets.right, 12),
+                                        bottom: isFullscreen ? Math.max(insets.bottom, 10) : 10
+                                    }
+                                ]}>
                                     {/* Mute */}
                                     <TouchableOpacity onPress={toggleMute} style={styles.smallCtrl} activeOpacity={0.8}>
                                         <Ionicons name={isMuted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
@@ -450,7 +479,6 @@ const styles = StyleSheet.create({
     /* ── Header ── */
     header: {
         flexDirection: 'row', alignItems: 'center',
-        paddingTop: Platform.select({ ios: 58, default: 46 }),
         paddingBottom: 12, paddingHorizontal: 18, gap: 10,
     },
     closeBtn: { borderRadius: 12, overflow: 'hidden' },

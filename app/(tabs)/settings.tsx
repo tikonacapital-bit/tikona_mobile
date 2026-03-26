@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/lib/logger';
 import { useAlert } from '@/context/AlertContext';
 import { Card, StatusChip, ResponsiveScrollView } from '@/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 import { Switch } from 'react-native';
@@ -122,7 +123,7 @@ export default function SettingsScreen() {
     const themeLabel = themeOverride === 'system' ? 'System' : themeOverride === 'dark' ? 'Dark' : 'Light';
 
     return (
-        <>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             <ResponsiveScrollView style={[styles.container, { backgroundColor: c.background }]}>
                 {/* Profile Header */}
                 <View style={[styles.profileHeader, { backgroundColor: isDark ? Colors.brand.primary : c.surface, borderBottomWidth: isDark ? 0 : 1, borderBottomColor: c.border }]}>
@@ -306,7 +307,7 @@ export default function SettingsScreen() {
                     </Pressable>
                 </Pressable>
             </Modal>
-        </>
+        </SafeAreaView>
     );
 }
 

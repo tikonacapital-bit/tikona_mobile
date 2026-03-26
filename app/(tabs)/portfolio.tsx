@@ -28,6 +28,7 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PortfolioScreen() {
     const theme = useColorScheme();
@@ -256,8 +257,9 @@ export default function PortfolioScreen() {
     const hasData = holdings && holdings.length > 0;
 
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <ResponsiveScrollView
-            style={[styles.container, { backgroundColor: c.background }]}
+            style={{ flex: 1 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.secondary} />}
         >
             {/* ── Header ── */}
@@ -660,6 +662,7 @@ export default function PortfolioScreen() {
 
             <View style={{ height: 40 }} />
         </ResponsiveScrollView>
+        </SafeAreaView>
     );
 }
 

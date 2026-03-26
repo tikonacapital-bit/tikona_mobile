@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, Image, Animated,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ export default function HomeScreen() {
     const { user, kyc, profile, subscription, refreshUserData, isLoadingData } = useAuth();
     const { getToken } = useClerkAuth();
     const queryClient = useQueryClient();
+    const insets = useSafeAreaInsets();
     const [refreshing, setRefreshing] = useState(false);
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
 
@@ -210,13 +212,14 @@ export default function HomeScreen() {
     const glowScale = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] });
 
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <ResponsiveScrollView
-            style={[styles.container, { backgroundColor: c.background }]}
+            style={{ flex: 1 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.secondary} />}
         >
             {/* ── Premium Animated Header ── */}
             <View style={{ position: 'relative', overflow: 'hidden' }}>
-                <View style={[styles.header, { backgroundColor: isDark ? Colors.brand.primary : c.surface }]}>
+                <View style={[styles.header, { backgroundColor: isDark ? Colors.brand.primary : c.surface, paddingTop: Math.max(insets.top, 20) }]}>
                     {/* Animated Ambient Glow */}
                     <Animated.View style={[
                         StyleSheet.absoluteFill,
@@ -375,6 +378,7 @@ export default function HomeScreen() {
                 <View style={{ height: 32 }} />
             </ResponsiveContainer>
         </ResponsiveScrollView>
+        </SafeAreaView>
     );
 }
 

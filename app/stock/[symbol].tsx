@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import { RecommendationBadge, Card, ResponsiveScrollView } from '@/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { EquityUniverse, ResearchReport } from '@/lib/types';
 import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 
@@ -120,7 +121,7 @@ export default function StockDetailScreen() {
         : null;
 
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             <ResponsiveScrollView contentContainerStyle={styles.content}>
 
                 {/* ── Back Bar ── */}
@@ -283,7 +284,7 @@ export default function StockDetailScreen() {
 
                 <View style={{ height: 60 }} />
             </ResponsiveScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 

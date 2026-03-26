@@ -21,6 +21,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Message {
     id: string;
@@ -86,6 +87,7 @@ export default function AIChatScreen() {
     const c = Colors[theme];
     const isDark = theme === 'dark';
     const { getToken } = useClerkAuth();
+    const insets = useSafeAreaInsets();
 
     const analyst = SECTOR_ANALYSTS.find((a) => a.sector === sector);
     const analystColor = analyst?.color ?? Colors.brand.secondary;
@@ -208,14 +210,15 @@ export default function AIChatScreen() {
     };
 
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor: c.background }]}
+            style={{ flex: 1 }}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             {/* Header */}
             <LinearGradient
                 colors={isDark ? ['#0f172a', '#1e293b'] : ['#ffffff', '#f8fafc']}
-                style={[styles.header, { borderBottomColor: c.border }]}
+                style={[styles.header, { borderBottomColor: c.border, paddingTop: Math.max(insets.top, 16) }]}
             >
                 <TouchableOpacity
                     onPress={() => router.back()}
@@ -311,7 +314,7 @@ export default function AIChatScreen() {
             )}
 
             {/* Input Bar */}
-            <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border }]}>
+            <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
                 <View style={[
                     styles.inputWrap,
                     {
@@ -353,6 +356,7 @@ export default function AIChatScreen() {
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
@@ -365,7 +369,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
         paddingHorizontal: Spacing.xl,
-        paddingTop: Platform.select({ ios: 56, default: 40 }),
         paddingBottom: Spacing.md,
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
@@ -449,7 +452,6 @@ const styles = StyleSheet.create({
         gap: 10,
         paddingHorizontal: Spacing.xl,
         paddingTop: 10,
-        paddingBottom: Platform.OS === 'ios' ? 32 : Spacing.lg,
         borderTopWidth: StyleSheet.hairlineWidth,
     },
     inputWrap: {

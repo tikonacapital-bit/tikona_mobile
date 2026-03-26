@@ -22,7 +22,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
@@ -471,6 +471,7 @@ export default function RegisterScreen() {
 
     // ─── Mobile layout ────────────────────────────────────────────────────────
     return (
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView
                 contentContainerStyle={[
@@ -500,6 +501,7 @@ export default function RegisterScreen() {
                 </Animated.View>
             </ScrollView>
         </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 

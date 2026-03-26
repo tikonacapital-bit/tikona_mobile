@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { PLANS, PLAN_PRICES } from '@/lib/types';
 import type { RefundRequest } from '@/lib/types';
 import { Card, ResponsiveScrollView } from '@/components/ui';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
     calculateRefund,
     getRefundRequest,
@@ -127,7 +128,7 @@ export default function RefundScreen() {
     // ── Loading state ──
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={[styles.header, { backgroundColor: Colors.brand.primary }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={22} color="#fff" />
@@ -139,14 +140,14 @@ export default function RefundScreen() {
                 <View style={styles.centerLoader}>
                     <ActivityIndicator size="large" color={Colors.brand.secondary} />
                 </View>
-            </View>
+            </SafeAreaView>
         );
     }
 
     // ── No subscription ──
     if (!subscription || !subscription.is_active) {
         return (
-            <View style={[styles.container, { backgroundColor: c.background }]}>
+            <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
                 <View style={[styles.header, { backgroundColor: Colors.brand.primary }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                         <Ionicons name="arrow-back" size={22} color="#fff" />
@@ -170,7 +171,7 @@ export default function RefundScreen() {
                         <Text style={styles.emptyBtnText}>View Plans</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </SafeAreaView>
         );
     }
 
@@ -179,7 +180,7 @@ export default function RefundScreen() {
     const hasExisting = existingRequest && (existingRequest.status === 'pending' || existingRequest.status === 'approved');
 
     return (
-        <View style={[styles.container, { backgroundColor: c.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: Colors.brand.primary }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -449,7 +450,7 @@ export default function RefundScreen() {
 
                 <View style={{ height: 40 }} />
             </ResponsiveScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 
