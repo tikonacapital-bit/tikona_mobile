@@ -65,6 +65,11 @@ export interface EquityUniverse {
     book_value: number | null;
     eps_ttm: number | null;
     return_down_from_52w_high: number | null;
+    return_up_from_52w_low: number | null;
+    return_1m: number | null;
+    return_3m: number | null;
+    return_6m: number | null;
+    return_12m: number | null;
     consensus_target_price: number | null;
 }
 

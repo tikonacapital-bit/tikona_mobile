@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable, Linking } from 'react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useThemeSettings } from '@/hooks/useColorScheme';
@@ -51,6 +52,36 @@ const THEME_OPTIONS: Array<{ value: 'system' | 'light' | 'dark'; label: string; 
     { value: 'system', label: 'System Default', icon: 'phone-portrait', desc: 'Follows your device setting' },
 ];
 
+// ── Accessibility Guide Steps (Web) ──
+function getAccessibilitySteps(): Array<{ title: string; desc: string; icon?: string }> {
+    if (Platform.OS !== 'web') return [];
+
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+    const isAndroid = ua.includes('android');
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+
+    if (isAndroid) {
+        return [
+            { title: 'Open Settings', desc: 'Swipe down from the top of your screen and tap the gear icon, or find Settings in your app drawer.', icon: 'settings-outline' },
+            { title: 'Tap "Accessibility"', desc: 'Scroll down in Settings and look for the Accessibility option.', icon: 'accessibility-outline' },
+            { title: 'Enable Features', desc: 'Turn on TalkBack, magnification, font size, display size, color correction, or any feature you need.', icon: 'checkmark-circle-outline' },
+        ];
+    } else if (isIOS) {
+        return [
+            { title: 'Open Settings', desc: 'Find the Settings app on your home screen (gray gear icon).', icon: 'settings-outline' },
+            { title: 'Tap "Accessibility"', desc: 'It\u2019s listed in the third group of settings, after General.', icon: 'accessibility-outline' },
+            { title: 'Enable Features', desc: 'Turn on VoiceOver, Zoom, Display & Text Size, AssistiveTouch, or any feature you need.', icon: 'checkmark-circle-outline' },
+        ];
+    } else {
+        // Desktop browser
+        return [
+            { title: 'Windows', desc: 'Open Settings \u2192 Accessibility (or press Win + U).', icon: 'logo-windows' },
+            { title: 'macOS', desc: 'Open System Settings \u2192 Accessibility.', icon: 'logo-apple' },
+            { title: 'Browser Zoom', desc: 'Press Ctrl/Cmd + Plus (+) to increase text size, or Ctrl/Cmd + Minus (-) to decrease.', icon: 'resize-outline' },
+        ];
+    }
+}
+
 export default function SettingsScreen() {
     const theme = useColorScheme();
     const { themeOverride, setThemeOverride } = useThemeSettings();
@@ -60,6 +91,7 @@ export default function SettingsScreen() {
     const { showAlert } = useAlert();
     const [showThemePicker, setShowThemePicker] = useState(false);
     const [showNotifPicker, setShowNotifPicker] = useState(false);
+    const [showAccessibilityGuide, setShowAccessibilityGuide] = useState(false);
     // ── Notifications Settings State ──
     const [notifSettings, setNotifSettings] = useState({
         master: true,
@@ -120,6 +152,29 @@ export default function SettingsScreen() {
         ]);
     };
 
+    const handleOpenAccessibilitySettings = async () => {
+        try {
+            if (Platform.OS === 'android') {
+                await IntentLauncher.startActivityAsync(
+                    IntentLauncher.ActivityAction.ACCESSIBILITY_SETTINGS
+                );
+            } else if (Platform.OS === 'ios') {
+                // Deep-link into iOS Settings → Accessibility
+                await Linking.openURL('App-Prefs:ACCESSIBILITY');
+            } else {
+                // Web: show a rich modal with step-by-step instructions
+                setShowAccessibilityGuide(true);
+            }
+        } catch (error) {
+            logger.warn('Failed to open accessibility settings:', error);
+            showAlert(
+                'Unable to Open Settings',
+                'Please manually open your device\'s Settings app and navigate to Accessibility.',
+                [{ text: 'OK' }]
+            );
+        }
+    };
+
     const themeLabel = themeOverride === 'system' ? 'System' : themeOverride === 'dark' ? 'Dark' : 'Light';
 
     return (
@@ -169,6 +224,7 @@ export default function SettingsScreen() {
                 <Section title="PREFERENCES" theme={theme}>
                     <Row theme={theme} icon="notifications-outline" label="Notifications" value={notifSettings.master ? 'On' : 'Off'} onPress={() => setShowNotifPicker(true)} />
                     <Row theme={theme} icon="moon-outline" label="Appearance" value={themeLabel} onPress={() => setShowThemePicker(true)} />
+                    <Row theme={theme} icon="accessibility-outline" label="Accessibility" onPress={handleOpenAccessibilitySettings} />
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
                 </Section>
 
@@ -303,6 +359,56 @@ export default function SettingsScreen() {
                             onPress={() => setShowNotifPicker(false)}
                         >
                             <Text style={[styles.modalDoneBtnText, { color: '#fff' }]}>Done</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            {/* ── Accessibility Guide Modal (Web) ── */}
+            <Modal
+                visible={showAccessibilityGuide}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowAccessibilityGuide(false)}
+            >
+                <Pressable style={styles.modalOverlay} onPress={() => setShowAccessibilityGuide(false)}>
+                    <Pressable style={[styles.modalSheet, { backgroundColor: c.surface }]} onPress={() => { }}>
+                        <View style={styles.modalHandle}>
+                            <View style={[styles.modalHandleBar, { backgroundColor: c.border }]} />
+                        </View>
+
+                        {/* Header with icon */}
+                        <View style={a11yStyles.header}>
+                            <View style={[a11yStyles.iconContainer, { backgroundColor: Colors.brand.secondary + '15' }]}>
+                                <Ionicons name="accessibility" size={32} color={Colors.brand.secondary} />
+                            </View>
+                            <Text style={[styles.modalTitle, { color: c.text }]}>Accessibility Settings</Text>
+                            <Text style={[styles.modalSubtitle, { color: c.textSecondary }]}>
+                                Follow these steps to enable accessibility features on your device
+                            </Text>
+                        </View>
+
+                        {/* Steps */}
+                        <View style={a11yStyles.steps}>
+                            {getAccessibilitySteps().map((step: { title: string; desc: string; icon?: string }, index: number) => (
+                                <View key={index} style={[a11yStyles.step, { borderBottomColor: c.borderLight }]}>
+                                    <View style={[a11yStyles.stepBadge, { backgroundColor: Colors.brand.secondary }]}>
+                                        <Text style={a11yStyles.stepBadgeText}>{index + 1}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[a11yStyles.stepTitle, { color: c.text }]}>{step.title}</Text>
+                                        <Text style={[a11yStyles.stepDesc, { color: c.textTertiary }]}>{step.desc}</Text>
+                                    </View>
+                                    {step.icon && <Ionicons name={step.icon as any} size={20} color={c.textTertiary} />}
+                                </View>
+                            ))}
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.modalDoneBtn, { backgroundColor: Colors.brand.secondary }]}
+                            onPress={() => setShowAccessibilityGuide(false)}
+                        >
+                            <Text style={[styles.modalDoneBtnText, { color: '#fff' }]}>Got it</Text>
                         </TouchableOpacity>
                     </Pressable>
                 </Pressable>
@@ -454,6 +560,53 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     notifDesc: {
+        fontSize: FontSize.xs,
+        lineHeight: 16,
+    },
+});
+
+const a11yStyles = StyleSheet.create({
+    header: {
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    iconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: Spacing.md,
+    },
+    steps: {
+        gap: 4,
+        marginBottom: Spacing.xl,
+    },
+    step: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        gap: Spacing.md,
+    },
+    stepBadge: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stepBadgeText: {
+        color: '#fff',
+        fontSize: FontSize.sm,
+        fontWeight: '700',
+    },
+    stepTitle: {
+        fontSize: FontSize.base,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    stepDesc: {
         fontSize: FontSize.xs,
         lineHeight: 16,
     },

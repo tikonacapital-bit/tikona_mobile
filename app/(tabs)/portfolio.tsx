@@ -428,6 +428,7 @@ export default function PortfolioScreen() {
                                 key={h.id}
                                 theme={theme}
                                 style={styles.holdingCard}
+                                onPress={() => router.push(`/stock/${h.nse_symbol}` as any)}
                             >
                                 <View style={styles.holdingRow}>
                                     {/* Color dot */}

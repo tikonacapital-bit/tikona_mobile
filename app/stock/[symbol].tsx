@@ -1,15 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
+import { Card, RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
+import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { Ionicons } from '@expo/vector-icons';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
-import { RecommendationBadge, Card, ResponsiveScrollView } from '@/components/ui';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { EquityUniverse, ResearchReport } from '@/lib/types';
 import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ── Formatters ──
 const fmtPrice = (v: number | null | undefined) =>
@@ -190,6 +190,121 @@ export default function StockDetailScreen() {
                     )}
                 </Card>
 
+                {/* ── Stock Performance ── */}
+                {(stock?.return_1m != null || stock?.return_3m != null || stock?.return_6m != null || stock?.return_12m != null) && (
+                    <Card theme={theme} style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <Ionicons name="pulse" size={16} color={Colors.brand.secondary} />
+                            <Text style={[styles.cardTitle, { color: c.text }]}>Stock Performance</Text>
+                        </View>
+
+                        {/* Period Return Pills */}
+                        <View style={perfStyles.pillsRow}>
+                            {[
+                                { label: '1M', value: stock?.return_1m },
+                                { label: '3M', value: stock?.return_3m },
+                                { label: '6M', value: stock?.return_6m },
+                                { label: '1Y', value: stock?.return_12m },
+                            ].filter(p => p.value != null).map((period) => {
+                                const isPositive = (period.value ?? 0) >= 0;
+                                return (
+                                    <View
+                                        key={period.label}
+                                        style={[
+                                            perfStyles.pill,
+                                            {
+                                                backgroundColor: isPositive ? c.success + '12' : c.danger + '12',
+                                                borderColor: isPositive ? c.success + '30' : c.danger + '30',
+                                            },
+                                        ]}
+                                    >
+                                        <Text style={[perfStyles.pillLabel, { color: c.textSecondary }]}>{period.label}</Text>
+                                        <View style={perfStyles.pillValueRow}>
+                                            <Ionicons
+                                                name={isPositive ? 'caret-up' : 'caret-down'}
+                                                size={12}
+                                                color={isPositive ? c.success : c.danger}
+                                            />
+                                            <Text style={[perfStyles.pillValue, { color: isPositive ? c.success : c.danger }]}>
+                                                {isPositive ? '+' : ''}{period.value?.toFixed(1)}%
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        {/* Return Bars */}
+                        <View style={perfStyles.barsSection}>
+                            {[
+                                { label: '1 Month', value: stock?.return_1m },
+                                { label: '3 Months', value: stock?.return_3m },
+                                { label: '6 Months', value: stock?.return_6m },
+                                { label: '1 Year', value: stock?.return_12m },
+                            ].filter(p => p.value != null).map((period) => {
+                                const val = period.value ?? 0;
+                                const isPositive = val >= 0;
+                                const maxBar = 60; // max bar width percentage
+                                const absVal = Math.min(Math.abs(val), 100);
+                                const barWidth = (absVal / 100) * maxBar;
+                                return (
+                                    <View key={period.label} style={perfStyles.barRow}>
+                                        <Text style={[perfStyles.barLabel, { color: c.textSecondary }]}>{period.label}</Text>
+                                        <View style={perfStyles.barTrack}>
+                                            {/* Center line */}
+                                            <View style={[perfStyles.barCenter, { backgroundColor: c.border }]} />
+                                            {/* Bar */}
+                                            <View
+                                                style={[
+                                                    perfStyles.barFill,
+                                                    {
+                                                        width: `${barWidth}%`,
+                                                        backgroundColor: isPositive ? c.success : c.danger,
+                                                        ...(isPositive
+                                                            ? { left: '50%' }
+                                                            : { right: '50%' }),
+                                                    } as any,
+                                                ]}
+                                            />
+                                        </View>
+                                        <Text style={[perfStyles.barValue, { color: isPositive ? c.success : c.danger }]}>
+                                            {isPositive ? '+' : ''}{val.toFixed(1)}%
+                                        </Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        {/* 52W Metrics */}
+                        {(stock?.return_up_from_52w_low != null || stock?.return_down_from_52w_high != null) && (
+                            <View style={[perfStyles.weekMetrics, { borderTopColor: c.borderLight }]}>
+                                {stock?.return_up_from_52w_low != null && (
+                                    <View style={[perfStyles.weekMetric, { backgroundColor: c.success + '08' }]}>
+                                        <Ionicons name="arrow-up-circle" size={16} color={c.success} />
+                                        <View>
+                                            <Text style={[perfStyles.weekMetricLabel, { color: c.textTertiary }]}>From 52W Low</Text>
+                                            <Text style={[perfStyles.weekMetricValue, { color: c.success }]}>
+                                                +{stock.return_up_from_52w_low.toFixed(1)}%
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+                                {stock?.return_down_from_52w_high != null && (
+                                    <View style={[perfStyles.weekMetric, { backgroundColor: c.danger + '08' }]}>
+                                        <Ionicons name="arrow-down-circle" size={16} color={c.danger} />
+                                        <View>
+                                            <Text style={[perfStyles.weekMetricLabel, { color: c.textTertiary }]}>From 52W High</Text>
+                                            <Text style={[perfStyles.weekMetricValue, { color: c.danger }]}>
+                                                {stock.return_down_from_52w_high.toFixed(1)}%
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                    </Card>
+                )}
+
                 {/* ── Valuation ── */}
                 {(stock?.pe_ttm != null || stock?.ev_ebitda_ttm != null || stock?.market_cap != null || stock?.book_value != null) && (
                     <Card theme={theme} style={styles.card}>
@@ -331,4 +446,105 @@ const styles = StyleSheet.create({
     reportIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     reportDate: { fontSize: FontSize.xs, marginBottom: 2 },
     reportTarget: { fontSize: FontSize.sm },
+});
+
+// ── Stock Performance Styles ──
+const perfStyles = StyleSheet.create({
+    pillsRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        marginBottom: Spacing.lg,
+        flexWrap: 'wrap',
+    },
+    pill: {
+        flex: 1,
+        minWidth: 70,
+        alignItems: 'center',
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
+        borderRadius: BorderRadius.md,
+        borderWidth: 1,
+    },
+    pillLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 4,
+    },
+    pillValueRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+    },
+    pillValue: {
+        fontSize: FontSize.base,
+        fontWeight: '800',
+    },
+    barsSection: {
+        gap: Spacing.md,
+        marginBottom: Spacing.md,
+    },
+    barRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+    },
+    barLabel: {
+        width: 72,
+        fontSize: FontSize.xs,
+        fontWeight: '500',
+    },
+    barTrack: {
+        flex: 1,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'transparent',
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    barCenter: {
+        position: 'absolute',
+        left: '50%',
+        top: 0,
+        bottom: 0,
+        width: 1,
+    },
+    barFill: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        borderRadius: 4,
+    },
+    barValue: {
+        width: 52,
+        fontSize: FontSize.xs,
+        fontWeight: '700',
+        textAlign: 'right',
+    },
+    weekMetrics: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+    },
+    weekMetric: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        borderRadius: BorderRadius.md,
+    },
+    weekMetricLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
+    },
+    weekMetricValue: {
+        fontSize: FontSize.sm,
+        fontWeight: '800',
+    },
 });
