@@ -5,10 +5,10 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 export default function AppEntry() {
-    const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
+    const { isSignedIn, isLoaded: isAuthLoaded, isLoadingData, subscription } = useAuth();
     const theme = useColorScheme();
 
-    if (!isAuthLoaded) {
+    if (!isAuthLoaded || (isSignedIn && isLoadingData)) {
         return (
             <View style={[styles.container, { backgroundColor: Colors[theme].background }]}>
                 <ActivityIndicator size="large" color={Colors.brand.secondary} />
@@ -17,6 +17,9 @@ export default function AppEntry() {
     }
 
     if (isSignedIn) {
+        if (!subscription?.is_active) {
+            return <Redirect href="/subscription" />;
+        }
         return <Redirect href="/(tabs)" />;
     }
 

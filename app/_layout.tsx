@@ -34,12 +34,13 @@ if (Constants.appOwnership !== 'expo') {
 
 function RootLayoutInner() {
     const colorScheme = useColorScheme();
-    const { isLoaded, isSignedIn } = useAuth();
+    const { isLoaded, isSignedIn, isLoadingData, subscription } = useAuth();
     const segments = useSegments();
 
     // Global protection routing
     useEffect(() => {
         if (!isLoaded) return;
+        if (isSignedIn && isLoadingData) return;
 
         // Hide splash screen once auth state is settled
         SplashScreen.hideAsync().catch(() => {});
@@ -48,12 +49,16 @@ function RootLayoutInner() {
 
         if (isSignedIn && inAuthGroup) {
             // Redirect to dashboard if logged in but trying to access an intro or auth screen
-            router.replace('/(tabs)');
+            if (!subscription?.is_active) {
+                router.replace('/subscription');
+            } else {
+                router.replace('/(tabs)');
+            }
         } else if (!isSignedIn && !inAuthGroup && segments[0] !== undefined) {
             // Redirect to login if not logged in and trying to access protected screens
             router.replace('/(auth)/login');
         }
-    }, [isSignedIn, isLoaded, segments]);
+    }, [isSignedIn, isLoaded, segments, isLoadingData, subscription]);
 
     return (
         <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
