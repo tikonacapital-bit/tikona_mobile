@@ -20,7 +20,16 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.kishanyash.tikonamobile",
       "permissions": [
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO"
       ]
     },
     "web": {
@@ -44,7 +53,9 @@
         "expo-build-properties",
         {
           "android": {
-            "extraCMakeArgs": ["-DANDROID_STL=c++_shared"]
+            "extraCMakeArgs": [
+              "-DANDROID_STL=c++_shared"
+            ]
           }
         }
       ],
@@ -58,6 +69,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5f240350-c1bb-4394-b2e6-871412499c49"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5f240350-c1bb-4394-b2e6-871412499c49"
     }
   }
 }

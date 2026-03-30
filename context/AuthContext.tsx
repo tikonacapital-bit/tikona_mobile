@@ -80,8 +80,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 client.from('subscriptions').select('id, user_id, plan, started_at, expires_at, is_active, amount_paid, razorpay_payment_id, created_at, updated_at').eq('user_id', userId).maybeSingle(),
                 client.from('refund_requests').select('id, user_id, subscription_id, plan, total_paid, months_used, months_remaining, refund_amount, upi_id, status, reason, admin_notes, reviewed_by, reviewed_at, created_at, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             ]);
-            // Tradebox instant e-KYC: an active subscription means KYC was successful.
-            const kycData = subRes.data?.is_active
+            // Tradebox instant e-KYC: payment via Tradebox includes KYC.
+            // Only paid plans go through Tradebox checkout (which includes KYC).
+            // Free plan subscriptions are created locally after quiz — no Tradebox KYC happens there.
+            const hasPaidSubscription = subRes.data?.is_active && subRes.data?.plan !== 'free';
+            const kycData = hasPaidSubscription
                 ? ({ status: 'approved' } as any)
                 : (kycRes.data ?? null);
 
