@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMediaPlayer } from '@/context/MediaPlayerContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 import type { ResearchReport } from '@/lib/types';
 import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
@@ -173,7 +174,7 @@ export default function ReportDetailScreen() {
                         // 14400 seconds = 4 hours
                         const { data, error: storageError } = await client.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400);
                         if (storageError) {
-                            console.log('Podcast Storage Error:', storageError);
+                            logger.warn('Podcast Storage Error:', storageError);
                             if (isMounted) setSecureAudioUrl(null);
                         } else if (isMounted) {
                             setSecureAudioUrl(data?.signedUrl || null);
@@ -181,7 +182,7 @@ export default function ReportDetailScreen() {
                     }
                 }
             } catch (err) {
-                console.log('Error generating signed URLs:', err);
+                logger.warn('Error generating signed URLs:', err);
             }
         }
 
