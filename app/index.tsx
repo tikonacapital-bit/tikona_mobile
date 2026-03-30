@@ -5,7 +5,7 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 export default function AppEntry() {
-    const { isSignedIn, isLoaded: isAuthLoaded, isLoadingData, subscription } = useAuth();
+    const { isSignedIn, isLoaded: isAuthLoaded, isLoadingData } = useAuth();
     const theme = useColorScheme();
 
     if (!isAuthLoaded || (isSignedIn && isLoadingData)) {
@@ -17,9 +17,6 @@ export default function AppEntry() {
     }
 
     if (isSignedIn) {
-        if (!subscription?.is_active) {
-            return <Redirect href="/subscription" />;
-        }
         return <Redirect href="/(tabs)" />;
     }
 

@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as ScreenCapture from 'expo-screen-capture';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator, Alert, Linking, Modal, Platform,
@@ -52,15 +51,6 @@ export default function ReportDetailScreen() {
     const { user } = useUser();
     const { getToken } = useClerkAuth();
     const insets = useSafeAreaInsets();
-
-    useEffect(() => {
-        if (Platform.OS !== 'web') {
-            ScreenCapture.preventScreenCaptureAsync().catch(() => { });
-            return () => {
-                ScreenCapture.allowScreenCaptureAsync().catch(() => { });
-            };
-        }
-    }, []);
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
     const [showAIChat, setShowAIChat] = useState(false);

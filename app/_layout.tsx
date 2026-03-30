@@ -49,10 +49,11 @@ function RootLayoutInner() {
 
         if (isSignedIn && inAuthGroup) {
             // Redirect to dashboard if logged in but trying to access an intro or auth screen
+            router.replace('/(tabs)');
             if (!subscription?.is_active) {
-                router.replace('/subscription');
-            } else {
-                router.replace('/(tabs)');
+                setTimeout(() => {
+                    router.push('/subscription');
+                }, 100);
             }
         } else if (!isSignedIn && !inAuthGroup && segments[0] !== undefined) {
             // Redirect to login if not logged in and trying to access protected screens

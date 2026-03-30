@@ -15,6 +15,7 @@ import {
     ActivityIndicator,
     FlatList,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput, TouchableOpacity,
@@ -32,6 +33,8 @@ export default function ReportsScreen() {
 
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [filter, setFilter] = useState<'ALL' | 'BUY' | 'SELL' | 'HOLD'>('ALL');
+    const [timeFilter, setTimeFilter] = useState<'ALL' | '7D' | '1M' | '3M' | '6M' | '1Y'>('ALL');
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -42,7 +45,7 @@ export default function ReportsScreen() {
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['my_reports', userId, userEmail, debouncedSearch],
+        queryKey: ['my_reports', userId, userEmail, debouncedSearch, filter, timeFilter],
         queryFn: async (): Promise<ResearchReport[]> => {
             if (!userId || !userEmail) return [];
 
@@ -56,6 +59,23 @@ export default function ReportsScreen() {
                 .eq('is_published', true)
                 .order('published_at', { ascending: false })
                 .limit(PAGE_SIZE);
+
+            if (filter !== 'ALL') {
+                query = query.eq('recommendation', filter);
+            }
+
+            if (timeFilter !== 'ALL') {
+                const now = new Date();
+                let pastDate = new Date();
+                switch (timeFilter) {
+                    case '7D': pastDate.setDate(now.getDate() - 7); break;
+                    case '1M': pastDate.setMonth(now.getMonth() - 1); break;
+                    case '3M': pastDate.setMonth(now.getMonth() - 3); break;
+                    case '6M': pastDate.setMonth(now.getMonth() - 6); break;
+                    case '1Y': pastDate.setFullYear(now.getFullYear() - 1); break;
+                }
+                query = query.gte('published_at', pastDate.toISOString());
+            }
 
             if (debouncedSearch.trim()) {
                 const term = `%${debouncedSearch.trim()}%`;
@@ -192,6 +212,71 @@ export default function ReportsScreen() {
                             </TouchableOpacity>
                         )}
                     </View>
+
+                    {/* Filters */}
+                    <View style={styles.filterWrap}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+                            {(['ALL', 'BUY', 'SELL', 'HOLD'] as const).map((f) => {
+                                const isSelected = filter === f;
+                                return (
+                                    <TouchableOpacity 
+                                        key={f} 
+                                        style={[
+                                            styles.filterChip, 
+                                            { 
+                                                backgroundColor: isSelected ? Colors.brand.primary : c.inputBg, 
+                                                borderColor: isSelected ? Colors.brand.primary : (theme === 'dark' ? c.border : c.inputBorder)
+                                            }
+                                        ]}
+                                        onPress={() => setFilter(f)}
+                                    >
+                                        <Text style={[
+                                            styles.filterText, 
+                                            { 
+                                                color: isSelected ? '#fff' : c.textSecondary, 
+                                                fontWeight: isSelected ? '700' : '500' 
+                                            }
+                                        ]}>
+                                            {f === 'ALL' ? 'All Reports' : f}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterContent, { paddingTop: 0 }]}>
+                            {(['ALL', '7D', '1M', '3M', '6M', '1Y'] as const).map((tf) => {
+                                const isSelected = timeFilter === tf;
+                                const labels: Record<string, string> = { ALL: 'Any Time', '7D': 'Past 7D', '1M': 'Past 1M', '3M': 'Past 3M', '6M': 'Past 6M', '1Y': 'Past 1Y' };
+                                return (
+                                    <TouchableOpacity 
+                                        key={tf} 
+                                        style={[
+                                            styles.filterChip, 
+                                            { 
+                                                paddingVertical: 6,
+                                                paddingHorizontal: Spacing.md,
+                                                backgroundColor: isSelected ? Colors.brand.secondary + '1A' : c.background, 
+                                                borderColor: isSelected ? Colors.brand.secondary : (theme === 'dark' ? c.border : c.inputBorder)
+                                            }
+                                        ]}
+                                        onPress={() => setTimeFilter(tf)}
+                                    >
+                                        <Text style={[
+                                            styles.filterText, 
+                                            { 
+                                                fontSize: FontSize.xs,
+                                                color: isSelected ? Colors.brand.secondary : c.textSecondary, 
+                                                fontWeight: isSelected ? '700' : '500' 
+                                            }
+                                        ]}>
+                                            {labels[tf]}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
                 </View>
 
                 {/* List */}
@@ -287,6 +372,23 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 1,
+        marginBottom: Spacing.md,
+    },
+    filterWrap: {
+        marginTop: Spacing.xs,
+    },
+    filterContent: {
+        gap: Spacing.sm,
+        paddingVertical: 4,
+    },
+    filterChip: {
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.full,
+        borderWidth: 1,
+    },
+    filterText: {
+        fontSize: FontSize.sm,
     },
     searchInput: { flex: 1, fontSize: 16 },
     loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
