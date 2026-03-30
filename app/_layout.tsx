@@ -34,7 +34,7 @@ if (Constants.appOwnership !== 'expo') {
 
 function RootLayoutInner() {
     const colorScheme = useColorScheme();
-    const { isLoaded, isSignedIn, isLoadingData, subscription } = useAuth();
+    const { isLoaded, isSignedIn, isLoadingData, subscription, user } = useAuth();
     const segments = useSegments();
 
     // Global protection routing
@@ -50,7 +50,11 @@ function RootLayoutInner() {
         if (isSignedIn && inAuthGroup) {
             // Redirect to dashboard if logged in but trying to access an intro or auth screen
             router.replace('/(tabs)');
-            if (!subscription?.is_active) {
+            
+            // Only nudge brand new users (created within the last 5 minutes)
+            const isNewUser = user?.createdAt ? (Date.now() - new Date(user.createdAt).getTime() < 5 * 60 * 1000) : false;
+            
+            if (isNewUser && !subscription?.is_active) {
                 setTimeout(() => {
                     router.push('/subscription');
                 }, 100);
