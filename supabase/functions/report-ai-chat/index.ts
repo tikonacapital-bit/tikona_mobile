@@ -107,7 +107,7 @@ ${reportContext}
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.5-sonnet", // The genius brain!
+      model: "openai/gpt-4o-mini", // Fallback to GPT-4o-mini due to Anthropic Bedrock routing outage
       messages: [
         { role: "system", content: systemPrompt },
         ...history,
@@ -271,9 +271,10 @@ serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Validate Clerk JWT via PostgREST (GoTrue `getUser` fails on 3rd party JWTs)
+    const { error: authError } = await supabaseClient.from('profiles').select('user_id').limit(1);
 
-    if (userError || !user) {
+    if (authError && authError.code === 'PGRST301') {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }

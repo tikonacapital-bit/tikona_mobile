@@ -46,7 +46,7 @@ export default function AIAnalystScreen() {
                 contentContainerStyle={styles.grid}
                 showsVerticalScrollIndicator={false}
             >
-                {SECTOR_ANALYSTS.map((a) => (
+                {SECTOR_ANALYSTS.filter(a => a.sector !== 'Portfolio Strategy').map((a) => (
                     <TouchableOpacity
                         key={a.sector}
                         style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}

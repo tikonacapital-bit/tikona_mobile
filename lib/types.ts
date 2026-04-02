@@ -71,6 +71,7 @@ export interface EquityUniverse {
     return_6m: number | null;
     return_12m: number | null;
     consensus_target_price: number | null;
+    updated_at?: string;
 }
 
 // KYC submission

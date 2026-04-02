@@ -144,15 +144,22 @@ export default function StockDetailScreen() {
                     </Text>
 
                     {hasPrice ? (
-                        <View style={styles.priceRow}>
-                            <Text style={[styles.price, { color: c.text }]}>{fmtPrice(stock!.current_price)}</Text>
-                            {upFromLow != null && (
-                                <View style={[styles.changePill, { backgroundColor: Colors.brand.secondary + '18' }]}>
-                                    <Ionicons name="trending-up" size={13} color={Colors.brand.secondary} />
-                                    <Text style={[styles.changeText, { color: Colors.brand.secondary }]}>
-                                        +{upFromLow.toFixed(1)}% from 52W low
-                                    </Text>
-                                </View>
+                        <View>
+                            <View style={styles.priceRow}>
+                                <Text style={[styles.price, { color: c.text }]}>{fmtPrice(stock!.current_price)}</Text>
+                                {upFromLow != null && (
+                                    <View style={[styles.changePill, { backgroundColor: Colors.brand.secondary + '18' }]}>
+                                        <Ionicons name="trending-up" size={13} color={Colors.brand.secondary} />
+                                        <Text style={[styles.changeText, { color: Colors.brand.secondary }]}>
+                                            +{upFromLow.toFixed(1)}% from 52W low
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                            {stock?.updated_at && (
+                                <Text style={{ fontSize: 11, color: c.textTertiary, marginTop: 4 }}>
+                                    Data as on {new Date(stock.updated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </Text>
                             )}
                         </View>
                     ) : (
@@ -313,8 +320,8 @@ export default function StockDetailScreen() {
                             <Text style={[styles.cardTitle, { color: c.text }]}>Valuation</Text>
                         </View>
                         {stock?.market_cap != null && <><MetricRow label="Market Cap" value={fmtCr(stock.market_cap)} theme={theme} /><Divider theme={theme} /></>}
-                        {stock?.pe_ttm != null && <><MetricRow label="P/E (TTM)" value={fmtX(stock.pe_ttm)} theme={theme} /><Divider theme={theme} /></>}
-                        {stock?.ev_ebitda_ttm != null && <><MetricRow label="EV / EBITDA" value={fmtX(stock.ev_ebitda_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.pe_ttm != null && <><MetricRow label="P/E (TTM) (x)" value={fmtX(stock.pe_ttm)} theme={theme} /><Divider theme={theme} /></>}
+                        {stock?.ev_ebitda_ttm != null && <><MetricRow label="EV / EBITDA (x)" value={fmtX(stock.ev_ebitda_ttm)} theme={theme} /><Divider theme={theme} /></>}
                         {stock?.book_value != null && <MetricRow label="Book Value" value={fmtPrice(stock.book_value)} theme={theme} />}
                     </Card>
                 )}

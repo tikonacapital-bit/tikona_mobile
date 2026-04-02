@@ -128,6 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(null);
             setSubscription(null);
             setRefundRequest(null);
+            setIsLoadingData(false);
         }
     }, [isLoaded, isSignedIn, user?.id, fetchUserData]);
 

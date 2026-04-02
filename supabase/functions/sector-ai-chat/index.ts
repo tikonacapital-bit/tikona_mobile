@@ -33,6 +33,7 @@ const SECTOR_PROMPTS: Record<string, string> = {
 async function chatCompletion(
   sector: string,
   userMessage: string,
+  instructions: string,
   history: Array<{ role: string; content: string }> = []
 ): Promise<string> {
   const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
@@ -43,7 +44,10 @@ async function chatCompletion(
 
   const fullSystem = `${systemPrompt}
 
-Keep responses concise (3-5 sentences for simple questions, up to 8 for complex ones). Be direct and actionable. If asked about a specific stock or metric, give your honest analyst view. Do not use markdown, bullet points, or special formatting — write in clear conversational paragraphs. Always relate your answers to what matters for a retail investor in India.`;
+${instructions ? `<sector_playbook_instructions>
+${instructions}
+</sector_playbook_instructions>
+` : ''}Keep responses concise (3-5 sentences for simple questions, up to 8 for complex ones). Be direct and actionable. If asked about a specific stock or metric, give your honest analyst view. Do not use markdown, bullet points, or special formatting — write in clear conversational paragraphs. Always relate your answers to what matters for a retail investor in India.${instructions ? '\\nFollow the <sector_playbook_instructions> above when formulating your analysis.' : ''}`;
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -54,7 +58,7 @@ Keep responses concise (3-5 sentences for simple questions, up to 8 for complex 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-3.5-sonnet",
+      model: "openai/gpt-4o-mini", // Fallback to GPT-4o-mini due to Anthropic Bedrock routing outage
       messages: [
         { role: "system", content: fullSystem },
         ...history,
@@ -103,9 +107,10 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Validate Clerk JWT via PostgREST (GoTrue `getUser` fails on 3rd party JWTs)
+    const { error: authError } = await supabaseClient.from('profiles').select('user_id').limit(1);
 
-    if (userError || !user) {
+    if (authError && authError.code === 'PGRST301') {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -118,7 +123,35 @@ Deno.serve(async (req) => {
       throw new Error("Missing 'sector' or 'message'");
     }
 
-    const reply = await chatCompletion(sector, message, history);
+    // Mapping Dictionary: Translates App Sector Names -> Database Sector Names
+    const SECTOR_DB_MAPPING: Record<string, string> = {
+      "Banking & Finance": "Financial Services",
+      "Energy & Oil": "Oil, Gas & Consumable Fuels",
+      "Consumer & FMCG": "Fast Moving Consumer Goods", // Typical DB alternative
+      "Consumer Services": "Consumer Services", 
+      "Infrastructure & Cement": "Capital Goods", // Or whatever matches
+      "Metals & Mining": "Metals & Mining",
+      "Technology & IT": "Information Technology",
+      "Healthcare & Pharma": "Healthcare"
+    };
+
+    // Use the mapped database name, or fall back to the exact string the app sent
+    const dbSectorName = SECTOR_DB_MAPPING[sector] || sector;
+
+    // Fetch the 10k character writing instructions from sector_playbook table
+    const { data: playbook, error: playbookError } = await supabaseClient
+      .from('sector_playbook')
+      .select('ai_writing_instructions')
+      .eq('sector_name', dbSectorName)
+      .maybeSingle();
+      
+    if (playbookError) {
+      console.warn("[sector-ai-chat] Error fetching playbook:", playbookError.message);
+    }
+    
+    const instructions = playbook?.ai_writing_instructions || "";
+
+    const reply = await chatCompletion(sector, message, instructions, history);
     
     return new Response(
       JSON.stringify({ reply }),

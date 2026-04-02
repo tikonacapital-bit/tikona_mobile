@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10,
+      "versionCode": 11,
       "package": "com.kishanyash.tikonamobile",
       "permissions": [
         "RECORD_AUDIO",
@@ -28,6 +28,7 @@
       ],
       "blockedPermissions": [
         "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_AUDIO"

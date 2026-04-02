@@ -1,4 +1,5 @@
 import AudioPlayerBar from '@/components/AudioPlayerBar';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AlertProvider } from '@/context/AlertContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { MediaPlayerProvider } from '@/context/MediaPlayerContext';
@@ -13,7 +14,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -32,10 +33,35 @@ if (Constants.appOwnership !== 'expo') {
     });
 }
 
+/**
+ * CRITICAL FIX for Google Play "Broken Functionality" rejection:
+ *
+ * The splash screen must ALWAYS hide within a reasonable time.
+ * If Clerk auth fails to initialize (network issues, review environment, etc.),
+ * the app was previously stuck on the splash screen forever — showing a blank
+ * white screen with just the logo icon, which Google reviewers flagged.
+ *
+ * Solution: A hard 8-second timeout guarantees the splash hides no matter what.
+ * The normal auth flow will hide it much sooner when Clerk loads successfully.
+ */
+const SPLASH_TIMEOUT_MS = 8000;
+
 function RootLayoutInner() {
     const colorScheme = useColorScheme();
     const { isLoaded, isSignedIn, isLoadingData, subscription, user } = useAuth();
     const segments = useSegments();
+    const splashHidden = useRef(false);
+
+    // Safety net: force-hide splash after timeout even if Clerk never loads
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (!splashHidden.current) {
+                splashHidden.current = true;
+                SplashScreen.hideAsync().catch(() => {});
+            }
+        }, SPLASH_TIMEOUT_MS);
+        return () => clearTimeout(timer);
+    }, []);
 
     // Global protection routing
     useEffect(() => {
@@ -43,7 +69,10 @@ function RootLayoutInner() {
         if (isSignedIn && isLoadingData) return;
 
         // Hide splash screen once auth state is settled
-        SplashScreen.hideAsync().catch(() => {});
+        if (!splashHidden.current) {
+            splashHidden.current = true;
+            SplashScreen.hideAsync().catch(() => {});
+        }
 
         const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback';
 
@@ -105,18 +134,20 @@ export default function RootLayout() {
     const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 
     return (
-        <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-            <SafeAreaProvider>
-                <QueryClientProvider client={queryClient}>
-                    <ThemeProvider>
-                        <AuthProvider>
-                            <MediaPlayerProvider>
-                                <RootLayoutInner />
-                            </MediaPlayerProvider>
-                        </AuthProvider>
-                    </ThemeProvider>
-                </QueryClientProvider>
-            </SafeAreaProvider>
-        </ClerkProvider>
+        <ErrorBoundary>
+            <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+                <SafeAreaProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <ThemeProvider>
+                            <AuthProvider>
+                                <MediaPlayerProvider>
+                                    <RootLayoutInner />
+                                </MediaPlayerProvider>
+                            </AuthProvider>
+                        </ThemeProvider>
+                    </QueryClientProvider>
+                </SafeAreaProvider>
+            </ClerkProvider>
+        </ErrorBoundary>
     );
 }

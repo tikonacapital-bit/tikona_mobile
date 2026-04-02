@@ -597,6 +597,12 @@ export default function PortfolioScreen() {
                     <View style={{ flex: 1 }}>
                         <Text style={[styles.title, { color: c.text }]}>My Portfolio</Text>
                         <Text style={[styles.subtitle, { color: c.textSecondary }]}>{holdings?.length || 0} holdings</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                            <Ionicons name="time-outline" size={12} color={c.textTertiary} />
+                            <Text style={{ color: c.textTertiary, fontSize: 11 }}>
+                                Prices updated today at {lastUpdated}
+                            </Text>
+                        </View>
                     </View>
                     <TouchableOpacity
                         style={[styles.excelBtn, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
@@ -938,12 +944,7 @@ export default function PortfolioScreen() {
 
                 {/* ── Legal & Data Disclaimer ── */}
                 <View style={styles.footer}>
-                    <View style={styles.dataStatus}>
-                        <Ionicons name="time-outline" size={14} color={c.textTertiary} />
-                        <Text style={[styles.footerText, { color: c.textTertiary }]}>
-                            Prices updated today at {lastUpdated} · Source: Exchange (Delayed)
-                        </Text>
-                    </View>
+                    {/* Data Status moved to top */}
 
                     <TouchableOpacity
                         onPress={() => showAlert('Report Issue', 'Is the price or quantity incorrect? We will verify and update our database.', [
