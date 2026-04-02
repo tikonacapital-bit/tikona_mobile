@@ -1,0 +1,161 @@
+{
+  "name": "Portfolio IRR Calculator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "portfolio-holding-change",
+        "options": {
+          "responseMode": "onReceived"
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Supabase Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Supabase sends the payload in body\nconst payload = $input.first().json.body ?? $input.first().json;\n\n// INSERT uses 'record', DELETE uses 'old_record'\nconst record = payload.record ?? payload.old_record ?? {};\nconst portfolioId = record.portfolio_id;\n\nif (!portfolioId) {\n  throw new Error('No portfolio_id found. Payload: ' + JSON.stringify(payload));\n}\n\nreturn [{ json: { portfolio_id: portfolioId, event_type: payload.type } }];"
+      },
+      "id": "extract-portfolio-id",
+      "name": "Extract portfolio_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-PYTHON-API.railway.app/calculate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-n8n-secret",
+              "value": "YOUR_N8N_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "portfolio_id",
+              "value": "={{ $json.portfolio_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "call-python-api",
+      "name": "Calculate IRR (Python API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "success"
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log the successful result\nconst data = $input.first().json;\nconsole.log('IRR calculated:', JSON.stringify(data));\nreturn [{ json: { done: true, portfolio_id: data.portfolio_id, irr: data.metrics?.portfolio_irr, alpha: data.metrics?.alpha } }];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log the error\nconst data = $input.first().json;\nconsole.error('IRR calculation failed or skipped:', JSON.stringify(data));\nreturn [{ json: { done: false, message: data.message ?? 'unknown error' } }];"
+      },
+      "id": "log-error",
+      "name": "Log Error / Skipped",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 420]
+    }
+  ],
+  "connections": {
+    "Supabase Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract portfolio_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract portfolio_id": {
+      "main": [
+        [
+          {
+            "node": "Calculate IRR (Python API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate IRR (Python API)": {
+      "main": [
+        [
+          {
+            "node": "Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success?": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error / Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["portfolio", "irr", "tikona"]
+}
