@@ -17,7 +17,9 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
+      "versionCode": 10,
       "package": "com.kishanyash.tikonamobile",
       "permissions": [
         "RECORD_AUDIO",
@@ -25,7 +27,6 @@
         "VIBRATE"
       ],
       "blockedPermissions": [
-        "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
@@ -64,7 +65,8 @@
         {
           "microphonePermission": "Allow Tikona Research to access your microphone to record voice commands."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

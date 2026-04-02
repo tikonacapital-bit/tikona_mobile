@@ -1,0 +1,47 @@
+Here's the documentation for what's hosted on VPS only:
+
+VPS Hosting — 72.61.226.16
+What is hosted here
+Only the Python scripts folder. Nothing else.
+
+Location on VPS
+
+/opt/tikona-api/scripts/
+Files deployed
+File	Purpose
+calculate_irr.py	Core IRR calculation engine
+api.py	FastAPI server (not currently used — IRR runs in app now)
+seed_nifty.py	Fetches Nifty 50 prices and inserts into Supabase
+requirements.txt	Python dependencies
+.env	Supabase credentials (service role key + n8n secret)
+What actually runs
+Only one script runs on a schedule:
+
+
+seed_nifty.py  →  runs daily at 6:30 PM IST (13:00 UTC), Mon–Fri
+It fetches the latest 3 days of Nifty 50 closing prices from Yahoo Finance and upserts them into the nifty_history table in Supabase.
+
+Cron entry (view with crontab -l on VPS):
+
+
+0 13 * * 1-5 cd /opt/tikona-api/scripts && ./venv/bin/python seed_nifty.py --days 3
+Python environment
+
+/opt/tikona-api/scripts/venv/   ← virtual environment
+Dependencies installed:
+
+
+supabase, yfinance, pyxirr, python-dotenv, fastapi, uvicorn
+What is NOT hosted on VPS
+Thing	Where it actually runs
+React Native app	User's phone / browser (Expo)
+IRR calculation	On-device (in the app itself)
+Database	Supabase cloud
+Authentication	Clerk cloud
+App hosting	Expo (EAS build / web)
+n8n	Also on same VPS (port 5678) but not connected currently
+To SSH in
+
+ssh root@72.61.226.16
+cd /opt/tikona-api/scripts
+source venv/bin/activate

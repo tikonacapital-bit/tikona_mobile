@@ -200,7 +200,8 @@ export interface PortfolioHolding {
     company_name: string | null;
     quantity: number;
     buy_price: number;
-    buy_date: string | null;
+    buy_date: string | null;       // For SELL records this holds the sell date
+    investment_thesis: string | null; // '[SELL] ...' prefix marks a sell transaction
     created_at: string;
 }
 
@@ -211,6 +212,18 @@ export interface EnrichedHolding extends PortfolioHolding {
     current_value: number | null;
     pnl: number | null;
     pnl_pct: number | null;
+}
+
+/** Pre-calculated IRR metrics written by the Python backend script. */
+export interface PortfolioMetrics {
+    portfolio_id: string;
+    portfolio_irr: number | null;   // annualized % e.g. 18.5
+    nifty_irr: number | null;       // Nifty 50 benchmark %
+    alpha: number | null;           // portfolio_irr - nifty_irr
+    avg_holding_days: number | null;
+    avg_holding_years: number | null;
+    valid_count: number | null;
+    calculated_at: string | null;
 }
 
 // Profiling question (matches profiling_questions table)

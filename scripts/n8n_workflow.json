@@ -28,7 +28,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://YOUR-PYTHON-API.railway.app/calculate",
+        "url": "http://72.61.226.16:8000/calculate",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -55,6 +55,7 @@
           "timeout": 60000
         }
       },
+      "continueOnFail": true,
       "id": "call-python-api",
       "name": "Calculate IRR (Python API)",
       "type": "n8n-nodes-base.httpRequest",

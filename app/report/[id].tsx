@@ -31,6 +31,10 @@ const getEmbedUrl = (url: string | null | undefined) => {
     if (url.includes('drive.google.com')) {
         return url.replace(/\/(view|edit)([?#]|$)/, '/preview$2');
     }
+    // Attempt to hide PDF toolbar to prevent unauthorized downloads on web
+    if (url.includes('.pdf') || url.includes('supabase')) {
+        return url.includes('#') ? `${url}&toolbar=0&navpanes=0` : `${url}#toolbar=0&navpanes=0`;
+    }
     return url;
 };
 
@@ -626,17 +630,6 @@ export default function ReportDetailScreen() {
                                 </Text>
                             </View>
                             <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                                {Platform.OS === 'web' && (
-                                    <TouchableOpacity
-                                        style={styles.pdfModalCloseBtn}
-                                        onPress={() => {
-                                            if (securePdfUrl) Linking.openURL(securePdfUrl);
-                                        }}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Ionicons name="open-outline" size={20} color="#fff" />
-                                    </TouchableOpacity>
-                                )}
                                 <TouchableOpacity
                                     style={styles.pdfModalCloseBtn}
                                     onPress={() => setShowPdf(false)}
