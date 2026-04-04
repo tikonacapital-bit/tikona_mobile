@@ -121,9 +121,8 @@ export default function RegisterScreen() {
             if (error) throw error;
             if (data?.user && !data.session) {
                 setPendingVerification(true);
-            } else if (data?.session) {
-                router.replace('/');
             }
+            // If session exists, navigation handled by _layout.tsx routing effect
         } catch (err: any) {
             showAlert('Sign Up Failed', err.message);
         } finally {
@@ -136,9 +135,7 @@ export default function RegisterScreen() {
         try {
             const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'signup' });
             if (error) throw error;
-            if (data.session) {
-                router.replace('/');
-            }
+            // Navigation handled by _layout.tsx routing effect on auth state change
         } catch (err: any) {
             showAlert('Verification Failed', err.message);
         } finally {
@@ -182,7 +179,7 @@ export default function RegisterScreen() {
                     if (access_token && refresh_token) {
                         const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
                         if (sessionError) throw sessionError;
-                        router.replace('/');
+                        // Navigation handled by _layout.tsx routing effect on auth state change
                     }
                 } else if (res.type === 'cancel') {
                     // User canceled login

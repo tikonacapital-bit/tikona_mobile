@@ -64,14 +64,12 @@ export default function LoginScreen() {
         if (!password) { showAlert('Missing Password', 'Please enter your password.'); return; }
         setLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithPassword({
                 email: email.trim(),
                 password,
             });
             if (error) throw error;
-            if (data.session) {
-                router.replace('/');
-            }
+            // Navigation handled by _layout.tsx routing effect on auth state change
         } catch (err: any) {
             showAlert('Sign In Failed', err.message);
         } finally {
@@ -116,7 +114,7 @@ export default function LoginScreen() {
                     if (access_token && refresh_token) {
                         const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
                         if (sessionError) throw sessionError;
-                        router.replace('/');
+                        // Navigation handled by _layout.tsx routing effect on auth state change
                     }
                 } else if (res.type === 'cancel') {
                     // User canceled login
