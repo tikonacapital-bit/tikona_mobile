@@ -149,29 +149,47 @@ export default function RegisterScreen() {
     const handleGoogleSignUp = useCallback(async () => {
         try {
             setLoading(true);
-            const redirectUrl = Linking.createURL('/auth/callback');
+
+            // Use the scheme from app.json
+            const scheme = 'tikonamobile';
+            const redirectUrl = Linking.createURL('/auth/callback', { scheme });
+
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: redirectUrl,
+                    skipBrowserRedirect: false,
                 },
             });
-            if (error) throw error;
-            if (Platform.OS === 'web') return;
 
+            if (error) throw error;
+            if (Platform.OS === 'web') return; // Browser redirects automatically
+
+            // For native:
             if (data?.url) {
+                // Ensure the browser session is correctly handled
                 const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-                if (res.type === 'success') {
-                    const parsedUrl = Linking.parse(res.url.replace('#', '?'));
+
+                if (res.type === 'success' && res.url) {
+                    // Extract tokens from the fragment
+                    // Supabase sends tokens as #access_token=... and #refresh_token=...
+                    const cleanUrl = res.url.replace('#', '?');
+                    const parsedUrl = Linking.parse(cleanUrl);
+
                     const access_token = parsedUrl.queryParams?.access_token as string | undefined;
                     const refresh_token = parsedUrl.queryParams?.refresh_token as string | undefined;
+
                     if (access_token && refresh_token) {
-                        await supabase.auth.setSession({ access_token, refresh_token });
+                        const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+                        if (sessionError) throw sessionError;
                         router.replace('/');
                     }
+                } else if (res.type === 'cancel') {
+                    // User canceled login
                 }
             }
         } catch (err: any) {
+            console.error('Google Sign Up Error:', err);
             showAlert('Google Sign Up Failed', err.message);
         } finally {
             setLoading(false);
