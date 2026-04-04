@@ -1,53 +1,36 @@
 import 'react-native-url-polyfill/auto';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Clerk handles authentication — Supabase is used for data only.
-// Disable Supabase's built-in auth to prevent conflicts with Clerk.
+const ExpoSecureStoreAdapter = {
+    getItem: (key: string) => {
+        return SecureStore.getItemAsync(key);
+    },
+    setItem: (key: string, value: string) => {
+        return SecureStore.setItemAsync(key, value);
+    },
+    removeItem: (key: string) => {
+        SecureStore.deleteItemAsync(key);
+    },
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
+        storage: Platform.OS === 'web' ? undefined : ExpoSecureStoreAdapter,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: Platform.OS === 'web',
     },
 });
 
-/**
- * Create an authenticated Supabase client using a Clerk JWT.
- * This allows Supabase RLS policies to identify the user via `auth.jwt() ->> 'sub'`.
- *
- * Prerequisites (one-time setup in Supabase Dashboard):
- *   1. Settings → API → JWT Settings → add your Clerk JWT public key
- *      (found in Clerk Dashboard → JWT Templates → create a "supabase" template)
- *   2. Enable RLS on every table and add policies using `auth.jwt() ->> 'sub'`
- *
- * Usage:
- *   const { getToken } = useAuth();
- *   const client = getAuthenticatedSupabase(await getToken({ template: 'supabase' }));
- *   const { data } = await client.from('profiles').select('*');
- */
-let _cachedClient: SupabaseClient | null = null;
-let _cachedToken: string | null = null;
-
-export function getAuthenticatedSupabase(clerkToken: string | null): SupabaseClient {
-    if (_cachedClient && _cachedToken === clerkToken) {
-        return _cachedClient;
-    }
-    _cachedToken = clerkToken;
-    _cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: {
-            headers: {
-                Authorization: `Bearer ${clerkToken}`,
-            },
-        },
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-            detectSessionInUrl: false,
-        },
-    });
-    return _cachedClient;
+export function getAuthenticatedSupabase(token?: string | null) {
+    // With Supabase Auth builtin, we can just use the global supabase client.
+    // Kept this function to prevent changing every single component that uses it right away,
+    // though the token argument is basically ignored in favor of the active session.
+    return supabase;
 }
 

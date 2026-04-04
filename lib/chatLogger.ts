@@ -6,8 +6,8 @@
  * then updates the messages array on session end.
  */
 
-import { supabase } from './supabase';
 import { logger } from './logger';
+import { supabase } from './supabase';
 
 export interface ChatLogMessage {
   role: 'user' | 'assistant' | 'system';
@@ -35,9 +35,10 @@ export interface ChatSession {
  */
 export async function createChatSession(params: {
   userId: string;
-  reportId: string;
+  reportId: string | null;
   companyName: string;
   nseSymbol: string;
+  chatType?: 'report' | 'sector';
 }): Promise<string | null> {
   try {
     const { data, error } = await supabase
@@ -47,6 +48,7 @@ export async function createChatSession(params: {
         report_id: params.reportId,
         company_name: params.companyName,
         nse_symbol: params.nseSymbol,
+        chat_type: params.chatType || 'report',
         messages: [],
         message_count: 0,
       })
@@ -130,18 +132,25 @@ export async function closeChatSession(sessionId: string): Promise<void> {
  */
 export async function fetchChatSessions(
   userId: string,
-  reportId: string,
+  reportId: string | null,
+  chatType: 'report' | 'sector' = 'report',
   limit: number = 20
 ): Promise<ChatSession[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('ai_chat_sessions')
       .select('*')
       .eq('user_id', userId)
-      .eq('report_id', reportId)
+      .eq('chat_type', chatType)
       .gt('message_count', 0)           // skip empty sessions
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (reportId !== null) {
+      query = query.eq('report_id', reportId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       logger.error('[ChatLogger] Fetch sessions error:', error.message);

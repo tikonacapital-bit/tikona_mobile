@@ -9,11 +9,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
+import { useAuth } from '@/context/AuthContext';
+import { Alert } from 'react-native';
 
 export default function AIAnalystScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
+    const { wallet } = useAuth();
+
+    const handleSectorClick = (sector: string) => {
+        const balance = wallet ? wallet.credits_balance : 50; // New users default to 50
+        
+        if (balance < 1) {
+            Alert.alert(
+                'No Credits Left',
+                'You have run out of AI credits. Please purchase a credit pack to continue chatting.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }
+                ]
+            );
+            return;
+        }
+        router.push({ pathname: '/ai-chat', params: { sector } } as any);
+    };
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             {/* Premium Header */}
@@ -50,7 +70,7 @@ export default function AIAnalystScreen() {
                     <TouchableOpacity
                         key={a.sector}
                         style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
-                        onPress={() => router.push({ pathname: '/ai-chat', params: { sector: a.sector } } as any)}
+                        onPress={() => handleSectorClick(a.sector)}
                         activeOpacity={0.82}
                     >
                         {/* Left color accent strip */}

@@ -1,14 +1,15 @@
+import { supabase } from '@/lib/supabase';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { Logo } from '@/components/Logo';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { useClerk, useOAuth, useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -27,15 +28,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
 }
-
-const useWarmUpBrowser = () => {
-    React.useEffect(() => {
-        if (Platform.OS !== 'web') {
-            void WebBrowser.warmUpAsync();
-            return () => { void WebBrowser.coolDownAsync(); };
-        }
-    }, []);
-};
 
 type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong';
 
@@ -60,18 +52,12 @@ export default function RegisterScreen() {
     const [passwordError, setPasswordError] = useState('');
     const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
-    useWarmUpBrowser();
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
     const { showAlert } = useAlert();
     const { isWideWeb } = useResponsiveLayout();
     const insets = useSafeAreaInsets();
-
-    const { isLoaded, signUp, setActive } = useSignUp();
-    const clerk = useClerk();
-    // eslint-disable-next-line deprecation/deprecation
-    const { startOAuthFlow: startGoogleOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(20)).current;
@@ -121,30 +107,40 @@ export default function RegisterScreen() {
         if (password.length < 6) { showAlert('Weak Password', 'Password must be at least 6 characters'); return; }
         if (password !== confirmPassword) { showAlert('Password Mismatch', 'Passwords do not match'); return; }
         if (!agreeTerms) { showAlert('Terms Required', 'Please agree to the Terms of Service and Privacy Policy'); return; }
-        if (!isLoaded) return;
         setLoading(true);
         try {
-            await signUp.create({ emailAddress: email.trim(), password, firstName: fullName.trim() });
-            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-            setPendingVerification(true);
+            const { data, error } = await supabase.auth.signUp({
+                email: email.trim(),
+                password,
+                options: {
+                    data: {
+                        full_name: fullName.trim(),
+                    },
+                },
+            });
+            if (error) throw error;
+            if (data?.user && !data.session) {
+                setPendingVerification(true);
+            } else if (data?.session) {
+                router.replace('/');
+            }
         } catch (err: any) {
-            showAlert('Sign Up Failed', err.errors ? err.errors[0].message : err.message);
+            showAlert('Sign Up Failed', err.message);
         } finally {
             setLoading(false);
         }
     };
 
     const onPressVerify = async () => {
-        if (!isLoaded) return;
         setLoading(true);
         try {
-            const result = await signUp.attemptEmailAddressVerification({ code });
-            if (result.status === 'complete') {
-                await setActive({ session: result.createdSessionId });
+            const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'signup' });
+            if (error) throw error;
+            if (data.session) {
                 router.replace('/');
             }
         } catch (err: any) {
-            showAlert('Verification Failed', err.errors ? err.errors[0].message : err.message);
+            showAlert('Verification Failed', err.message);
         } finally {
             setLoading(false);
         }
@@ -153,31 +149,34 @@ export default function RegisterScreen() {
     const handleGoogleSignUp = useCallback(async () => {
         try {
             setLoading(true);
-            if (clerk.client.activeSessions.length > 0) await clerk.signOut();
-            const { createdSessionId, setActive: setOAuthActive, signUp: oauthSignUp, signIn } = await startGoogleOAuthFlow();
-            if (createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: createdSessionId });
-                router.replace('/');
-            } else if (oauthSignUp?.createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: oauthSignUp.createdSessionId });
-                router.replace('/');
-            } else if (signIn?.createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: signIn.createdSessionId });
-                router.replace('/');
-            } else if (oauthSignUp?.status === 'missing_requirements') {
-                showAlert('Registration Incomplete', 'Please sign up via email.');
+            const redirectUrl = Linking.createURL('/auth/callback');
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectUrl,
+                },
+            });
+            if (error) throw error;
+            if (Platform.OS === 'web') return;
+
+            if (data?.url) {
+                const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+                if (res.type === 'success') {
+                    const parsedUrl = Linking.parse(res.url.replace('#', '?'));
+                    const access_token = parsedUrl.queryParams?.access_token as string | undefined;
+                    const refresh_token = parsedUrl.queryParams?.refresh_token as string | undefined;
+                    if (access_token && refresh_token) {
+                        await supabase.auth.setSession({ access_token, refresh_token });
+                        router.replace('/');
+                    }
+                }
             }
         } catch (err: any) {
-            const message = err?.errors?.[0]?.message ?? err?.message ?? 'An unknown error occurred';
-            if (message.toLowerCase().includes('session already exists')) {
-                router.replace('/');
-            } else {
-                showAlert('Google Sign Up Failed', message);
-            }
+            showAlert('Google Sign Up Failed', err.message);
         } finally {
             setLoading(false);
         }
-    }, [startGoogleOAuthFlow, showAlert, clerk]);
+    }, [showAlert]);
 
     const passwordStrength = getPasswordStrength(password);
     const isFormValid = fullName.trim() !== '' && validateEmail(email) && password.length >= 6 && password === confirmPassword && agreeTerms;

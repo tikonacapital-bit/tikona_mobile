@@ -8,7 +8,7 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@/context/AuthContext';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { useAlert } from '@/context/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';

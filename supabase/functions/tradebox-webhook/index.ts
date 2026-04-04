@@ -143,45 +143,8 @@ serve(async (req: Request) => {
     // ── Clean up pending payment record ─────────────────────────────────
     await supabase.from("pending_payments").delete().eq("user_id", userId);
 
-    // ── Auto-assign published reports matching this plan ─────────────
-    // Use Clerk email from profiles table (not Razorpay payment email)
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    const clerkEmail = profileData?.email;
-    if (clerkEmail) {
-      // Fetch reports matching the subscribed plan
-      // all_in_growth gets ALL reports
-      let reportQuery = supabase
-        .from("research_reports")
-        .select("report_id")
-        .eq("is_published", true);
-
-      if (plan !== "all_in_growth") {
-        reportQuery = reportQuery.eq("plan", plan);
-      }
-
-      const { data: publishedReports } = await reportQuery;
-
-      if (publishedReports?.length) {
-        const rows = publishedReports.map((r) => ({
-          email: clerkEmail,
-          report_id: r.report_id,
-        }));
-        await supabase
-          .from("user_report_assignments")
-          .upsert(rows, { onConflict: "email,report_id", ignoreDuplicates: true });
-        console.log("[Webhook] Assigned", publishedReports.length, "reports for plan:", plan);
-      }
-    } else {
-      console.warn("[Webhook] No email in profiles — reports not auto-assigned");
-    }
-
-    console.log("[Webhook] Subscription activated for plan:", plan);
-    return new Response(JSON.stringify({ received: true, action: "subscription_activated" }), { status: 200, headers: corsHeaders });
+    console.log("[Webhook] ✅ Subscription activated for userId:", userId, "plan:", plan);
+    return new Response(JSON.stringify({ received: true, action: "subscription_activated", plan }), { status: 200, headers: corsHeaders });
 
   } catch (err) {
     console.error("[Webhook] Unhandled error:", err);

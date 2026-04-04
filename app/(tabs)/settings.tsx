@@ -87,7 +87,7 @@ export default function SettingsScreen() {
     const { themeOverride, setThemeOverride } = useThemeSettings();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { user, kyc, profile, subscription, signOut } = useAuth();
+    const { user, kyc, profile, subscription, wallet, signOut } = useAuth();
     const { showAlert } = useAlert();
     const [showThemePicker, setShowThemePicker] = useState(false);
     const [showNotifPicker, setShowNotifPicker] = useState(false);
@@ -213,6 +213,7 @@ export default function SettingsScreen() {
                 </View>
 
                 <Section title="ACCOUNT" theme={theme}>
+                    <Row theme={theme} icon="flash-outline" label="AI Credits" value={`${wallet?.credits_balance ?? 0} remaining`} onPress={() => router.push('/buy-credits' as any)} />
                     <Row theme={theme} icon="shield-checkmark" label="KYC Verification" value={kyc?.status || 'Not Done'} onPress={() => router.push('/(kyc)')} />
                     <Row theme={theme} icon="bar-chart" label="Risk Profile" value={profile?.display_label || profile?.risk_profile || 'Not Set'} onPress={() => router.push('/(profiling)')} />
                     <Row theme={theme} icon="diamond" label="Subscription" value={(subscription?.plan || 'None').charAt(0).toUpperCase() + (subscription?.plan || 'None').slice(1)} onPress={() => router.push('/subscription')} />

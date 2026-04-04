@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const SARVAM_BASE = "https://api.sarvam.ai";
 
@@ -267,16 +267,19 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
+    const token = authHeader.replace("Bearer ", "");
+
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate Clerk JWT via PostgREST (GoTrue `getUser` fails on 3rd party JWTs)
-    const { error: authError } = await supabaseClient.from('profiles').select('user_id').limit(1);
+    // Pass token explicitly — edge functions have no session storage
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-    if (authError && authError.code === 'PGRST301') {
+    if (authError || !user) {
+      console.error("[report-ai-chat] Auth failed:", authError?.message);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized — invalid or expired token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -310,9 +313,50 @@ serve(async (req: Request) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        // --- Check AI Credits ---
+        let credits = 0;
+        const { data: walletData } = await supabaseClient
+          .from('ai_wallets')
+          .select('credits_balance')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!walletData) {
+          const { data: newWallet } = await supabaseClient
+            .from('ai_wallets')
+            .insert({ user_id: user.id, credits_balance: 50 })
+            .select('credits_balance')
+            .single();
+          credits = newWallet?.credits_balance ?? 50;
+        } else {
+          credits = walletData.credits_balance;
+        }
+
+        if (credits < 1) {
+          return new Response(
+            JSON.stringify({ error: "Insufficient AI credits" }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         const reply = await chatCompletion(message, report_context, history);
+
+        // --- Deduct Credit ---
+        const { data: creditsRemaining, error: deductError } = await supabaseClient
+          .rpc('deduct_ai_credits', {
+            p_user_id: user.id,
+            p_amount: 1,
+            p_transaction_type: 'report_chat',
+            p_metadata: { action: 'chat' }
+          });
+
+        if (deductError) {
+          console.error("[report-ai-chat] Failed to deduct credit:", deductError);
+        }
+
         return new Response(
-          JSON.stringify({ reply }),
+          JSON.stringify({ reply, credits_remaining: creditsRemaining ?? credits - 1 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

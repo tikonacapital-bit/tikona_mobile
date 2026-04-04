@@ -168,7 +168,8 @@ export const PLAN_PRICES: Record<string, number> = {
 export interface AIChatSession {
     id: string;
     user_id: string;
-    report_id: string;
+    report_id: string | null;  // Now nullable for sector chats
+    chat_type: 'report' | 'sector';
     company_name: string;
     nse_symbol: string;
     messages: {
@@ -181,6 +182,16 @@ export interface AIChatSession {
     message_count: number;
     started_at: string;
     ended_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+// AI Wallet
+export interface AIWallet {
+    id: string;
+    user_id: string;
+    credits_balance: number;
+    lifetime_credits_used: number;
     created_at: string;
     updated_at: string;
 }

@@ -7,7 +7,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { PLANS } from '@/lib/types';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';

@@ -8,7 +8,7 @@ import { fetchNiftyClose, fetchNiftyCurrentClose } from '@/lib/niftyBhavcopy';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import type { EnrichedHolding } from '@/lib/types';
 import { computeXIRR, type Cashflow } from '@/lib/xirr';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -484,13 +484,7 @@ export default function PortfolioScreen() {
         return Math.min(Math.max(score, 0), 100);
     }, [holdings, totalCurrent, totalPnlPct]);
 
-    const concentrationAlerts = useMemo(() => {
-        if (!holdings?.length) return [];
-        return holdings.filter(h => {
-            const pct = ((h.current_value ?? h.invested) / totalCurrent) * 100;
-            return pct > 25;
-        });
-    }, [holdings, totalCurrent]);
+
 
     const allocationData = useMemo(() => {
         if (!holdings?.length) return [];
@@ -641,11 +635,9 @@ export default function PortfolioScreen() {
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.aiBannerTitle}>AI Analyst Insight</Text>
                                         <Text style={styles.aiBannerSub}>
-                                            {concentrationAlerts.length > 0
-                                                ? `Attention: ${concentrationAlerts[0].nse_symbol} represents ${(((concentrationAlerts[0].current_value ?? concentrationAlerts[0].invested) / totalCurrent) * 100).toFixed(0)}% of your portfolio.`
-                                                : healthScore > 80
-                                                    ? "Your portfolio looks well-diversified. Ready for deep-dive analysis?"
-                                                    : "I can help you optimize your diversification. Want to chat?"
+                                            {healthScore > 80
+                                                ? "Your portfolio looks well-diversified. Ready for deep-dive analysis?"
+                                                : "I can help you optimize your diversification. Want to chat?"
                                             }
                                         </Text>
                                     </View>
@@ -842,12 +834,6 @@ export default function PortfolioScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: c.text }]}>Holdings</Text>
-                        {concentrationAlerts.length > 0 && (
-                            <View style={[styles.alertPill, { backgroundColor: c.danger + '15' }]}>
-                                <Ionicons name="warning" size={12} color={c.danger} />
-                                <Text style={[styles.alertText, { color: c.danger }]}>Concentration Risk</Text>
-                            </View>
-                        )}
                     </View>
 
                     {isLoading ? (
@@ -923,7 +909,7 @@ export default function PortfolioScreen() {
                                                     styles.progressFill,
                                                     {
                                                         width: `${Math.min(weight, 100)}%` as any,
-                                                        backgroundColor: weight > 25 ? c.danger : dotColor,
+                                                        backgroundColor: dotColor,
                                                     },
                                                 ]} />
                                             </View>

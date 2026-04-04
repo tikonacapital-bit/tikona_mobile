@@ -4,8 +4,6 @@ import { AlertProvider } from '@/context/AlertContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { MediaPlayerProvider } from '@/context/MediaPlayerContext';
 import { ThemeProvider, useColorScheme } from '@/hooks/useColorScheme';
-import { ClerkProvider } from '@clerk/clerk-expo';
-import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Constants from 'expo-constants';
@@ -37,12 +35,12 @@ if (Constants.appOwnership !== 'expo') {
  * CRITICAL FIX for Google Play "Broken Functionality" rejection:
  *
  * The splash screen must ALWAYS hide within a reasonable time.
- * If Clerk auth fails to initialize (network issues, review environment, etc.),
+ * If Auth fails to initialize (network issues, review environment, etc.),
  * the app was previously stuck on the splash screen forever — showing a blank
  * white screen with just the logo icon, which Google reviewers flagged.
  *
  * Solution: A hard 8-second timeout guarantees the splash hides no matter what.
- * The normal auth flow will hide it much sooner when Clerk loads successfully.
+ * The normal auth flow will hide it much sooner when Auth loads successfully.
  */
 const SPLASH_TIMEOUT_MS = 8000;
 
@@ -52,7 +50,7 @@ function RootLayoutInner() {
     const segments = useSegments();
     const splashHidden = useRef(false);
 
-    // Safety net: force-hide splash after timeout even if Clerk never loads
+    // Safety net: force-hide splash after timeout even if Auth never loads
     useEffect(() => {
         const timer = setTimeout(() => {
             if (!splashHidden.current) {
@@ -81,9 +79,10 @@ function RootLayoutInner() {
             router.replace('/(tabs)');
             
             // Only nudge brand new users (created within the last 5 minutes)
+            // Guard with !isLoadingData to avoid false redirect when subscription hasn't loaded yet
             const isNewUser = user?.createdAt ? (Date.now() - new Date(user.createdAt).getTime() < 5 * 60 * 1000) : false;
             
-            if (isNewUser && !subscription?.is_active) {
+            if (isNewUser && !isLoadingData && !subscription?.is_active) {
                 setTimeout(() => {
                     router.push('/subscription');
                 }, 100);
@@ -131,23 +130,19 @@ export default function RootLayout() {
         },
     }));
 
-    const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
-
     return (
         <ErrorBoundary>
-            <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-                <SafeAreaProvider>
-                    <QueryClientProvider client={queryClient}>
-                        <ThemeProvider>
-                            <AuthProvider>
-                                <MediaPlayerProvider>
-                                    <RootLayoutInner />
-                                </MediaPlayerProvider>
-                            </AuthProvider>
-                        </ThemeProvider>
-                    </QueryClientProvider>
-                </SafeAreaProvider>
-            </ClerkProvider>
+            <SafeAreaProvider>
+                <QueryClientProvider client={queryClient}>
+                    <ThemeProvider>
+                        <AuthProvider>
+                            <MediaPlayerProvider>
+                                <RootLayoutInner />
+                            </MediaPlayerProvider>
+                        </AuthProvider>
+                    </ThemeProvider>
+                </QueryClientProvider>
+            </SafeAreaProvider>
         </ErrorBoundary>
     );
 }

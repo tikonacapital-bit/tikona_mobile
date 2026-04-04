@@ -3,7 +3,7 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import type { EquityUniverse, ResearchReport } from '@/lib/types';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';

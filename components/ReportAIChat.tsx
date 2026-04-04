@@ -19,7 +19,6 @@ import {
   type ChatSession,
 } from '@/lib/chatLogger';
 import { logger } from '@/lib/logger';
-import { RateLimiter } from '@/lib/rateLimiter';
 import {
   buildReportContext,
   chatWithReport,
@@ -28,7 +27,7 @@ import {
   type ChatHistoryEntry,
 } from '@/lib/sarvamAI';
 import type { ResearchReport } from '@/lib/types';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
+import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
@@ -208,7 +207,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const c = Colors[theme];
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
-  const { userId } = useAuth();
+  const { userId, wallet, refreshWallet } = useAuth();
   const { getToken } = useClerkAuth();
   const insets = useSafeAreaInsets();
   const { width: SW, height: SH } = useWindowDimensions();
@@ -400,11 +399,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     // Fix #4: Guard against double recording start
     if (recordingRef.current || isRecording || isProcessing || isStoppingRef.current) return;
 
-    const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, false);
-    if (!isAllowed) {
+    const balance = wallet ? wallet.credits_balance : 50;
+    if (balance < 2) {
       Alert.alert(
-        'Daily Limit Reached',
-        'You have reached your daily limit of 15 voice AI interactions. Please try again tomorrow.'
+        'Insufficient Credits',
+        'Voice chat requires 2 AI credits. Please upgrade your plan or top up to continue.'
       );
       return;
     }
@@ -516,14 +515,14 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       const chatResult = await chatWithReport(userText, reportContext.current, chatHistory.current, (await getToken()) || '');
 
-      // Successfully processed, consume a rate limit token
-      await RateLimiter.checkLimit('speech_to_speech', 15, 24 * 60 * 60 * 1000, true);
+      // Refresh wallet to get exact updated balance post-deduction
+      refreshWallet();
 
       // Fix #2: Cap chat history to prevent unbounded growth
       chatHistory.current = [
         ...chatHistory.current,
-        { role: 'user', content: userText },
-        { role: 'assistant', content: chatResult.reply },
+        { role: 'user' as const, content: userText },
+        { role: 'assistant' as const, content: chatResult.reply },
       ].slice(-MAX_HISTORY);
 
       // Log this exchange to Supabase (fire-and-forget)
@@ -573,11 +572,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     const text = textInput.trim();
     if (!text || isProcessing) return;
 
-    const isAllowed = await RateLimiter.checkLimit('speech_to_speech', 15);
-    if (!isAllowed) {
+    const balance = wallet ? wallet.credits_balance : 50;
+    if (balance < 1) {
       Alert.alert(
-        'Daily Limit Reached',
-        'You have reached your daily limit of 15 AI interactions. Please try again tomorrow.'
+        'Insufficient Credits',
+        'Text chat requires 1 AI credit. Please upgrade your plan or top up to continue.'
       );
       return;
     }
@@ -602,11 +601,14 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     try {
       const chatResult = await chatWithReport(text, reportContext.current, chatHistory.current, (await getToken()) || '');
 
+      // Refresh wallet visually
+      refreshWallet();
+
       // Fix #2: Cap chat history
       chatHistory.current = [
         ...chatHistory.current,
-        { role: 'user', content: text },
-        { role: 'assistant', content: chatResult.reply },
+        { role: 'user' as const, content: text },
+        { role: 'assistant' as const, content: chatResult.reply },
       ].slice(-MAX_HISTORY);
 
       // Log this exchange to Supabase (fire-and-forget)

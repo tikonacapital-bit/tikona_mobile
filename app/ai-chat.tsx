@@ -1,16 +1,16 @@
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
-import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
-import { RateLimiter } from '@/lib/rateLimiter';
+import { appendMessages, createChatSession } from '@/lib/chatLogger';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Animated,
     Alert,
+    Animated,
     FlatList,
     Keyboard,
     KeyboardAvoidingView, Platform,
@@ -86,8 +86,9 @@ export default function AIChatScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { getToken } = useClerkAuth();
     const insets = useSafeAreaInsets();
+    const { userId, wallet, refreshWallet } = useAuth();
+    const sessionIdRef = useRef<string | null>(null);
 
     const analyst = SECTOR_ANALYSTS.find((a) => a.sector === sector);
     const analystColor = analyst?.color ?? Colors.brand.secondary;
@@ -106,6 +107,7 @@ export default function AIChatScreen() {
     const listRef = useRef<FlatList>(null);
 
     const resetChat = useCallback(() => {
+        sessionIdRef.current = null;
         setMessages([{
             id: '0',
             role: 'assistant',
@@ -118,11 +120,11 @@ export default function AIChatScreen() {
         const trimmed = text.trim();
         if (!trimmed || loading || !sector) return;
 
-        const isAllowed = await RateLimiter.checkLimit('sector_analyst', 15);
-        if (!isAllowed) {
+        const balance = wallet ? wallet.credits_balance : 50;
+        if (balance < 1) {
             Alert.alert(
-                'Daily Limit Reached',
-                'You have reached your daily limit of 15 queries for the Sector Analyst AI. Please try again tomorrow.'
+                'Insufficient Credits',
+                'Sector AI Chat requires 1 AI credit. Please upgrade your plan or top up to continue.'
             );
             return;
         }
@@ -144,24 +146,62 @@ export default function AIChatScreen() {
             .map((m) => ({ role: m.role, content: m.content }));
 
         try {
-            const token = await getToken({ template: 'supabase' });
-            const client = getAuthenticatedSupabase(token);
-            const { data, error } = await client.functions.invoke('sector-ai-chat', {
+            // Verify we have an active session before calling the edge function
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData.session) {
+                console.error('[AI Chat] No active session — user may need to re-login');
+                throw new Error('No active session');
+            }
+
+            // Use supabase.functions.invoke directly — it carries the persisted session JWT automatically.
+            const { data, error } = await supabase.functions.invoke('sector-ai-chat', {
                 body: { sector, message: trimmed, history },
             });
             if (error) throw error;
 
+            refreshWallet(); // Refresh credits
+            const replyContent = data?.reply || 'Sorry, I could not generate a response.';
+
             setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: data.reply || 'Sorry, I could not generate a response.',
+                content: replyContent,
                 timestamp: new Date(),
             }]);
-        } catch {
+
+            // Save to chat_sessions
+            if (userId) {
+                if (!sessionIdRef.current) {
+                    sessionIdRef.current = await createChatSession({
+                        userId,
+                        reportId: null,
+                        companyName: sector,
+                        nseSymbol: 'SECTOR',
+                        chatType: 'sector'
+                    });
+                }
+                if (sessionIdRef.current) {
+                    await appendMessages(sessionIdRef.current, [
+                        { role: 'user', text: trimmed, timestamp: new Date().toISOString() },
+                        { role: 'assistant', text: replyContent, timestamp: new Date().toISOString() }
+                    ]);
+                }
+            }
+
+        } catch (err: any) {
+            let realMsg = err?.message || 'Unknown error';
+            if (err?.context?.json) {
+                try {
+                    const ctx = await err.context.json();
+                    if (ctx.error) realMsg = ctx.error;
+                } catch (e) { }
+            }
+            console.error('[AI Chat] Error calling sector-ai-chat:', realMsg, '| Full err:', err);
+            Alert.alert("Debug Error", `Edge Function Error: ${realMsg}`);
             setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: 'Sorry, something went wrong. Please try again.',
+                content: `Response from analyst failed: ${realMsg}`,
                 timestamp: new Date(),
             }]);
         } finally {
@@ -211,151 +251,159 @@ export default function AIChatScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
-        <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            {/* Header */}
-            <LinearGradient
-                colors={isDark ? ['#0f172a', '#1e293b'] : ['#ffffff', '#f8fafc']}
-                style={[styles.header, { borderBottomColor: c.border, paddingTop: Math.max(insets.top, 16) }]}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
-                    activeOpacity={0.8}
+                {/* Header */}
+                <LinearGradient
+                    colors={isDark ? ['#0f172a', '#1e293b'] : ['#ffffff', '#f8fafc']}
+                    style={[styles.header, { borderBottomColor: c.border, paddingTop: Math.max(insets.top, 16) }]}
                 >
-                    <Ionicons name="chevron-back" size={20} color={c.text} />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="chevron-back" size={20} color={c.text} />
+                    </TouchableOpacity>
 
-                <View style={{ position: 'relative' }}>
-                    <View style={[styles.analystAvatar, { backgroundColor: analystBg }]}>
-                        <Ionicons name={analyst?.icon ?? 'person'} size={22} color={analystColor} />
-                    </View>
-                    <View style={[styles.onlineDot, { borderColor: isDark ? '#0f172a' : '#ffffff' }]} />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
-                        {analyst?.analyst ?? sector}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                        <View style={styles.onlineDotSmall} />
-                        <Text style={[styles.headerStatus, { color: analystColor }]}>
-                            Online · {analyst?.title}
-                        </Text>
-                    </View>
-                </View>
-
-                <TouchableOpacity
-                    onPress={resetChat}
-                    style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
-                    activeOpacity={0.7}
-                >
-                    <Ionicons name="refresh-outline" size={16} color={c.textSecondary} />
-                </TouchableOpacity>
-            </LinearGradient>
-
-            {/* Sector pill bar */}
-            <View style={[styles.sectorBar, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
-                <View style={[styles.sectorPill, { backgroundColor: analystBg }]}>
-                    <Text style={[styles.sectorPillText, { color: analystColor }]}>{sector}</Text>
-                </View>
-                <Text style={[styles.sectorDesc, { color: c.textTertiary }]} numberOfLines={1}>
-                    {analyst?.description}
-                </Text>
-            </View>
-
-            {/* Messages */}
-            <FlatList
-                ref={listRef}
-                data={messages}
-                keyExtractor={(item) => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.messageList}
-                showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-                ListFooterComponent={
-                    loading ? (
-                        <View style={styles.typingRow}>
-                            <View style={[styles.avatarWrap, { backgroundColor: analystBg }]}>
-                                <Ionicons name={analyst?.icon ?? 'person'} size={13} color={analystColor} />
-                            </View>
-                            <View style={[styles.typingBubble, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-                                <TypingDots color={analystColor} />
-                            </View>
+                    <View style={{ position: 'relative' }}>
+                        <View style={[styles.analystAvatar, { backgroundColor: analystBg }]}>
+                            <Ionicons name={analyst?.icon ?? 'person'} size={22} color={analystColor} />
                         </View>
-                    ) : null
-                }
-            />
+                        <View style={[styles.onlineDot, { borderColor: isDark ? '#0f172a' : '#ffffff' }]} />
+                    </View>
 
-            {/* Suggested questions — horizontal scroll */}
-            {messages.length === 1 && !loading && (
-                <View style={styles.suggestionsWrap}>
-                    <Text style={[styles.suggestionsLabel, { color: c.textTertiary }]}>Try asking</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.suggestionsScroll}
-                    >
-                        {SUGGESTED_QUESTIONS.map((q) => (
-                            <TouchableOpacity
-                                key={q}
-                                style={[styles.suggestionChip, { backgroundColor: analystBg, borderColor: analystColor + '35' }]}
-                                onPress={() => sendMessage(q)}
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons name="sparkles" size={10} color={analystColor} />
-                                <Text style={[styles.suggestionText, { color: analystColor }]}>{q}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
+                            {analyst?.analyst ?? sector}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <View style={styles.onlineDotSmall} />
+                            <Text style={[styles.headerStatus, { color: analystColor }]}>
+                                Online · {wallet?.credits_balance ?? 0} Credits
+                            </Text>
+                        </View>
+                    </View>
 
-            {/* Input Bar */}
-            <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <View style={[
-                    styles.inputWrap,
-                    {
-                        backgroundColor: c.inputBg,
-                        borderColor: input.trim() ? analystColor + '55' : c.inputBorder,
-                    },
-                ]}>
-                    <TextInput
-                        style={[styles.input, { color: c.text }]}
-                        placeholder={`Ask ${analyst?.analyst?.split(' ')[0] ?? 'the analyst'}...`}
-                        placeholderTextColor={c.textTertiary}
-                        value={input}
-                        onChangeText={setInput}
-                        multiline
-                        maxLength={500}
-                        returnKeyType="send"
-                        onSubmitEditing={() => sendMessage(input)}
-                        blurOnSubmit
-                    />
-                </View>
-                <TouchableOpacity
-                    onPress={() => sendMessage(input)}
-                    disabled={!input.trim() || loading}
-                    activeOpacity={0.85}
-                >
-                    <LinearGradient
-                        colors={input.trim() && !loading
-                            ? [Colors.brand.primary, '#1e40af']
-                            : [c.surfaceElevated, c.surfaceElevated]
-                        }
-                        style={styles.sendBtn}
+                    <TouchableOpacity
+                        onPress={() => router.push({ pathname: '/sector-chat-history', params: { sector } })}
+                        style={[styles.iconBtn, { backgroundColor: c.borderLight, marginRight: 8 }]}
+                        activeOpacity={0.7}
                     >
-                        <Ionicons
-                            name="send"
-                            size={17}
-                            color={input.trim() && !loading ? '#fff' : c.textTertiary}
+                        <Ionicons name="time-outline" size={16} color={c.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={resetChat}
+                        style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="refresh-outline" size={16} color={c.textSecondary} />
+                    </TouchableOpacity>
+                </LinearGradient>
+
+                {/* Sector pill bar */}
+                <View style={[styles.sectorBar, { backgroundColor: c.surface, borderBottomColor: c.border }]}>
+                    <View style={[styles.sectorPill, { backgroundColor: analystBg }]}>
+                        <Text style={[styles.sectorPillText, { color: analystColor }]}>{sector}</Text>
+                    </View>
+                    <Text style={[styles.sectorDesc, { color: c.textTertiary }]} numberOfLines={1}>
+                        {analyst?.description}
+                    </Text>
+                </View>
+
+                {/* Messages */}
+                <FlatList
+                    ref={listRef}
+                    data={messages}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={styles.messageList}
+                    showsVerticalScrollIndicator={false}
+                    onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+                    ListFooterComponent={
+                        loading ? (
+                            <View style={styles.typingRow}>
+                                <View style={[styles.avatarWrap, { backgroundColor: analystBg }]}>
+                                    <Ionicons name={analyst?.icon ?? 'person'} size={13} color={analystColor} />
+                                </View>
+                                <View style={[styles.typingBubble, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
+                                    <TypingDots color={analystColor} />
+                                </View>
+                            </View>
+                        ) : null
+                    }
+                />
+
+                {/* Suggested questions — horizontal scroll */}
+                {messages.length === 1 && !loading && (
+                    <View style={styles.suggestionsWrap}>
+                        <Text style={[styles.suggestionsLabel, { color: c.textTertiary }]}>Try asking</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.suggestionsScroll}
+                        >
+                            {SUGGESTED_QUESTIONS.map((q) => (
+                                <TouchableOpacity
+                                    key={q}
+                                    style={[styles.suggestionChip, { backgroundColor: analystBg, borderColor: analystColor + '35' }]}
+                                    onPress={() => sendMessage(q)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="sparkles" size={10} color={analystColor} />
+                                    <Text style={[styles.suggestionText, { color: analystColor }]}>{q}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* Input Bar */}
+                <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+                    <View style={[
+                        styles.inputWrap,
+                        {
+                            backgroundColor: c.inputBg,
+                            borderColor: input.trim() ? analystColor + '55' : c.inputBorder,
+                        },
+                    ]}>
+                        <TextInput
+                            style={[styles.input, { color: c.text }]}
+                            placeholder={`Ask ${analyst?.analyst?.split(' ')[0] ?? 'the analyst'}...`}
+                            placeholderTextColor={c.textTertiary}
+                            value={input}
+                            onChangeText={setInput}
+                            multiline
+                            maxLength={500}
+                            returnKeyType="send"
+                            onSubmitEditing={() => sendMessage(input)}
+                            blurOnSubmit
                         />
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-        </KeyboardAvoidingView>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => sendMessage(input)}
+                        disabled={!input.trim() || loading}
+                        activeOpacity={0.85}
+                    >
+                        <LinearGradient
+                            colors={input.trim() && !loading
+                                ? [Colors.brand.primary, '#1e40af']
+                                : [c.surfaceElevated, c.surfaceElevated]
+                            }
+                            style={styles.sendBtn}
+                        >
+                            <Ionicons
+                                name="send"
+                                size={17}
+                                color={input.trim() && !loading ? '#fff' : c.textTertiary}
+                            />
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

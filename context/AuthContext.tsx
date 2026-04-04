@@ -1,26 +1,27 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { View, Platform } from 'react-native';
-import { useUser, useClerk, useAuth as useClerkAuth } from '@clerk/clerk-expo';
-import * as SecureStore from 'expo-secure-store';
-import { supabase, getAuthenticatedSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
-import type { KycRecord, UserProfile, Subscription, RefundRequest } from '@/lib/types';
+import { Session } from '@supabase/supabase-js';
+import type { KycRecord, UserProfile, Subscription, RefundRequest, AIWallet } from '@/lib/types';
 
 type AuthContextType = {
     userId: string | null;
-    user: ReturnType<typeof useUser>['user'];
+    user: any | null;
     isLoaded: boolean;
     isSignedIn: boolean;
     // Derived data
-    kyc: KycRecord | null;
+    kyc: KycRecord | null;        // Derived from subscription — no DB fetch
     profile: UserProfile | null;
     subscription: Subscription | null;
     refundRequest: RefundRequest | null;
+    wallet: AIWallet | null;
     isLoadingData: boolean;
     dataError: boolean;
     // Actions
     refreshUserData: () => Promise<void>;
+    refreshWallet: () => Promise<void>;
     signOut: () => Promise<void>;
+    getToken: (options?: any) => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,30 +33,58 @@ const AuthContext = createContext<AuthContextType>({
     profile: null,
     subscription: null,
     refundRequest: null,
+    wallet: null,
     isLoadingData: true,
     dataError: false,
     refreshUserData: async () => { },
+    refreshWallet: async () => { },
     signOut: async () => { },
+    getToken: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const { isLoaded, isSignedIn, userId: clerkUserId, getToken } = useClerkAuth();
-    const { user } = useUser();
-    const { signOut: clerkSignOut } = useClerk();
+    const [session, setSession] = useState<Session | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
-    const [kyc, setKyc] = useState<KycRecord | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [refundRequest, setRefundRequest] = useState<RefundRequest | null>(null);
+    const [wallet, setWallet] = useState<AIWallet | null>(null);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [dataError, setDataError] = useState(false);
 
-    const getTokenRef = useRef(getToken);
-    getTokenRef.current = getToken;
     const isFetchingRef = useRef(false);
     const lastSyncedEmailRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setIsLoaded(true);
+        }).catch(err => {
+            logger.warn('Error getting session', err);
+            setIsLoaded(true);
+        });
+
+        const { data: { subscription: authListener } } = supabase.auth.onAuthStateChange(
+            (_event, session) => {
+                setSession(session);
+                if (_event === 'SIGNED_OUT') {
+                    setProfile(null);
+                    setSubscription(null);
+                    setRefundRequest(null);
+                    setWallet(null);
+                    setIsLoadingData(false);
+                    isFetchingRef.current = false;
+                }
+            }
+        );
+
+        return () => {
+            authListener.unsubscribe();
+        };
+    }, []);
 
     const fetchUserData = useCallback(async (userId: string, primaryEmail?: string) => {
         if (isFetchingRef.current) return;
@@ -64,39 +93,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             setDataError(false);
 
-            // Get a Clerk JWT for Supabase so RLS policies can identify the user
-            const token = await getTokenRef.current({ template: 'supabase' });
-            if (!token) {
-                logger.warn('No Clerk token available — cannot fetch user data with RLS');
-                setDataError(true);
-                setIsLoadingData(false);
-                return;
-            }
-            const client = getAuthenticatedSupabase(token);
-
-            const [kycRes, profileRes, subRes, refundRes] = await Promise.all([
-                client.from('kyc').select('id, user_id, full_name, aadhar_pan, bank_account, ifsc_code, status, tradebox_reference_id, razorpay_payment_id, kyc_initiated_at, created_at, updated_at').eq('user_id', userId).maybeSingle(),
-                client.from('profiles').select('id, user_id, risk_score, risk_profile, profile_method, display_label, answers, email, created_at, updated_at').eq('user_id', userId).maybeSingle(),
-                client.from('subscriptions').select('id, user_id, plan, started_at, expires_at, is_active, amount_paid, razorpay_payment_id, created_at, updated_at').eq('user_id', userId).maybeSingle(),
-                client.from('refund_requests').select('id, user_id, subscription_id, plan, total_paid, months_used, months_remaining, refund_amount, upi_id, status, reason, admin_notes, reviewed_by, reviewed_at, created_at, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            const [profileRes, subRes, refundRes, walletRes] = await Promise.all([
+                supabase.from('profiles').select('id, user_id, risk_score, risk_profile, profile_method, display_label, answers, email, created_at, updated_at').eq('user_id', userId).maybeSingle(),
+                supabase.from('subscriptions').select('id, user_id, plan, started_at, expires_at, is_active, amount_paid, razorpay_payment_id, created_at, updated_at').eq('user_id', userId).maybeSingle(),
+                supabase.from('refund_requests').select('id, user_id, subscription_id, plan, total_paid, months_used, months_remaining, refund_amount, upi_id, status, reason, admin_notes, reviewed_by, reviewed_at, created_at, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                supabase.from('ai_wallets').select('*').eq('user_id', userId).maybeSingle(),
             ]);
-            // Tradebox instant e-KYC: payment via Tradebox includes KYC.
-            // Only paid plans go through Tradebox checkout (which includes KYC).
-            // Free plan subscriptions are created locally after quiz — no Tradebox KYC happens there.
-            const hasPaidSubscription = subRes.data?.is_active && subRes.data?.plan !== 'free';
-            const kycData = hasPaidSubscription
-                ? ({ status: 'approved' } as any)
-                : (kycRes.data ?? null);
 
-            setKyc(kycData);
             setProfile(profileRes.data ?? null);
             setSubscription(subRes.data ?? null);
             setRefundRequest(refundRes.data as RefundRequest | null ?? null);
+            setWallet(walletRes.data as AIWallet | null ?? null);
 
-            // Keep email synced in profiles — only if it actually changed
+            // Sync email to profile if changed
             if (primaryEmail && profileRes.data && primaryEmail !== lastSyncedEmailRef.current && primaryEmail !== profileRes.data.email) {
                 lastSyncedEmailRef.current = primaryEmail;
-                await client
+                await supabase
                     .from('profiles')
                     .update({ email: primaryEmail })
                     .eq('user_id', userId);
@@ -110,60 +122,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, []);
 
-    const refreshUserData = useCallback(async () => {
-        if (user?.id) {
-            const email = user.primaryEmailAddress?.emailAddress;
-            await fetchUserData(user.id, email);
-        }
-    }, [user?.id, user?.primaryEmailAddress?.emailAddress, fetchUserData]);
+    const mappedUser = session?.user ? {
+        id: session.user.id,
+        primaryEmailAddress: { emailAddress: session.user.email },
+        createdAt: session.user.created_at,
+        fullName: session.user.user_metadata?.full_name || '',
+        imageUrl: session.user.user_metadata?.avatar_url || null,
+    } : null;
 
-    // Fetch user data when Clerk user changes
-    useEffect(() => {
-        if (isLoaded && isSignedIn && user?.id) {
-            const email = user.primaryEmailAddress?.emailAddress;
-            fetchUserData(user.id, email);
-        } else if (isLoaded && !isSignedIn) {
-            // Clear data when signed out
-            setKyc(null);
-            setProfile(null);
-            setSubscription(null);
-            setRefundRequest(null);
-            setIsLoadingData(false);
+    const refreshUserData = useCallback(async () => {
+        if (session?.user?.id) {
+            // Allow re-fetch even if ref was stuck
+            isFetchingRef.current = false;
+            await fetchUserData(session.user.id, session.user.email);
         }
-    }, [isLoaded, isSignedIn, user?.id, fetchUserData]);
+    }, [session?.user?.id, session?.user?.email, fetchUserData]);
+
+    const refreshWallet = useCallback(async () => {
+        if (session?.user?.id) {
+            const { data } = await supabase.from('ai_wallets').select('*').eq('user_id', session.user.id).maybeSingle();
+            setWallet(data as AIWallet | null ?? null);
+        }
+    }, [session?.user?.id]);
+
+    useEffect(() => {
+        if (isLoaded && session?.user?.id) {
+            fetchUserData(session.user.id, session.user.email);
+        }
+    }, [isLoaded, session?.user?.id, fetchUserData]);
 
     const signOut = useCallback(async () => {
         try {
-            await clerkSignOut();
-            // Manually clear the clerk token cache to prevent "session already exists" issue
-            if (Platform.OS !== 'web') {
-                await SecureStore.deleteItemAsync('__clerk_client_jwt');
-            }
+            await supabase.auth.signOut();
         } catch (error) {
-            logger.warn('Clerk sign out error:', error);
+            logger.warn('Supabase sign out error:', error);
         }
-        // Clear local state
-        setKyc(null);
-        setProfile(null);
-        setSubscription(null);
-        setRefundRequest(null);
-    }, [clerkSignOut]);
+    }, []);
+
+    const getToken = useCallback(async (_options?: any) => {
+        const { data } = await supabase.auth.getSession();
+        return data.session?.access_token || null;
+    }, []);
+
+    // KYC is derived from subscription: payment done = KYC approved (one-time, permanent).
+    // No DB fetch required — if user has an active subscription, they are verified.
+    const derivedKyc = subscription?.is_active
+        ? ({ status: 'approved', user_id: session?.user?.id ?? '' } as KycRecord)
+        : null;
 
     return (
         <AuthContext.Provider
             value={{
-                userId: clerkUserId ?? null,
-                user: user ?? null,
-                isLoaded: !!isLoaded,
-                isSignedIn: !!isSignedIn,
-                kyc,
+                userId: session?.user?.id ?? null,
+                user: mappedUser,
+                isLoaded,
+                isSignedIn: !!session,
+                kyc: derivedKyc,
                 profile,
                 subscription,
                 refundRequest,
+                wallet,
                 isLoadingData,
                 dataError,
                 refreshUserData,
-                signOut
+                refreshWallet,
+                signOut,
+                getToken,
             }}
         >
             {children}

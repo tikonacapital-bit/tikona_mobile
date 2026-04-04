@@ -6,10 +6,9 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useMediaPlayer } from '@/context/MediaPlayerContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import type { ResearchReport } from '@/lib/types';
-import { useAuth as useClerkAuth, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,9 +51,7 @@ export default function ReportDetailScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { subscription, kyc, profile } = useAuth();
-    const { user } = useUser();
-    const { getToken } = useClerkAuth();
+    const { subscription, user, getToken } = useAuth();
     const insets = useSafeAreaInsets();
 
     const [activeTab, setActiveTab] = useState<TabType>('report');
@@ -123,15 +120,12 @@ export default function ReportDetailScreen() {
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data: report, isLoading } = useQuery({
-        queryKey: ['report_detail', id, userEmail],
+        queryKey: ['report_detail', id],
         queryFn: async (): Promise<ResearchReport | null> => {
-            if (!userEmail) return null;
+            if (!id) return null;
 
-            const token = await getToken({ template: 'supabase' });
-            const client = getAuthenticatedSupabase(token);
-
-            // Client queries research_reports directly; RLS handles authorization natively.
-            const { data } = await client
+            // Use supabase client directly — session is persisted, no token juggling needed.
+            const { data } = await supabase
                 .from('research_reports')
                 .select('report_id, company_name, nse_symbol, recommendation, target_price, recommendation_rationale, company_background, business_model, management_analysis, industry_overview, industry_tailwinds, demand_drivers, industry_risks, pdf_file_url, audio_file_url, video_file_url, published_at')
                 .eq('report_id', id!)
@@ -140,22 +134,19 @@ export default function ReportDetailScreen() {
 
             return data;
         },
-        enabled: !!id && !!userEmail,
+        enabled: !!id,
     });
 
     useEffect(() => {
         let isMounted = true;
         async function fetchSecureUrls() {
             try {
-                const token = await getToken({ template: 'supabase' });
-                const client = getAuthenticatedSupabase(token);
-
                 // Fetch PDF signed URL
                 if (report?.pdf_file_url && !securePdfUrl) {
                     if (report.pdf_file_url.startsWith('http')) {
                         if (isMounted) setSecurePdfUrl(report.pdf_file_url);
                     } else {
-                        const { data } = await client.storage.from('secure_reports').createSignedUrl(report.pdf_file_url, 120);
+                        const { data } = await supabase.storage.from('secure_reports').createSignedUrl(report.pdf_file_url, 120);
                         if (isMounted) setSecurePdfUrl(data?.signedUrl || report.pdf_file_url);
                     }
                 }
@@ -165,8 +156,7 @@ export default function ReportDetailScreen() {
                     if (report.video_file_url.startsWith('http')) {
                         if (isMounted) setSecureVideoUrl(report.video_file_url);
                     } else {
-                        // 14400 seconds = 4 hours, ensuring the URL stays valid during long podcast watches
-                        const { data } = await client.storage.from('secure_video').createSignedUrl(report.video_file_url, 14400);
+                        const { data } = await supabase.storage.from('secure_video').createSignedUrl(report.video_file_url, 14400);
                         if (isMounted) setSecureVideoUrl(data?.signedUrl || report.video_file_url);
                     }
                 }
@@ -175,8 +165,7 @@ export default function ReportDetailScreen() {
                     if (report.audio_file_url.startsWith('http')) {
                         if (isMounted) setSecureAudioUrl(report.audio_file_url);
                     } else {
-                        // 14400 seconds = 4 hours
-                        const { data, error: storageError } = await client.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400);
+                        const { data, error: storageError } = await supabase.storage.from('media-assets').createSignedUrl(report.audio_file_url, 14400);
                         if (storageError) {
                             logger.warn('Podcast Storage Error:', storageError);
                             if (isMounted) setSecureAudioUrl(null);
@@ -230,26 +219,21 @@ export default function ReportDetailScreen() {
         );
     }
 
-    if (!kyc || !profile) {
-        const isKycMissing = !kyc;
-        const missingText = isKycMissing ? 'KYC' : 'Risk Profiling';
-        const route = isKycMissing ? '/(kyc)' : '/(profiling)';
-        const btnText = isKycMissing ? 'Complete KYC' : 'Complete Risk Profile';
-
+    if (!subscription?.is_active) {
         return (
             <View style={[styles.loadingWrap, { backgroundColor: c.background, padding: Spacing['2xl'] }]}>
-                <Ionicons name="shield-half" size={64} color={c.textTertiary} style={{ marginBottom: Spacing.lg }} />
+                <Ionicons name="diamond" size={64} color={Colors.brand.gold} style={{ marginBottom: Spacing.lg }} />
                 <Text style={{ fontSize: FontSize.xl, fontWeight: '800', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>
-                    {missingText} Required
+                    Subscription Required
                 </Text>
                 <Text style={{ fontSize: FontSize.base, color: c.textSecondary, textAlign: 'center', marginBottom: Spacing.xl }}>
-                    You must complete your {missingText} to access this research report.
+                    Subscribe to a plan to read this research report.
                 </Text>
                 <TouchableOpacity
                     style={{ backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl, paddingVertical: 14, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                    onPress={() => router.push(route)}
+                    onPress={() => router.push('/subscription')}
                 >
-                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{btnText}</Text>
+                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>View Plans</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.back()} style={{ marginTop: Spacing.xl }}>

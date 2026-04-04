@@ -1,15 +1,16 @@
+import { supabase } from '@/lib/supabase';
 import { GoogleIcon } from '@/components/GoogleIcon';
 import { Logo } from '@/components/Logo';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { useClerk, useOAuth, useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useCallback, useRef, useState } from 'react';
+import * as Linking from 'expo-linking';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     Animated,
@@ -28,15 +29,6 @@ if (Platform.OS !== 'web') {
     WebBrowser.maybeCompleteAuthSession();
 }
 
-const useWarmUpBrowser = () => {
-    React.useEffect(() => {
-        if (Platform.OS !== 'web') {
-            void WebBrowser.warmUpAsync();
-            return () => { void WebBrowser.coolDownAsync(); };
-        }
-    }, []);
-};
-
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -46,7 +38,6 @@ export default function LoginScreen() {
     const [emailFocused, setEmailFocused] = useState(false);
     const [passwordFocused, setPasswordFocused] = useState(false);
 
-    useWarmUpBrowser();
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
@@ -54,16 +45,11 @@ export default function LoginScreen() {
     const { isWideWeb } = useResponsiveLayout();
     const insets = useSafeAreaInsets();
 
-    const { signIn, setActive, isLoaded } = useSignIn();
-    const clerk = useClerk();
-    // eslint-disable-next-line deprecation/deprecation
-    const { startOAuthFlow: startGoogleOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
-
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(20)).current;
     const buttonScale = useRef(new Animated.Value(1)).current;
 
-    React.useEffect(() => {
+    useEffect(() => {
         Animated.parallel([
             Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
             Animated.timing(slideAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
@@ -76,18 +62,18 @@ export default function LoginScreen() {
         if (!email.trim()) { showAlert('Missing Email', 'Please enter your email address.'); return; }
         if (!validateEmail(email)) { showAlert('Invalid Email', 'Please enter a valid email address.'); return; }
         if (!password) { showAlert('Missing Password', 'Please enter your password.'); return; }
-        if (!isLoaded) return;
         setLoading(true);
         try {
-            const result = await signIn.create({ identifier: email.trim(), password });
-            if (result.status === 'complete') {
-                await setActive({ session: result.createdSessionId });
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
+            if (error) throw error;
+            if (data.session) {
                 router.replace('/');
-            } else {
-                showAlert('Sign In Info', 'Further action required to complete sign in.');
             }
         } catch (err: any) {
-            showAlert('Sign In Failed', err.errors ? err.errors[0].message : err.message);
+            showAlert('Sign In Failed', err.message);
         } finally {
             setLoading(false);
         }
@@ -96,30 +82,35 @@ export default function LoginScreen() {
     const handleGoogleSignIn = useCallback(async () => {
         try {
             setLoading(true);
-            const { createdSessionId, setActive: setOAuthActive, signUp, signIn: oauthSignIn } = await startGoogleOAuthFlow();
-            if (createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: createdSessionId });
-                router.replace('/');
-            } else if (oauthSignIn?.createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: oauthSignIn.createdSessionId });
-                router.replace('/');
-            } else if (signUp?.createdSessionId && setOAuthActive) {
-                await setOAuthActive({ session: signUp.createdSessionId });
-                router.replace('/');
-            } else if (signUp?.status === 'missing_requirements') {
-                showAlert('Registration Incomplete', 'Please sign up via email.');
+            const redirectUrl = Linking.createURL('/auth/callback');
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectUrl,
+                },
+            });
+            if (error) throw error;
+            if (Platform.OS === 'web') return; // Browser redirects automatically
+
+            // For native:
+            if (data?.url) {
+                const res = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+                if (res.type === 'success') {
+                    const parsedUrl = Linking.parse(res.url.replace('#', '?'));
+                    const access_token = parsedUrl.queryParams?.access_token as string | undefined;
+                    const refresh_token = parsedUrl.queryParams?.refresh_token as string | undefined;
+                    if (access_token && refresh_token) {
+                        await supabase.auth.setSession({ access_token, refresh_token });
+                        router.replace('/');
+                    }
+                }
             }
         } catch (err: any) {
-            const message = err?.errors?.[0]?.message ?? err?.message ?? 'An unknown error occurred';
-            if (message.toLowerCase().includes('session already exists')) {
-                router.replace('/');
-            } else {
-                showAlert('Google Sign In Failed', message);
-            }
+            showAlert('Google Sign In Failed', err.message);
         } finally {
             setLoading(false);
         }
-    }, [startGoogleOAuthFlow, showAlert, clerk]);
+    }, [showAlert]);
 
     const handleSubmit = () => {
         Animated.sequence([

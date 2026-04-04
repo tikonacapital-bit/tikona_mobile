@@ -3,10 +3,9 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { supabase, getAuthenticatedSupabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth as useClerkAuth } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -27,8 +26,7 @@ const PAGE_SIZE = 12;
 export default function ReportsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
-    const { userId, user, subscription, kyc, profile } = useAuth();
-    const { getToken } = useClerkAuth();
+    const { userId, user, subscription, isLoadingData } = useAuth();
     const { gridColumns } = useResponsiveLayout();
 
     const [search, setSearch] = useState('');
@@ -45,20 +43,23 @@ export default function ReportsScreen() {
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['my_reports', userId, userEmail, debouncedSearch, filter, timeFilter],
+        queryKey: ['my_reports', userId, subscription?.plan, debouncedSearch, filter, timeFilter],
         queryFn: async (): Promise<ResearchReport[]> => {
-            if (!userId || !userEmail) return [];
+            if (!userId || !subscription?.is_active) return [];
 
-            const token = await getToken({ template: 'supabase' });
-            const client = getAuthenticatedSupabase(token);
-
-            // RLS naturally filters out research_reports not assigned to this user's email
-            let query = client
+            // Plan-based access: user sees reports published for their plan.
+            // all_in_growth subscribers can see all plans' reports.
+            let query = supabase
                 .from('research_reports')
                 .select('report_id, company_name, nse_symbol, recommendation, target_price, published_at, pdf_file_url, audio_file_url, video_file_url')
                 .eq('is_published', true)
                 .order('published_at', { ascending: false })
                 .limit(PAGE_SIZE);
+
+            // Filter by plan unless user has all_in_growth
+            if (subscription.plan !== 'all_in_growth') {
+                query = query.eq('plan', subscription.plan);
+            }
 
             if (filter !== 'ALL') {
                 query = query.eq('recommendation', filter);
@@ -86,9 +87,8 @@ export default function ReportsScreen() {
             if (dbError) throw new Error(dbError.message);
             return reports ?? [];
         },
-        enabled: !!userId && !!userEmail,
+        enabled: !!userId && !isLoadingData && !!subscription?.is_active,
         staleTime: 60000,
-
     });
 
     const reports = data ?? [];
@@ -96,26 +96,22 @@ export default function ReportsScreen() {
     const canAccessAll = !!subscription?.is_active;
     const isLocked = (index: number) => !canAccessAll && index >= 3;
 
-    if (!kyc || !profile) {
-        const isKycMissing = !kyc;
-        const missingText = isKycMissing ? 'KYC' : 'Risk Profiling';
-        const route = isKycMissing ? '/(kyc)' : '/(profiling)';
-        const btnText = isKycMissing ? 'Complete KYC' : 'Complete Risk Profile';
-
+    // Gate: must have an active subscription to view reports
+    if (!isLoadingData && !subscription?.is_active) {
         return (
             <View style={[styles.container, { backgroundColor: c.background, justifyContent: 'center', alignItems: 'center', padding: Spacing['2xl'] }]}>
-                <Ionicons name="shield-half" size={56} color={c.textTertiary} style={{ marginBottom: Spacing.lg }} />
+                <Ionicons name="diamond" size={56} color={Colors.brand.gold} style={{ marginBottom: Spacing.lg }} />
                 <Text style={{ fontSize: FontSize.xl, fontWeight: '700', color: c.text, marginBottom: Spacing.sm, textAlign: 'center' }}>
-                    {missingText} Required
+                    Subscription Required
                 </Text>
                 <Text style={{ fontSize: FontSize.base, color: c.textSecondary, textAlign: 'center', marginBottom: Spacing.xl, lineHeight: 22 }}>
-                    Please complete your {missingText} to access premium research reports.
+                    Subscribe to a plan to access premium research reports tailored to your investment strategy.
                 </Text>
                 <TouchableOpacity
                     style={{ backgroundColor: Colors.brand.primary, paddingHorizontal: Spacing.xl, paddingVertical: 14, borderRadius: BorderRadius.lg, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-                    onPress={() => router.push(route)}
+                    onPress={() => router.push('/subscription')}
                 >
-                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>{btnText}</Text>
+                    <Text style={{ color: '#fff', fontSize: FontSize.md, fontWeight: '700' }}>View Plans</Text>
                     <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </TouchableOpacity>
             </View>
