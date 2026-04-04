@@ -22,11 +22,13 @@ export default function AuthCallbackScreen() {
     const url = Linking.useURL();
 
     useEffect(() => {
+        let timeout: ReturnType<typeof setTimeout>;
+
         const handleSession = async () => {
             if (url) {
                 const cleanUrl = url.replace('#', '?');
                 const { queryParams } = Linking.parse(cleanUrl);
-                
+
                 const access_token = queryParams?.access_token as string | undefined;
                 const refresh_token = queryParams?.refresh_token as string | undefined;
 
@@ -39,16 +41,16 @@ export default function AuthCallbackScreen() {
                     }
                 }
             }
-            
+
             // Short delay to ensure session is recognized
-            const timeout = setTimeout(() => {
+            timeout = setTimeout(() => {
                 router.replace('/');
             }, 1000);
-            
-            return () => clearTimeout(timeout);
         };
 
         handleSession();
+
+        return () => clearTimeout(timeout);
     }, [url]);
 
     return (

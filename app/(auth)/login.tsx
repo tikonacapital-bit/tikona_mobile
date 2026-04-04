@@ -84,18 +84,20 @@ export default function LoginScreen() {
             setLoading(true);
 
             // Use the scheme from app.json
-            const redirectUrl = Linking.createURL('auth/callback');
+            const redirectUrl = Platform.OS === 'web'
+                ? window.location.origin + '/auth/callback'
+                : Linking.createURL('auth/callback');
 
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: redirectUrl,
-                    skipBrowserRedirect: true,
+                    skipBrowserRedirect: Platform.OS !== 'web',
                 },
             });
 
             if (error) throw error;
-            if (Platform.OS === 'web') return; // Browser redirects automatically
+            if (Platform.OS === 'web') return; // Supabase handles the redirect automatically on web
 
             // For native:
             if (data?.url) {

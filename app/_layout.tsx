@@ -91,7 +91,7 @@ function RootLayoutInner() {
             // Redirect to login if not logged in and trying to access protected screens
             router.replace('/(auth)/login');
         }
-    }, [isSignedIn, isLoaded, segments, isLoadingData, subscription]);
+    }, [isSignedIn, isLoaded, segments, isLoadingData, subscription, user]);
 
     return (
         <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
