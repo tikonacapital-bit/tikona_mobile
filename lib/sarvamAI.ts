@@ -31,6 +31,7 @@ export interface ChatHistoryEntry {
 
 interface ChatResponse {
   reply: string;
+  tokens_used?: number;
 }
 
 interface TTSResponse {
@@ -95,6 +96,9 @@ export async function chatWithReport(
 
   if (!res.ok) {
     const err = await res.text();
+    if (res.status === 402) {
+      throw new Error('402_INSUFFICIENT_CREDITS');
+    }
     throw new Error(`Chat failed: ${err}`);
   }
 

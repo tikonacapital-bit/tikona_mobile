@@ -27,8 +27,8 @@ import {
   type ChatHistoryEntry,
 } from '@/lib/sarvamAI';
 import type { ResearchReport } from '@/lib/types';
-import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -47,9 +47,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   Vibration,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -61,6 +61,7 @@ interface ChatMessage {
   hasAudio?: boolean;
   timestamp: Date;
   isLoading?: boolean;
+  tokensUsed?: number;
 }
 
 interface ReportAIChatProps {
@@ -203,12 +204,12 @@ function formatTime(date: Date): string {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ReportAIChat({ visible, onClose, report }: ReportAIChatProps) {
+  const router = useRouter();
   const theme = useColorScheme();
   const c = Colors[theme];
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
-  const { userId, wallet, refreshWallet } = useAuth();
-  const { getToken } = useClerkAuth();
+  const { userId, wallet, refreshWallet, getToken } = useAuth();
   const insets = useSafeAreaInsets();
   const { width: SW, height: SH } = useWindowDimensions();
 
@@ -548,7 +549,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingId
-              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false }
+              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false, tokensUsed: chatResult.tokens_used }
               : m
           )
         );
@@ -558,9 +559,16 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         const cachedAudio = audioCache.current.get(loadingId);
         if (cachedAudio) await playAudioBase64(cachedAudio);
       }
-    } catch (err) {
-      logger.error('[Recording] Processing error:', err);
-      addSystemMessage('Something went wrong processing your voice. Please try again.');
+    } catch (err: any) {
+      if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
+          Alert.alert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
+          ]);
+      } else {
+        logger.error('[Recording] Processing error:', err);
+        addSystemMessage('Something went wrong processing your voice. Please try again.');
+      }
     } finally {
       if (mountedRef.current) setIsProcessing(false);
       isStoppingRef.current = false;
@@ -634,7 +642,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         setMessages((prev) =>
           prev.map((m) =>
             m.id === loadingId
-              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false }
+              ? { ...m, text: chatResult.reply, hasAudio, isLoading: false, tokensUsed: chatResult.tokens_used }
               : m
           )
         );
@@ -644,16 +652,23 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
         const cachedAudio = audioCache.current.get(loadingId);
         if (cachedAudio) await playAudioBase64(cachedAudio);
       }
-    } catch (err) {
-      logger.error('[Chat] Error:', err);
-      if (mountedRef.current) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === loadingId
-              ? { ...m, text: 'Sorry, I encountered an error. Please try again.', isLoading: false }
-              : m
-          )
-        );
+    } catch (err: any) {
+      if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
+          Alert.alert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
+          ]);
+      } else {
+        logger.error('[Chat] Error:', err);
+        if (mountedRef.current) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === loadingId
+                ? { ...m, text: 'Sorry, I encountered an error. Please try again.', isLoading: false }
+                : m
+            )
+          );
+        }
       }
     } finally {
       if (mountedRef.current) setIsProcessing(false);
@@ -876,6 +891,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
               ) : (
                 <>
                   <Text style={[s.msgText, { color: c.text }]}>{item.text}</Text>
+                  {item.tokensUsed != null && (
+                    <Text style={{ fontSize: 10, color: Colors.brand.secondary, fontWeight: '600', backgroundColor: Colors.brand.secondary + '15', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 12, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 10, marginBottom: item.hasAudio ? 6 : 0 }}>
+                      -{item.tokensUsed} credits
+                    </Text>
+                  )}
                   {item.hasAudio && (
                     <TouchableOpacity
                       style={[
@@ -945,20 +965,30 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
             </View>
           </TouchableOpacity>
 
-          <View style={s.headerCenter}>
-            <View style={[s.headerIcon, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
-              <Ionicons name="sparkles" size={14} color="#fff" />
-            </View>
-            <View>
-              <Text style={[s.headerTitle, { color: '#fff' }]}>AI Assistant</Text>
-              <View style={s.headerStatusRow}>
-                <View style={[s.statusDot, { backgroundColor: '#34D399' }]} />
-                <Text style={[s.headerSub, { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
-                  {report.company_name} · {report.nse_symbol}
-                </Text>
-              </View>
+          <View style={[s.headerIcon, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+            <Ionicons name="sparkles" size={14} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.headerTitle, { color: '#fff' }]}>AI Assistant</Text>
+            <View style={s.headerStatusRow}>
+              <View style={[s.statusDot, { backgroundColor: '#34D399' }]} />
+              <Text style={[s.headerSub, { color: 'rgba(255,255,255,0.75)' }]} numberOfLines={1}>
+                {report.company_name} · {report.nse_symbol}
+              </Text>
             </View>
           </View>
+
+          {/* Credits Chip */}
+          <TouchableOpacity 
+              onPress={() => { onClose(); router.push('/buy-credits' as any); }}
+              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.15)', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.4)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, gap: 4, marginRight: 4 }}
+              activeOpacity={0.8}
+          >
+              <Ionicons name="diamond" size={12} color="#FCD34D" />
+              <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>
+                  {wallet?.credits_balance ? (wallet.credits_balance >= 1000000 ? `${(wallet.credits_balance / 1000000).toFixed(1)}M` : wallet.credits_balance >= 1000 ? `${(wallet.credits_balance / 1000).toFixed(1)}K` : wallet.credits_balance) : 0}
+              </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity onPress={loadHistory} style={s.headerBtn} activeOpacity={0.7}>
             <View style={[s.headerBtnInner, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
@@ -1385,7 +1415,6 @@ const s = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
   },
   headerIcon: {
@@ -1433,7 +1462,6 @@ const s = StyleSheet.create({
   // ── Chat ──────────────────────────────────────────────────────────────
   chatContainer: {
     flexGrow: 1,
-    justifyContent: 'flex-end',
     padding: Spacing.lg,
     paddingBottom: 24,
   },

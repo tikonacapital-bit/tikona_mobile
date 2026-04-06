@@ -157,7 +157,11 @@ export default function AIChatScreen() {
         if (balance < 100) {
             Alert.alert(
                 'Insufficient Credits',
-                'You don\'t have enough AI credits remaining. Please top up to continue.'
+                'You don\'t have enough AI credits remaining. Please top up to continue.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }
+                ]
             );
             return;
         }
@@ -231,14 +235,25 @@ export default function AIChatScreen() {
                     if (ctx.error) realMsg = ctx.error;
                 } catch (e) { }
             }
-            console.error('[AI Chat] Error calling sector-ai-chat:', realMsg, '| Full err:', err);
-            Alert.alert("Debug Error", `Edge Function Error: ${realMsg}`);
-            setMessages((prev) => [...prev, {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: `Response from analyst failed: ${realMsg}`,
-                timestamp: new Date(),
-            }]);
+            if (realMsg.includes('402') || realMsg.includes('Insufficient') || realMsg.includes('credits')) {
+                Alert.alert(
+                    'Insufficient Credits',
+                    'You don\'t have enough AI credits remaining. Please top up to continue.',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }
+                    ]
+                );
+            } else {
+                console.error('[AI Chat] Error calling sector-ai-chat:', realMsg, '| Full err:', err);
+                Alert.alert("Debug Error", `Edge Function Error: ${realMsg}`);
+                setMessages((prev) => [...prev, {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: `Response from analyst failed: ${realMsg}`,
+                    timestamp: new Date(),
+                }]);
+            }
         } finally {
             setLoading(false);
             setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -297,55 +312,71 @@ export default function AIChatScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-                {/* Header */}
+                {/* Premium Header */}
                 <LinearGradient
-                    colors={isDark ? ['#0f172a', '#1e293b'] : ['#ffffff', '#f8fafc']}
-                    style={[styles.header, { borderBottomColor: c.border, paddingTop: Math.max(insets.top, 16) }]}
+                    colors={isDark ? ['#0f172a', '#1e293b'] : [Colors.brand.primary, '#1e3a8a']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.header, { borderBottomWidth: 0, paddingTop: Math.max(insets.top, 16) }]}
                 >
                     <TouchableOpacity
                         onPress={() => router.back()}
-                        style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
+                        style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.12)' }]}
                         activeOpacity={0.8}
                     >
-                        <Ionicons name="chevron-back" size={20} color={c.text} />
+                        <Ionicons name="chevron-back" size={20} color="#fff" />
                     </TouchableOpacity>
 
                     <View style={{ position: 'relative' }}>
-                        <View style={[styles.analystAvatar, { backgroundColor: analystBg }]}>
+                        <View style={[styles.analystAvatar, { backgroundColor: analystBg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }]}>
                             <Ionicons name={analyst?.icon ?? 'person'} size={22} color={analystColor} />
                         </View>
-                        <View style={[styles.onlineDot, { borderColor: isDark ? '#0f172a' : '#ffffff' }]} />
+                        <View style={[styles.onlineDot, { borderColor: isDark ? '#0f172a' : Colors.brand.primary, backgroundColor: '#34D399' }]} />
                     </View>
 
                     <View style={{ flex: 1 }}>
-                        <Text style={[styles.headerName, { color: c.text }]} numberOfLines={1}>
+                        <Text style={[styles.headerName, { color: '#fff' }]} numberOfLines={1}>
                             {analyst?.analyst ?? sector}
                         </Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                            <View style={styles.onlineDotSmall} />
-                            <Text style={[styles.headerStatus, { color: analystColor }]}>
-                                Online · {((wallet?.credits_balance ?? 0) >= 1000000 ? `${((wallet?.credits_balance ?? 0) / 1000000).toFixed(1)}M` : (wallet?.credits_balance ?? 0) >= 1000 ? `${Math.round((wallet?.credits_balance ?? 0) / 1000)}K` : (wallet?.credits_balance ?? 0))} Credits
+                            <View style={[styles.onlineDotSmall, { backgroundColor: '#34D399' }]} />
+                            <Text style={[styles.headerStatus, { color: 'rgba(255,255,255,0.75)' }]}>
+                                Analyst AI
                             </Text>
                         </View>
                     </View>
 
-                    <TouchableOpacity
-                        onPress={() => router.push({ pathname: '/sector-chat-history', params: { sector } })}
-                        style={[styles.iconBtn, { backgroundColor: c.borderLight, marginRight: 8 }]}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="time-outline" size={16} color={c.textSecondary} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {/* Premium Credits Section */}
+                        <TouchableOpacity 
+                            onPress={() => router.push('/buy-credits' as any)}
+                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.15)', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.4)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 6, gap: 4 }}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="diamond" size={12} color="#FCD34D" />
+                            <Text style={{ color: '#FCD34D', fontSize: 11, fontWeight: '800' }}>
+                                {wallet?.credits_balance ? (wallet.credits_balance >= 1000000 ? `${(wallet.credits_balance / 1000000).toFixed(1)}M` : wallet.credits_balance >= 1000 ? `${(wallet.credits_balance / 1000).toFixed(1)}K` : wallet.credits_balance) : 0}
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={resetChat}
-                        style={[styles.iconBtn, { backgroundColor: c.borderLight }]}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="refresh-outline" size={16} color={c.textSecondary} />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => router.push({ pathname: '/sector-chat-history', params: { sector } })}
+                            style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.12)' }]}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="time-outline" size={16} color="#fff" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={resetChat}
+                            style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.12)' }]}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="refresh-outline" size={16} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
                 </LinearGradient>
 
                 {/* Sector pill bar */}
@@ -405,13 +436,14 @@ export default function AIChatScreen() {
                     </View>
                 )}
 
-                {/* Input Bar */}
-                <View style={[styles.inputBar, { backgroundColor: c.surface, borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+                {/* Premium Input Bar */}
+                <View style={[styles.inputBar, { backgroundColor: isDark ? '#0f172a' : '#fff', borderTopWidth: 0, paddingBottom: Math.max(insets.bottom, 16), shadowColor: '#000', shadowOpacity: isDark ? 0.2 : 0.05, shadowRadius: 10, elevation: 6 }]}>
                     <View style={[
                         styles.inputWrap,
                         {
-                            backgroundColor: c.inputBg,
-                            borderColor: input.trim() ? analystColor + '55' : c.inputBorder,
+                            backgroundColor: isDark ? '#1e293b' : '#f8fafc',
+                            borderColor: input.trim() ? analystColor + '55' : (isDark ? '#334155' : '#e2e8f0'),
+                            borderWidth: 1,
                         },
                     ]}>
                         <TextInput
@@ -459,12 +491,12 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 6,
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.md,
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
-    iconBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+    iconBtn: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
     analystAvatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
     onlineDot: {
         position: 'absolute', bottom: 1, right: 1,
