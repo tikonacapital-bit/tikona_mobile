@@ -115,6 +115,7 @@ export default function PortfolioScreen() {
     const [selectedHolding, setSelectedHolding] = useState<EnrichedHolding | null>(null);
     const [thesisInput, setThesisInput] = useState('');
     const [thesisFeedback, setThesisFeedback] = useState('');
+    const [thesisTokensUsed, setThesisTokensUsed] = useState<number | null>(null);
     const [isCheckingThesis, setIsCheckingThesis] = useState(false);
 
 
@@ -597,8 +598,22 @@ export default function PortfolioScreen() {
                 body: JSON.stringify({ symbol: selectedHolding.nse_symbol, thesis: thesisInput.trim() })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to check thesis');
+            
+            if (!res.ok) {
+                if (res.status === 402) {
+                    showAlert('Insufficient Credits', 'You need AI Tokens to check market theses.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }
+                    ]);
+                    return;
+                }
+                throw new Error(data.error || 'Failed to check thesis');
+            }
+            
             setThesisFeedback(data.reply);
+            if (data.tokens_used) {
+                setThesisTokensUsed(data.tokens_used);
+            }
 
         } catch (e: any) {
             showAlert('Error', e.message);
@@ -940,6 +955,7 @@ export default function PortfolioScreen() {
                                                 setSelectedHolding(h);
                                                 setThesisInput(h.investment_thesis || '');
                                                 setThesisFeedback('');
+                                                setThesisTokensUsed(null);
                                                 setShowThesisModal(true);
                                                 Animated.parallel([
                                                     Animated.timing(slideAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
@@ -964,13 +980,6 @@ export default function PortfolioScreen() {
                                         >
                                             <Ionicons name="trash-outline" size={15} color={c.textTertiary} />
                                         </TouchableOpacity>
-
-                                        {/* Little circle gauge for weight next to delete */}
-                                        {h.current_value != null && (
-                                            <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: dotColor + '40', justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
-                                                <Text style={{ color: c.text, fontSize: 9, fontWeight: '800' }}>{Math.round(weight)}%</Text>
-                                            </View>
-                                        )}
                                     </View>
                                 </Card>
                             );
@@ -1585,11 +1594,18 @@ export default function PortfolioScreen() {
 
                                 {thesisFeedback ? (
                                     <View style={{ marginTop: Spacing.xl, backgroundColor: c.surfaceElevated, padding: Spacing.lg, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.brand.secondary + '40' }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md }}>
-                                            <View style={[styles.aiIconWrap, { width: 30, height: 30, backgroundColor: Colors.brand.secondary }]}>
-                                                <Ionicons name="sparkles" size={16} color="#fff" />
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <View style={[styles.aiIconWrap, { width: 30, height: 30, backgroundColor: Colors.brand.secondary }]}>
+                                                    <Ionicons name="sparkles" size={16} color="#fff" />
+                                                </View>
+                                                <Text style={{ fontSize: FontSize.base, fontWeight: '700', color: c.text }}>AI Analysis</Text>
                                             </View>
-                                            <Text style={{ fontSize: FontSize.base, fontWeight: '700', color: c.text }}>AI Analysis</Text>
+                                            {thesisTokensUsed != null && (
+                                                <Text style={{ fontSize: 10, color: Colors.brand.secondary, fontWeight: '600', backgroundColor: Colors.brand.secondary + '15', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 12 }}>
+                                                    -{thesisTokensUsed} credits
+                                                </Text>
+                                            )}
                                         </View>
                                         <Text style={{ fontSize: FontSize.sm, color: c.textSecondary, lineHeight: 22 }}>
                                             {thesisFeedback}
