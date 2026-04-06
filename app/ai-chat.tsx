@@ -28,6 +28,7 @@ interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    tokensUsed?: number;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -82,7 +83,7 @@ function formatTime(date: Date) {
 }
 
 export default function AIChatScreen() {
-    const { sector } = useLocalSearchParams<{ sector: string }>();
+    const { sector, resumeSessionId, resumeMessages } = useLocalSearchParams<{ sector: string; resumeSessionId?: string; resumeMessages?: string }>();
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
@@ -105,9 +106,41 @@ export default function AIChatScreen() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const listRef = useRef<FlatList>(null);
+    const hasResumed = useRef(false);
+
+    // Resume a previous session if params are provided
+    useEffect(() => {
+        if (resumeSessionId && resumeMessages && !hasResumed.current) {
+            hasResumed.current = true;
+            sessionIdRef.current = resumeSessionId;
+            try {
+                const parsed = JSON.parse(resumeMessages);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const restored: Message[] = [
+                        {
+                            id: 'resumed-welcome',
+                            role: 'assistant',
+                            content: `Resuming your previous conversation with ${analyst?.analyst ?? 'the analyst'}. Feel free to continue.`,
+                            timestamp: new Date(),
+                        },
+                        ...parsed.map((m: any, i: number) => ({
+                            id: `resumed-${i}`,
+                            role: m.role as 'user' | 'assistant',
+                            content: m.text || m.content || '',
+                            timestamp: new Date(m.timestamp || Date.now()),
+                        })),
+                    ];
+                    setMessages(restored);
+                }
+            } catch (e) {
+                console.warn('[AI Chat] Failed to parse resumed messages:', e);
+            }
+        }
+    }, [resumeSessionId, resumeMessages]);
 
     const resetChat = useCallback(() => {
         sessionIdRef.current = null;
+        hasResumed.current = false;
         setMessages([{
             id: '0',
             role: 'assistant',
@@ -120,11 +153,11 @@ export default function AIChatScreen() {
         const trimmed = text.trim();
         if (!trimmed || loading || !sector) return;
 
-        const balance = wallet ? wallet.credits_balance : 50;
-        if (balance < 1) {
+        const balance = wallet ? wallet.credits_balance : 50000;
+        if (balance < 100) {
             Alert.alert(
                 'Insufficient Credits',
-                'Sector AI Chat requires 1 AI credit. Please upgrade your plan or top up to continue.'
+                'You don\'t have enough AI credits remaining. Please top up to continue.'
             );
             return;
         }
@@ -161,12 +194,14 @@ export default function AIChatScreen() {
 
             refreshWallet(); // Refresh credits
             const replyContent = data?.reply || 'Sorry, I could not generate a response.';
+            const tokensUsed = data?.tokens_used ?? 0;
 
             setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
                 content: replyContent,
                 timestamp: new Date(),
+                tokensUsed,
             }]);
 
             // Save to chat_sessions
@@ -237,13 +272,22 @@ export default function AIChatScreen() {
                             <Text style={[styles.bubbleText, { color: c.text }]}>{item.content}</Text>
                         </View>
                     )}
-                    <Text style={[
-                        styles.timestamp,
-                        isUser ? styles.timestampRight : styles.timestampLeft,
-                        { color: c.textTertiary },
-                    ]}>
-                        {formatTime(item.timestamp)}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: isUser ? 'flex-end' : 'flex-start', gap: 6, marginTop: 4 }}>
+                        <Text style={[
+                            styles.timestamp,
+                            { color: c.textTertiary },
+                        ]}>
+                            {formatTime(item.timestamp)}
+                        </Text>
+                        {!isUser && item.tokensUsed ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                                <Ionicons name="flash" size={9} color={isDark ? '#94a3b8' : '#64748b'} />
+                                <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#94a3b8' : '#64748b' }}>
+                                    {item.tokensUsed.toLocaleString('en-IN')} credits
+                                </Text>
+                            </View>
+                        ) : null}
+                    </View>
                 </View>
             </View>
         );
@@ -282,7 +326,7 @@ export default function AIChatScreen() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <View style={styles.onlineDotSmall} />
                             <Text style={[styles.headerStatus, { color: analystColor }]}>
-                                Online · {wallet?.credits_balance ?? 0} Credits
+                                Online · {((wallet?.credits_balance ?? 0) >= 1000000 ? `${((wallet?.credits_balance ?? 0) / 1000000).toFixed(1)}M` : (wallet?.credits_balance ?? 0) >= 1000 ? `${Math.round((wallet?.credits_balance ?? 0) / 1000)}K` : (wallet?.credits_balance ?? 0))} Credits
                             </Text>
                         </View>
                     </View>

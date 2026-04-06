@@ -19,12 +19,12 @@ export default function AIAnalystScreen() {
     const { wallet } = useAuth();
 
     const handleSectorClick = (sector: string) => {
-        const balance = wallet ? wallet.credits_balance : 50; // New users default to 50
+        const balance = wallet ? wallet.credits_balance : 50000;
         
-        if (balance < 1) {
+        if (balance < 100) {
             Alert.alert(
-                'No Credits Left',
-                'You have run out of AI credits. Please purchase a credit pack to continue chatting.',
+                'Insufficient Credits',
+                'You don\'t have enough AI credits remaining. Please top up to continue.',
                 [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }

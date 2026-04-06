@@ -85,7 +85,7 @@ async function chatCompletion(
   userMessage: string,
   reportContext: string,
   history: Array<{ role: string; content: string }> = []
-): Promise<string> {
+): Promise<{ content: string; tokens_used: number }> {
   const openRouterKey = getOpenRouterApiKey();
 
   const systemPrompt = `You are an intelligent financial research assistant for Tikona Capital. You help users understand equity research reports by answering their questions clearly, accurately, and with deep analytical insight.
@@ -102,18 +102,18 @@ ${reportContext}
     method: "POST",
     headers: {
       "Authorization": `Bearer ${openRouterKey}`,
-      "HTTP-Referer": "https://tradeboxlive.com", // Optional, for OpenRouter rankings
-      "X-Title": "Tikona Capital App", // Optional, for OpenRouter rankings
+      "HTTP-Referer": "https://tradeboxlive.com",
+      "X-Title": "Tikona Capital App",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "openai/gpt-4o-mini", // Fallback to GPT-4o-mini due to Anthropic Bedrock routing outage
+      model: "openai/gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         ...history,
         { role: "user", content: userMessage },
       ],
-      temperature: 0.2, // Keep it highly analytical and grounded
+      temperature: 0.2,
       max_tokens: 1024,
     }),
   });
@@ -127,14 +127,18 @@ ${reportContext}
   const data = await res.json();
   let content = data.choices?.[0]?.message?.content || "I couldn't generate a response.";
 
-  // Remove literal <think> and </think> tags (sometimes the model puts the actual answer inside it)
+  // Remove literal <think> and </think> tags
   content = content.replace(/<\/?think>/g, "").trim();
 
   // Strip out markdown formatting that might cause TTS bugs
-  // Remove asterisks, hashtags, markdown link syntax, etc.
   content = content.replace(/[*_~`#]/g, "");
 
-  return content;
+  // Extract real token usage from OpenRouter response
+  const promptTokens = data.usage?.prompt_tokens ?? 0;
+  const completionTokens = data.usage?.completion_tokens ?? 0;
+  const tokens_used = promptTokens + completionTokens;
+
+  return { content, tokens_used: tokens_used || 500 }; // fallback 500 if usage missing
 }
 
 // ─── WAV Concatenation ───────────────────────────────────────────────────────
@@ -325,30 +329,32 @@ serve(async (req: Request) => {
         if (!walletData) {
           const { data: newWallet } = await supabaseClient
             .from('ai_wallets')
-            .insert({ user_id: user.id, credits_balance: 50 })
+            .insert({ user_id: user.id, credits_balance: 50000 })
             .select('credits_balance')
             .single();
-          credits = newWallet?.credits_balance ?? 50;
+          credits = newWallet?.credits_balance ?? 50000;
         } else {
           credits = walletData.credits_balance;
         }
 
-        if (credits < 1) {
+        if (credits < 100) {
           return new Response(
-            JSON.stringify({ error: "Insufficient AI credits" }),
+            JSON.stringify({ error: "Insufficient AI credits. Please top up to continue." }),
             { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
-        const reply = await chatCompletion(message, report_context, history);
+        const { content: reply, tokens_used } = await chatCompletion(message, report_context, history);
 
-        // --- Deduct Credit ---
+        console.log(`[report-ai-chat] Tokens used: ${tokens_used} for user=${user.id}`);
+
+        // --- Deduct actual tokens used ---
         const { data: creditsRemaining, error: deductError } = await supabaseClient
           .rpc('deduct_ai_credits', {
             p_user_id: user.id,
-            p_amount: 1,
+            p_amount: tokens_used,
             p_transaction_type: 'report_chat',
-            p_metadata: { action: 'chat' }
+            p_metadata: { action: 'chat', tokens_used }
           });
 
         if (deductError) {
@@ -356,7 +362,7 @@ serve(async (req: Request) => {
         }
 
         return new Response(
-          JSON.stringify({ reply, credits_remaining: creditsRemaining ?? credits - 1 }),
+          JSON.stringify({ reply, credits_remaining: creditsRemaining ?? credits - tokens_used, tokens_used }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -394,7 +400,7 @@ serve(async (req: Request) => {
 
         // Step 2: Chat (use detected language from STT, with history)
         const detectedLang = sttResult.language_code || lang;
-        const aiReply = await chatCompletion(sttResult.transcript, report_context, history);
+        const { content: aiReply, tokens_used } = await chatCompletion(sttResult.transcript, report_context, history);
 
         // Step 3: TTS
         const responseAudio = await textToSpeech(aiReply, detectedLang);
@@ -404,6 +410,7 @@ serve(async (req: Request) => {
             user_transcript: sttResult.transcript,
             ai_reply: aiReply,
             audio: responseAudio,
+            tokens_used,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

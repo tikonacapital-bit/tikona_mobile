@@ -111,6 +111,13 @@ export default function PortfolioScreen() {
     const slideAnim = useRef(new Animated.Value(0)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
 
+    const [showThesisModal, setShowThesisModal] = useState(false);
+    const [selectedHolding, setSelectedHolding] = useState<EnrichedHolding | null>(null);
+    const [thesisInput, setThesisInput] = useState('');
+    const [thesisFeedback, setThesisFeedback] = useState('');
+    const [isCheckingThesis, setIsCheckingThesis] = useState(false);
+
+
     // ── Excel Import state ──
     type ExcelRow = { date: string; symbol: string; action: 'BUY' | 'SELL'; quantity: number; price: number; thesis: string; valid: boolean; error?: string };
     const [showExcelImport, setShowExcelImport] = useState(false);
@@ -570,11 +577,42 @@ export default function PortfolioScreen() {
         },
     });
 
+    const checkThesis = async () => {
+        if (!selectedHolding || !thesisInput.trim()) return;
+        setIsCheckingThesis(true);
+        setThesisFeedback('');
+        try {
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+            await client.from('portfolio_holdings').update({ investment_thesis: thesisInput.trim() }).eq('id', selectedHolding.id!);
+            
+            queryClient.invalidateQueries({ queryKey: ['holdings'] });
+
+            const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/check-thesis`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ symbol: selectedHolding.nse_symbol, thesis: thesisInput.trim() })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to check thesis');
+            setThesisFeedback(data.reply);
+
+        } catch (e: any) {
+            showAlert('Error', e.message);
+        } finally {
+            setIsCheckingThesis(false);
+        }
+    };
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await queryClient.invalidateQueries({ queryKey: ['holdings'] });
         setRefreshing(false);
     }, [queryClient]);
+
 
     const fmt = (v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
@@ -852,69 +890,88 @@ export default function PortfolioScreen() {
                                     style={styles.holdingCard}
                                     onPress={() => router.push(`/stock/${h.nse_symbol}` as any)}
                                 >
-                                    <View style={styles.holdingRow}>
-                                        {/* Color dot */}
-                                        <View style={[styles.holdingDot, { backgroundColor: dotColor }]} />
-
-                                        {/* Left: name + meta */}
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.holdingName, { color: c.text }]} numberOfLines={1}>
-                                                {h.company_name || h.nse_symbol}
-                                            </Text>
-                                            <Text style={[styles.holdingMeta, { color: c.textTertiary }]}>
-                                                {h.nse_symbol} · {h.quantity} shares · Avg ₹{h.buy_price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                                                {h.buy_date ? ` · ${new Date(h.buy_date).toLocaleDateString('en-IN')}` : ''}
-                                            </Text>
+                                    {/* Top Row: Info & Value */}
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: dotColor + '15', justifyContent: 'center', alignItems: 'center' }}>
+                                                <Text style={{ color: dotColor, fontWeight: '800', fontSize: 16 }}>{h.nse_symbol.charAt(0)}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.holdingName, { color: c.text, fontSize: 15 }]} numberOfLines={1}>
+                                                    {h.nse_symbol}
+                                                </Text>
+                                                <Text style={[styles.holdingMeta, { color: c.textTertiary, fontSize: 12, marginTop: 2 }]} numberOfLines={1}>
+                                                    {h.quantity} units @ ₹{h.buy_price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                                </Text>
+                                            </View>
                                         </View>
 
-                                        {/* Right: value + P&L */}
-                                        <View style={styles.holdingRight}>
-                                            <Text style={[styles.holdingValue, { color: c.text }]}>
+                                        <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                                            <Text style={[styles.holdingValue, { color: c.text, fontSize: 15 }]}>
                                                 {h.current_value != null ? fmt(h.current_value) : '—'}
                                             </Text>
                                             {h.pnl != null ? (
-                                                <View style={[styles.pnlBadge, { backgroundColor: isUp ? c.success + '18' : c.danger + '18' }]}>
-                                                    <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? c.success : c.danger} />
-                                                    <Text style={[styles.pnlText, { color: isUp ? c.success : c.danger }]}>
-                                                        {h.pnl_pct?.toFixed(1)}%
-                                                    </Text>
-                                                </View>
+                                                <Text style={{ color: isUp ? c.success : c.danger, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                                                    {isUp ? '+' : '-'}{fmt(Math.abs(h.pnl))} ({h.pnl_pct?.toFixed(2)}%)
+                                                </Text>
                                             ) : (
-                                                <Text style={[styles.holdingMeta, { color: c.textTertiary }]}>No price</Text>
+                                                <Text style={{ color: c.textTertiary, fontSize: 11, marginTop: 2 }}>No live price</Text>
                                             )}
                                         </View>
+                                    </View>
 
-                                        {/* Delete */}
+                                    {/* Bottom Row: Actions & Weight */}
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderLight, gap: 8 }}>
+                                        {/* Slim Thesis Button */}
                                         <TouchableOpacity
-                                            style={styles.deleteBtn}
+                                            style={{ 
+                                                flex: 1, 
+                                                flexDirection: 'row', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                height: 34, 
+                                                backgroundColor: h.investment_thesis ? Colors.brand.primary + '12' : c.surfaceElevated, 
+                                                borderRadius: BorderRadius.full,
+                                                borderWidth: 1,
+                                                borderColor: h.investment_thesis ? Colors.brand.primary + '30' : 'transparent',
+                                                gap: 6
+                                            }}
+                                            onPress={() => {
+                                                setSelectedHolding(h);
+                                                setThesisInput(h.investment_thesis || '');
+                                                setThesisFeedback('');
+                                                setShowThesisModal(true);
+                                                Animated.parallel([
+                                                    Animated.timing(slideAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+                                                    Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+                                                ]).start();
+                                            }}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons name="sparkles" size={13} color={h.investment_thesis ? Colors.brand.primary : c.textSecondary} />
+                                            <Text style={{ color: h.investment_thesis ? Colors.brand.primary : c.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                                                {h.investment_thesis ? 'AI Thesis Check' : 'Add AI Thesis'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {/* Delete Button */}
+                                        <TouchableOpacity
+                                            style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.surfaceElevated, justifyContent: 'center', alignItems: 'center' }}
                                             onPress={() => showAlert('Remove?', `Remove ${h.company_name || h.nse_symbol}?`, [
                                                 { text: 'Cancel', style: 'cancel' },
                                                 { text: 'Remove', style: 'destructive', onPress: () => deleteMutation.mutate(h.id) },
                                             ])}
-                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                         >
-                                            <Ionicons name="trash-outline" size={16} color={c.textTertiary} />
+                                            <Ionicons name="trash-outline" size={15} color={c.textTertiary} />
                                         </TouchableOpacity>
-                                    </View>
 
-                                    {/* Progress bar: Weight in portfolio */}
-                                    {h.current_value != null && (
-                                        <View style={{ marginTop: 12 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <Text style={{ color: c.textTertiary, fontSize: 10 }}>Portfolio Weight</Text>
-                                                <Text style={{ color: c.textSecondary, fontSize: 10, fontWeight: '700' }}>{weight.toFixed(1)}%</Text>
+                                        {/* Little circle gauge for weight next to delete */}
+                                        {h.current_value != null && (
+                                            <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: dotColor + '40', justifyContent: 'center', alignItems: 'center', marginLeft: 4 }}>
+                                                <Text style={{ color: c.text, fontSize: 9, fontWeight: '800' }}>{Math.round(weight)}%</Text>
                                             </View>
-                                            <View style={[styles.progressBg, { backgroundColor: c.border }]}>
-                                                <View style={[
-                                                    styles.progressFill,
-                                                    {
-                                                        width: `${Math.min(weight, 100)}%` as any,
-                                                        backgroundColor: dotColor,
-                                                    },
-                                                ]} />
-                                            </View>
-                                        </View>
-                                    )}
+                                        )}
+                                    </View>
                                 </Card>
                             );
                         })
@@ -1446,11 +1503,112 @@ export default function PortfolioScreen() {
                     </View>
                 </Modal>
 
+                {/* ── Thesis Check Modal ── */}
+                <Modal visible={showThesisModal} transparent animationType="none" onRequestClose={() => {
+                    Animated.parallel([
+                        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+                        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                    ]).start(() => {
+                        setShowThesisModal(false);
+                    });
+                }} statusBarTranslucent>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                        <TouchableWithoutFeedback onPress={() => {
+                            Animated.parallel([
+                                Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+                                Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                            ]).start(() => {
+                                setShowThesisModal(false);
+                            });
+                        }}>
+                            <Animated.View style={[styles.modalBackdrop, { opacity: backdropAnim }]} />
+                        </TouchableWithoutFeedback>
+
+                        <Animated.View style={[
+                            styles.modalSheet,
+                            {
+                                backgroundColor: c.surface,
+                                maxHeight: '90%',
+                                transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [800, 0] }) }],
+                            },
+                        ]}>
+                            <View style={styles.modalHandle}>
+                                <View style={[styles.modalHandleBar, { backgroundColor: c.border }]} />
+                            </View>
+
+                            <View style={styles.modalHeader}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.modalTitle, { color: c.text }]}>Investment Thesis</Text>
+                                    <Text style={[styles.modalSubtitle, { color: c.textTertiary }]}>{selectedHolding?.company_name || selectedHolding?.nse_symbol}</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => {
+                                    Animated.parallel([
+                                        Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+                                        Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+                                    ]).start(() => {
+                                        setShowThesisModal(false);
+                                    });
+                                }} style={[styles.modalCloseBtn, { backgroundColor: c.surfaceElevated }]}>
+                                    <Ionicons name="close" size={18} color={c.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: Spacing['2xl'] }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                
+                                <Text style={[styles.inputLabel, { color: c.textSecondary, marginTop: Spacing.sm }]}>Your Thesis</Text>
+                                <TextInput
+                                    style={[styles.thesisInput, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text, minHeight: 100 }]}
+                                    placeholder="Why did you buy/sell this stock?"
+                                    placeholderTextColor={c.textTertiary}
+                                    value={thesisInput}
+                                    onChangeText={setThesisInput}
+                                    multiline
+                                    textAlignVertical="top"
+                                />
+
+                                <TouchableOpacity
+                                    style={[styles.modalSubmitBtn, { backgroundColor: Colors.brand.primary, opacity: isCheckingThesis || !thesisInput.trim() ? 0.6 : 1, marginTop: Spacing.lg }]}
+                                    onPress={checkThesis}
+                                    disabled={isCheckingThesis || !thesisInput.trim()}
+                                    activeOpacity={0.85}
+                                >
+                                    {isCheckingThesis ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Ionicons name="sparkles" size={20} color="#fff" />
+                                            <Text style={{ fontWeight: '700', fontSize: FontSize.base, color: '#fff' }}>Save & Check Market Thesis</Text>
+                                        </View>
+
+                                    )}
+                                </TouchableOpacity>
+
+                                {thesisFeedback ? (
+                                    <View style={{ marginTop: Spacing.xl, backgroundColor: c.surfaceElevated, padding: Spacing.lg, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.brand.secondary + '40' }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md }}>
+                                            <View style={[styles.aiIconWrap, { width: 30, height: 30, backgroundColor: Colors.brand.secondary }]}>
+                                                <Ionicons name="sparkles" size={16} color="#fff" />
+                                            </View>
+                                            <Text style={{ fontSize: FontSize.base, fontWeight: '700', color: c.text }}>AI Analysis</Text>
+                                        </View>
+                                        <Text style={{ fontSize: FontSize.sm, color: c.textSecondary, lineHeight: 22 }}>
+                                            {thesisFeedback}
+                                        </Text>
+                                    </View>
+                                ) : null}
+
+                                <View style={{ height: 40 }} />
+                            </ScrollView>
+                        </Animated.View>
+                    </KeyboardAvoidingView>
+                </Modal>
+
                 <View style={{ height: 40 }} />
             </ResponsiveScrollView>
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: { flex: 1 },

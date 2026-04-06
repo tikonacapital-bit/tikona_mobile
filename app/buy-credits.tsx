@@ -19,25 +19,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ─── Credit Plans ──────────────────────────────────────────────────────────────
+// ─── Credit Plans (1 credit = 1 token) ─────────────────────────────────────
 const CREDIT_PLANS = [
     {
         id: 'pack_100',
         title: 'Starter Pack',
-        credits: 100,
+        credits: 50000,
+        creditsLabel: '50K',
         price: '₹99',
-        pricePerCredit: '₹0.99',
+        pricePerCredit: '~50 chats',
         popular: false,
         icon: 'flash-outline' as const,
-        desc: 'Perfect for occasional research.',
+        desc: 'Perfect for occasional research queries.',
         gradient: ['#6366f1', '#8b5cf6'],
     },
     {
         id: 'pack_500',
         title: 'Pro Pack',
-        credits: 500,
+        credits: 250000,
+        creditsLabel: '250K',
         price: '₹399',
-        pricePerCredit: '₹0.80',
+        pricePerCredit: '~250 chats',
         popular: true,
         icon: 'diamond-outline' as const,
         desc: 'Most popular for active investors.',
@@ -47,9 +49,10 @@ const CREDIT_PLANS = [
     {
         id: 'pack_2000',
         title: 'Whale Pack',
-        credits: 2000,
+        credits: 1000000,
+        creditsLabel: '1M',
         price: '₹1,499',
-        pricePerCredit: '₹0.75',
+        pricePerCredit: '~1000 chats',
         popular: false,
         icon: 'rocket-outline' as const,
         desc: 'Best value for power users.',
@@ -129,7 +132,9 @@ export default function BuyCreditsScreen() {
             triggerPulse();
 
             const gained = currentBalance - prevBalanceRef.current;
-            const msg = `🎉 ${gained} credits added! New balance: ${currentBalance}`;
+            const gainedLabel = gained >= 1000000 ? `${(gained / 1000000).toFixed(1)}M` : gained >= 1000 ? `${Math.round(gained / 1000)}K` : `${gained}`;
+            const balanceLabel = currentBalance >= 1000000 ? `${(currentBalance / 1000000).toFixed(1)}M` : currentBalance >= 1000 ? `${Math.round(currentBalance / 1000)}K` : `${currentBalance}`;
+            const msg = `🎉 ${gainedLabel} credits added! New balance: ${balanceLabel}`;
             if (Platform.OS === 'web') alert(msg);
             else Alert.alert('Credits Added!', msg);
 
@@ -223,7 +228,9 @@ export default function BuyCreditsScreen() {
                         )}
                     </View>
                     <Text style={[styles.balanceLabel, { color: isDark ? '#a5b4fc' : '#6366f1' }]}>Current Balance</Text>
-                    <Text style={[styles.balanceValue, { color: c.text }]}>{currentBalance.toLocaleString('en-IN')}</Text>
+                    <Text style={[styles.balanceValue, { color: c.text }]}>
+                        {currentBalance >= 1000000 ? `${(currentBalance / 1000000).toFixed(1)}M` : currentBalance >= 1000 ? `${Math.round(currentBalance / 1000)}K` : currentBalance}
+                    </Text>
                     <Text style={[styles.balanceUnit, { color: c.textTertiary }]}>AI Credits</Text>
                 </Animated.View>
 
@@ -265,10 +272,10 @@ export default function BuyCreditsScreen() {
                                         </View>
                                         <View style={styles.creditsRow}>
                                             <Text style={[styles.planCredits, { color: Colors.brand.primary }]}>
-                                                {plan.credits.toLocaleString('en-IN')} Credits
+                                                {plan.creditsLabel} Credits
                                             </Text>
                                             <Text style={[styles.perCredit, { color: c.textTertiary }]}>
-                                                ({plan.pricePerCredit}/credit)
+                                                ({plan.pricePerCredit})
                                             </Text>
                                         </View>
                                     </View>
@@ -281,7 +288,7 @@ export default function BuyCreditsScreen() {
                                     style={[
                                         styles.buyBtn,
                                         {
-                                            backgroundColor: plan.popular ? Colors.brand.primary : isDark ? '#374151' : '#f3f4f6',
+                                            backgroundColor: plan.popular ? Colors.brand.primary : isDark ? '#1F2937' : '#f3f4f6',
                                             opacity: isProcessing || isPolling ? 0.6 : 1,
                                         },
                                     ]}
@@ -290,18 +297,18 @@ export default function BuyCreditsScreen() {
                                     activeOpacity={0.8}
                                 >
                                     {isActive ? (
-                                        <ActivityIndicator size="small" color={plan.popular ? '#fff' : Colors.brand.primary} />
+                                        <ActivityIndicator size="small" color={plan.popular ? '#fff' : c.tint} />
                                     ) : (
                                         <View style={styles.buyBtnContent}>
                                             <Ionicons
                                                 name="card-outline"
                                                 size={18}
-                                                color={plan.popular ? '#fff' : Colors.brand.primary}
+                                                color={plan.popular ? '#fff' : c.tint}
                                             />
                                             <Text
                                                 style={[
                                                     styles.buyBtnText,
-                                                    { color: plan.popular ? '#fff' : Colors.brand.primary },
+                                                    { color: plan.popular ? '#fff' : c.tint },
                                                 ]}
                                             >
                                                 Buy Now
@@ -334,16 +341,15 @@ export default function BuyCreditsScreen() {
                     <View style={styles.infoRow}>
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
-                            <Text style={{ fontWeight: '700', color: c.text }}>1 Credit</Text> is deducted for each
-                            Text message sent to the Sector AI or Report AI.
+                            Credits are deducted based on the <Text style={{ fontWeight: '700', color: c.text }}>exact amount of AI processing</Text> used for each message.
                         </Text>
                     </View>
 
                     <View style={styles.infoRow}>
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
-                            <Text style={{ fontWeight: '700', color: c.text }}>2 Credits</Text> are deducted for
-                            Voice Mode interactions (AI processing + Audio generation).
+                            A typical text chat uses <Text style={{ fontWeight: '700', color: c.text }}>500–1,500 credits</Text>.
+                            Longer conversations with more context cost more.
                         </Text>
                     </View>
 
@@ -351,7 +357,7 @@ export default function BuyCreditsScreen() {
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
                             Credits <Text style={{ fontWeight: '700', color: c.text }}>never expire</Text> and carry
-                            over. Subscription plans also grant free monthly credits.
+                            over. New users start with <Text style={{ fontWeight: '700', color: c.text }}>50K free credits</Text>.
                         </Text>
                     </View>
 

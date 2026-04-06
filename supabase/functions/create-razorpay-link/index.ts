@@ -5,7 +5,7 @@
 // Records the intent in `pending_credit_purchases` for webhook reconciliation.
 //
 // Deploy:
-//   npx supabase functions deploy create-razorpay-link
+//   npx supabase functions deploy create-razorpay-link --no-verify-jwt
 //
 // Secrets (Supabase Dashboard → Edge Functions → Secrets):
 //   RAZORPAY_KEY_ID        — from Razorpay Dashboard → API Keys
@@ -21,11 +21,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ─── Credit Plans ──────────────────────────────────────────────────────────
+// ─── Credit Plans (1 credit = 1 token, 2x margin) ──────────────────────────
 const CREDIT_PLANS: Record<string, { credits: number; amount: number; name: string }> = {
-  pack_100:  { credits: 100,  amount: 9900,   name: "Starter Pack — 100 AI Credits" },
-  pack_500:  { credits: 500,  amount: 39900,  name: "Pro Pack — 500 AI Credits" },
-  pack_2000: { credits: 2000, amount: 149900, name: "Whale Pack — 2,000 AI Credits" },
+  pack_100:  { credits: 50000,    amount: 9900,   name: "Starter Pack — 50K AI Credits" },
+  pack_500:  { credits: 250000,   amount: 39900,  name: "Pro Pack — 250K AI Credits" },
+  pack_2000: { credits: 1000000,  amount: 149900, name: "Whale Pack — 1M AI Credits" },
 };
 
 serve(async (req: Request) => {
@@ -48,8 +48,10 @@ serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const token = authHeader.replace("Bearer ", "").trim();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
+      console.error("[create-razorpay-link] Auth error:", authError?.message);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -82,7 +84,8 @@ serve(async (req: Request) => {
     );
 
     // ── Create pending purchase record ───────────────────────────────────
-    const referenceId = `credit_${user.id}_${Date.now()}`;
+    // Razorpay requires reference_id to be < 40 characters.
+    const referenceId = `cr_${Date.now()}_${user.id.substring(0, 8)}`;
 
     const { data: pendingRow, error: pendingErr } = await serviceClient
       .from("pending_credit_purchases")

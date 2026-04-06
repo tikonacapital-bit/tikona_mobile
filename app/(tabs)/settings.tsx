@@ -213,7 +213,7 @@ export default function SettingsScreen() {
                 </View>
 
                 <Section title="ACCOUNT" theme={theme}>
-                    <Row theme={theme} icon="flash-outline" label="AI Credits" value={`${wallet?.credits_balance ?? 0} remaining`} onPress={() => router.push('/buy-credits' as any)} />
+                    <Row theme={theme} icon="flash-outline" label="AI Credits" value={`${((wallet?.credits_balance ?? 0) >= 1000000 ? `${((wallet?.credits_balance ?? 0) / 1000000).toFixed(1)}M` : (wallet?.credits_balance ?? 0) >= 1000 ? `${Math.round((wallet?.credits_balance ?? 0) / 1000)}K` : (wallet?.credits_balance ?? 0))} remaining`} onPress={() => router.push('/buy-credits' as any)} />
                     <Row theme={theme} icon="shield-checkmark" label="KYC Verification" value={kyc?.status || 'Not Done'} onPress={() => router.push('/(kyc)')} />
                     <Row theme={theme} icon="bar-chart" label="Risk Profile" value={profile?.display_label || profile?.risk_profile || 'Not Set'} onPress={() => router.push('/(profiling)')} />
                     <Row theme={theme} icon="diamond" label="Subscription" value={(subscription?.plan || 'None').charAt(0).toUpperCase() + (subscription?.plan || 'None').slice(1)} onPress={() => router.push('/subscription')} />

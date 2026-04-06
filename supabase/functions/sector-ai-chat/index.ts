@@ -39,7 +39,7 @@ async function chatCompletion(
   userMessage: string,
   instructions: string,
   history: Array<{ role: string; content: string }> = []
-): Promise<string> {
+): Promise<{ content: string; tokens_used: number }> {
   const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!openRouterKey) throw new Error("OPENROUTER_API_KEY not configured. Set it in Supabase Secrets.");
 
@@ -82,7 +82,13 @@ ${instructions}
   let content = data.choices?.[0]?.message?.content || "I couldn't generate a response right now.";
   // Strip out any <think> tags or markdown formatting
   content = content.replace(/<\/?think>[\s\S]*?<\/think>/g, "").replace(/<\/?think>/g, "").replace(/[*_~`#]/g, "").trim();
-  return content;
+
+  // Extract real token usage from OpenRouter response
+  const promptTokens = data.usage?.prompt_tokens ?? 0;
+  const completionTokens = data.usage?.completion_tokens ?? 0;
+  const tokens_used = promptTokens + completionTokens;
+
+  return { content, tokens_used: tokens_used || 500 }; // fallback 500 if usage missing
 }
 
 Deno.serve(async (req) => {
@@ -149,17 +155,17 @@ Deno.serve(async (req) => {
     if (!walletData) {
       const { data: newWallet } = await supabaseClient
         .from('ai_wallets')
-        .insert({ user_id: user.id, credits_balance: 50 })
+        .insert({ user_id: user.id, credits_balance: 50000 })
         .select('credits_balance')
         .single();
-      credits = newWallet?.credits_balance ?? 50;
+      credits = newWallet?.credits_balance ?? 50000;
     } else {
       credits = walletData.credits_balance;
     }
 
-    if (credits < 1) {
+    if (credits < 100) {
       return new Response(
-        JSON.stringify({ error: "Insufficient AI credits. Please upgrade your plan or top up." }),
+        JSON.stringify({ error: "Insufficient AI credits. Please top up to continue." }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -196,15 +202,17 @@ Deno.serve(async (req) => {
           : JSON.stringify(playbook.ai_writing_instructions))
       : "";
 
-    const reply = await chatCompletion(sector, message, instructions, history);
+    const { content: reply, tokens_used } = await chatCompletion(sector, message, instructions, history);
     
-    // --- Deduct Credit ---
+    console.log(`[sector-ai-chat] Tokens used: ${tokens_used} for sector=${sector} user=${user.id}`);
+
+    // --- Deduct actual tokens used ---
     const { data: creditsRemaining, error: deductError } = await supabaseClient
       .rpc('deduct_ai_credits', {
         p_user_id: user.id,
-        p_amount: 1,
+        p_amount: tokens_used,
         p_transaction_type: 'sector_chat',
-        p_metadata: { sector }
+        p_metadata: { sector, tokens_used }
       });
 
     if (deductError) {
@@ -212,7 +220,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ reply, credits_remaining: creditsRemaining ?? credits - 1 }),
+      JSON.stringify({ reply, credits_remaining: creditsRemaining ?? credits - tokens_used, tokens_used }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {

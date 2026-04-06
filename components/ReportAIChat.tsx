@@ -399,11 +399,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     // Fix #4: Guard against double recording start
     if (recordingRef.current || isRecording || isProcessing || isStoppingRef.current) return;
 
-    const balance = wallet ? wallet.credits_balance : 50;
-    if (balance < 2) {
+    const balance = wallet ? wallet.credits_balance : 50000;
+    if (balance < 100) {
       Alert.alert(
         'Insufficient Credits',
-        'Voice chat requires 2 AI credits. Please upgrade your plan or top up to continue.'
+        'You don\'t have enough AI credits remaining. Please top up to continue.'
       );
       return;
     }
@@ -572,11 +572,11 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     const text = textInput.trim();
     if (!text || isProcessing) return;
 
-    const balance = wallet ? wallet.credits_balance : 50;
-    if (balance < 1) {
+    const balance = wallet ? wallet.credits_balance : 50000;
+    if (balance < 100) {
       Alert.alert(
         'Insufficient Credits',
-        'Text chat requires 1 AI credit. Please upgrade your plan or top up to continue.'
+        'You don\'t have enough AI credits remaining. Please top up to continue.'
       );
       return;
     }
