@@ -57,6 +57,7 @@ export default function HomeScreen() {
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
 
 
+
     const userEmail = user?.primaryEmailAddress?.emailAddress;
 
     const { data: recentReports } = useQuery({
