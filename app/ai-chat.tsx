@@ -23,6 +23,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const TOKENS_PER_CREDIT = 502; // 1 display credit = ₹1 ≈ 502 OpenRouter tokens
+
 interface Message {
     id: string;
     role: 'user' | 'assistant';
@@ -298,7 +300,7 @@ export default function AIChatScreen() {
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
                                 <Ionicons name="flash" size={9} color={isDark ? '#94a3b8' : '#64748b'} />
                                 <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#94a3b8' : '#64748b' }}>
-                                    {item.tokensUsed.toLocaleString('en-IN')} credits
+                                    {Math.round(item.tokensUsed / TOKENS_PER_CREDIT).toLocaleString('en-IN')} credits
                                 </Text>
                             </View>
                         ) : null}
