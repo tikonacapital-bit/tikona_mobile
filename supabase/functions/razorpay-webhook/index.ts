@@ -28,11 +28,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ─── Credit Plans (1 credit = 1 token, 2x margin, must match create-razorpay-link) ──
+// ─── Credit Plans (must match create-razorpay-link) ─────────────────────────
 const CREDIT_PLANS: Record<string, { credits: number }> = {
-  pack_100:  { credits: 50000 },
-  pack_500:  { credits: 250000 },
-  pack_2000: { credits: 1000000 },
+  pack_299:  { credits: 150000 },
+  pack_999:  { credits: 600000 },
+  pack_4999: { credits: 3750000 },
 };
 
 // ─── HMAC Signature Verification ───────────────────────────────────────────

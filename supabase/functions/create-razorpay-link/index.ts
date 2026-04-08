@@ -21,11 +21,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// ─── Credit Plans (1 credit = 1 token, 2x margin) ──────────────────────────
+// ─── Credit Plans ───────────────────────────────────────────────────────────
+// `credits` = actual tokens granted. Display shows ₹-equivalent (1 credit ≈ ₹1).
 const CREDIT_PLANS: Record<string, { credits: number; amount: number; name: string }> = {
-  pack_100:  { credits: 50000,    amount: 9900,   name: "Starter Pack — 50K AI Credits" },
-  pack_500:  { credits: 250000,   amount: 39900,  name: "Pro Pack — 250K AI Credits" },
-  pack_2000: { credits: 1000000,  amount: 149900, name: "Whale Pack — 1M AI Credits" },
+  pack_299:  { credits: 150000,   amount: 29900,  name: "Starter Pack — 299 Credits" },
+  pack_999:  { credits: 600000,   amount: 99900,  name: "Pro Pack — 1,099 Credits (+10%)" },
+  pack_4999: { credits: 3750000,  amount: 499900, name: "Whale Pack — 6,249 Credits (+25%)" },
 };
 
 serve(async (req: Request) => {
@@ -58,7 +59,7 @@ serve(async (req: Request) => {
     }
 
     // ── Validate plan ────────────────────────────────────────────────────
-    const { plan_id } = await req.json();
+    const { plan_id, redirect_url } = await req.json();
     const plan = CREDIT_PLANS[plan_id];
     if (!plan) {
       return new Response(JSON.stringify({ error: "Invalid plan ID" }), {
@@ -132,7 +133,7 @@ serve(async (req: Request) => {
           type: "ai_credits",
           purchase_id: pendingRow.id,          // links back to our DB row
         },
-        callback_url: "tikonamobile://payment-success",
+        callback_url: redirect_url || "tikonamobile://payment-success",
         callback_method: "get",
         expire_by: Math.floor(Date.now() / 1000) + 30 * 60, // 30 min expiry
       }),

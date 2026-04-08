@@ -2,6 +2,7 @@ import { Card, EmptyState, RecommendationBadge, ResponsiveContainer, ResponsiveS
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
@@ -49,6 +50,7 @@ export default function HomeScreen() {
     const c = Colors[theme];
     const isDark = theme === 'dark';
     const { user, kyc, profile, subscription, wallet, refreshUserData, isLoadingData } = useAuth();
+    const { isWideWeb } = useResponsiveLayout();
     const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
@@ -305,38 +307,59 @@ export default function HomeScreen() {
                     {/* ── Quick Actions ── */}
                     <View style={styles.section}>
                         <SectionHeader title="Quick Actions" theme={theme} />
-                        <View style={styles.actionScrollWrapper}>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.actionScroll}
-                            >
+                        {isWideWeb ? (
+                            <View style={styles.actionGrid}>
                                 {QUICK_ACTIONS.map((item, idx) => {
                                     const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
                                     return (
                                         <TouchableOpacity
                                             key={item.label}
-                                            style={[styles.actionBtnPhone, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
+                                            style={[styles.actionBtn, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
                                             onPress={() => router.push(item.route)}
                                             activeOpacity={0.7}
                                         >
-                                            <View style={[styles.actionIconCircleLarge, { backgroundColor: accent.bg }]}>
-                                                <Ionicons name={item.icon} size={26} color={accent.color} />
+                                            <View style={[styles.actionIconCircle, { backgroundColor: accent.bg }]}>
+                                                <Ionicons name={item.icon} size={22} color={accent.color} />
                                             </View>
-                                            <Text style={[styles.actionLabelPhone, { color: c.text }]}>{item.label}</Text>
+                                            <Text style={[styles.actionLabel, { color: c.text }]}>{item.label}</Text>
                                         </TouchableOpacity>
                                     );
                                 })}
-                            </ScrollView>
-                            {/* Right-edge fade — signals more content */}
-                            <LinearGradient
-                                colors={['transparent', c.background]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.actionFade}
-                                pointerEvents="none"
-                            />
-                        </View>
+                            </View>
+                        ) : (
+                            <View style={styles.actionScrollWrapper}>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.actionScroll}
+                                >
+                                    {QUICK_ACTIONS.map((item, idx) => {
+                                        const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
+                                        return (
+                                            <TouchableOpacity
+                                                key={item.label}
+                                                style={[styles.actionBtnPhone, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
+                                                onPress={() => router.push(item.route)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View style={[styles.actionIconCircleLarge, { backgroundColor: accent.bg }]}>
+                                                    <Ionicons name={item.icon} size={26} color={accent.color} />
+                                                </View>
+                                                <Text style={[styles.actionLabelPhone, { color: c.text }]}>{item.label}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                                {/* Right-edge fade — signals more content */}
+                                <LinearGradient
+                                    colors={['transparent', c.background]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.actionFade}
+                                    pointerEvents="none"
+                                />
+                            </View>
+                        )}
                     </View>
 
                     {/* ── Latest Research ── */}
@@ -542,10 +565,11 @@ const styles = StyleSheet.create({
     // Tablet / web: 4-in-a-row
     actionGrid: {
         flexDirection: 'row',
-        gap: Spacing.sm,
+        justifyContent: 'space-between',
+        width: '100%',
     },
     actionBtn: {
-        flex: 1,
+        width: '23.5%',
         alignItems: 'center',
         paddingVertical: Spacing.lg,
         paddingHorizontal: Spacing.xs,

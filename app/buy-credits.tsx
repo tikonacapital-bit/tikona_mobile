@@ -19,45 +19,54 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ─── Credit Plans (1 credit = 1 token) ─────────────────────────────────────
+// ─── Display conversion: 1 display credit = ₹1 ─────────────────────────────
+// Internally tokens are stored at 150,000 tokens per ₹299 (≈502 tokens/₹).
+// We divide raw token balance by this to show users a ₹-equivalent number.
+const TOKENS_PER_DISPLAY_CREDIT = 502;
+const toDisplayCredits = (tokens: number) => Math.round(tokens / TOKENS_PER_DISPLAY_CREDIT);
+const formatDisplayCredits = (dc: number) =>
+    dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`;
+
+// ─── Credit Plans ───────────────────────────────────────────────────────────
+// `credits` = actual tokens granted (backend). Labels show ₹-equivalent for users.
 const CREDIT_PLANS = [
     {
-        id: 'pack_100',
+        id: 'pack_299',
         title: 'Starter Pack',
-        credits: 50000,
-        creditsLabel: '50K',
-        price: '₹99',
-        pricePerCredit: '~50 chats',
+        credits: 150000,
+        creditsLabel: '299',
+        price: '₹299',
+        pricePerCredit: '~30 chats',
         popular: false,
         icon: 'flash-outline' as const,
         desc: 'Perfect for occasional research queries.',
         gradient: ['#6366f1', '#8b5cf6'],
     },
     {
-        id: 'pack_500',
+        id: 'pack_999',
         title: 'Pro Pack',
-        credits: 250000,
-        creditsLabel: '250K',
-        price: '₹399',
-        pricePerCredit: '~250 chats',
+        credits: 600000,
+        creditsLabel: '1,099',
+        price: '₹999',
+        pricePerCredit: '~110 chats',
         popular: true,
         icon: 'diamond-outline' as const,
         desc: 'Most popular for active investors.',
         gradient: ['#f59e0b', '#ef4444'],
-        savings: 'Save 19%',
+        savings: '10% Extra',
     },
     {
-        id: 'pack_2000',
+        id: 'pack_4999',
         title: 'Whale Pack',
-        credits: 1000000,
-        creditsLabel: '1M',
-        price: '₹1,499',
-        pricePerCredit: '~1000 chats',
+        credits: 3750000,
+        creditsLabel: '6,249',
+        price: '₹4,999',
+        pricePerCredit: '~625 chats',
         popular: false,
         icon: 'rocket-outline' as const,
         desc: 'Best value for power users.',
         gradient: ['#10b981', '#059669'],
-        savings: 'Save 24%',
+        savings: '25% Extra',
     },
 ];
 
@@ -132,8 +141,8 @@ export default function BuyCreditsScreen() {
             triggerPulse();
 
             const gained = currentBalance - prevBalanceRef.current;
-            const gainedLabel = gained >= 1000000 ? `${(gained / 1000000).toFixed(1)}M` : gained >= 1000 ? `${Math.round(gained / 1000)}K` : `${gained}`;
-            const balanceLabel = currentBalance >= 1000000 ? `${(currentBalance / 1000000).toFixed(1)}M` : currentBalance >= 1000 ? `${Math.round(currentBalance / 1000)}K` : `${currentBalance}`;
+            const gainedLabel = formatDisplayCredits(toDisplayCredits(gained));
+            const balanceLabel = formatDisplayCredits(toDisplayCredits(currentBalance));
             const msg = `🎉 ${gainedLabel} credits added! New balance: ${balanceLabel}`;
             if (Platform.OS === 'web') alert(msg);
             else Alert.alert('Credits Added!', msg);
@@ -162,7 +171,10 @@ export default function BuyCreditsScreen() {
 
             // 1. Create secure Razorpay payment link via edge function
             const { data, error } = await supabase.functions.invoke('create-razorpay-link', {
-                body: { plan_id: plan.id },
+                body: {
+                    plan_id: plan.id,
+                    redirect_url: Platform.OS === 'web' ? window.location.origin + '/buy-credits' : undefined
+                },
             });
 
             if (error || !data?.payment_link) {
@@ -198,6 +210,7 @@ export default function BuyCreditsScreen() {
     };
 
     const currentBalance = wallet?.credits_balance ?? 0;
+    const displayBalance = formatDisplayCredits(toDisplayCredits(currentBalance));
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
@@ -229,7 +242,7 @@ export default function BuyCreditsScreen() {
                     </View>
                     <Text style={[styles.balanceLabel, { color: isDark ? '#a5b4fc' : '#6366f1' }]}>Current Balance</Text>
                     <Text style={[styles.balanceValue, { color: c.text }]}>
-                        {currentBalance >= 1000000 ? `${(currentBalance / 1000000).toFixed(1)}M` : currentBalance >= 1000 ? `${Math.round(currentBalance / 1000)}K` : currentBalance}
+                        {displayBalance}
                     </Text>
                     <Text style={[styles.balanceUnit, { color: c.textTertiary }]}>AI Credits</Text>
                 </Animated.View>
@@ -341,14 +354,14 @@ export default function BuyCreditsScreen() {
                     <View style={styles.infoRow}>
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
-                            Credits are deducted based on the <Text style={{ fontWeight: '700', color: c.text }}>exact amount of AI processing</Text> used for each message.
+                            1 credit = ₹1. Credits are deducted based on the <Text style={{ fontWeight: '700', color: c.text }}>exact amount of AI processing</Text> used for each message.
                         </Text>
                     </View>
 
                     <View style={styles.infoRow}>
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
-                            A typical text chat uses <Text style={{ fontWeight: '700', color: c.text }}>500–1,500 credits</Text>.
+                            A typical text chat uses <Text style={{ fontWeight: '700', color: c.text }}>~10 credits</Text>.
                             Longer conversations with more context cost more.
                         </Text>
                     </View>
@@ -357,7 +370,7 @@ export default function BuyCreditsScreen() {
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
                             Credits <Text style={{ fontWeight: '700', color: c.text }}>never expire</Text> and carry
-                            over. New users start with <Text style={{ fontWeight: '700', color: c.text }}>50K free credits</Text>.
+                            over. New users start with <Text style={{ fontWeight: '700', color: c.text }}>100 free credits</Text>.
                         </Text>
                     </View>
 
