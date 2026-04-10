@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable, Linking, ActivityIndicator, Alert } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -145,11 +146,55 @@ export default function SettingsScreen() {
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
     const initial = displayName.charAt(0).toUpperCase();
 
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
     const handleSignOut = () => {
         showAlert('Sign Out', 'Are you sure you want to sign out?', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Sign Out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
         ]);
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all associated data. This action cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete My Account',
+                    style: 'destructive',
+                    onPress: () => {
+                        Alert.alert(
+                            'Are you absolutely sure?',
+                            'All your data will be permanently removed and you will be logged out immediately.',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Yes, Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        setIsDeletingAccount(true);
+                                        try {
+                                            await supabase.functions.invoke('delete-account', { method: 'POST' });
+                                        } catch (err: any) {
+                                            logger.warn('Delete-account function error (non-fatal):', err);
+                                            // Continue to sign out even if the function errors —
+                                            // the account may already be deleted.
+                                        } finally {
+                                            // Always force-clear local session, which triggers
+                                            // the auth guard in _layout.tsx to redirect to login.
+                                            try { await signOut(); } catch (_) { }
+                                            setIsDeletingAccount(false);
+                                        }
+                                    },
+                                },
+                            ]
+                        );
+                    },
+                },
+            ]
+        );
     };
 
     const handleOpenAccessibilitySettings = async () => {
@@ -229,8 +274,21 @@ export default function SettingsScreen() {
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
                 </Section>
 
+                <Section title="LEGAL" theme={theme}>
+                    <Row theme={theme} icon="document-text-outline" label="Terms of Service" onPress={() => Linking.openURL('https://www.tikonacapital.com/terms-of-service')} />
+                    <Row theme={theme} icon="shield-outline" label="Privacy Policy" onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')} />
+                </Section>
+
                 <Section title="" theme={theme}>
                     <Row theme={theme} icon="log-out-outline" label="Sign Out" onPress={handleSignOut} danger />
+                    {isDeletingAccount ? (
+                        <View style={[styles.row, { borderBottomColor: Colors[theme].borderLight, justifyContent: 'center' }]}>
+                            <ActivityIndicator size="small" color={Colors[theme].danger} />
+                            <Text style={[styles.rowLabel, { color: Colors[theme].danger, flex: 0, marginLeft: 8 }]}>Deleting account...</Text>
+                        </View>
+                    ) : (
+                        <Row theme={theme} icon="trash-outline" label="Delete Account" onPress={handleDeleteAccount} danger />
+                    )}
                 </Section>
 
                 <View style={{ height: 40 }} />

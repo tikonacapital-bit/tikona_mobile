@@ -153,9 +153,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const signOut = useCallback(async () => {
         try {
-            await supabase.auth.signOut();
+            await supabase.auth.signOut({ scope: 'local' });
         } catch (error) {
             logger.warn('Supabase sign out error:', error);
+        } finally {
+            setSession(null);
+            setProfile(null);
+            setSubscription(null);
+            setRefundRequest(null);
+            setWallet(null);
         }
     }, []);
 

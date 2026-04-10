@@ -320,20 +320,25 @@ export default function RegisterScreen() {
             </View>
 
             {/* Terms */}
-            <TouchableOpacity style={[styles.termsContainer, compact && { marginBottom: 12 }]} onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7}>
-                <View style={[styles.checkbox, {
-                    borderColor: agreeTerms ? Colors.brand.secondary : c.border,
-                    backgroundColor: agreeTerms ? Colors.brand.secondary : 'transparent',
-                }]}>
-                    {agreeTerms && <Ionicons name="checkmark" size={12} color="#fff" />}
-                </View>
+            <View style={[styles.termsContainer, compact && { marginBottom: 12 }]}>
+                <TouchableOpacity onPress={() => setAgreeTerms(!agreeTerms)} activeOpacity={0.7} style={{ padding: 4, marginLeft: -4, marginRight: 6 }}>
+                    <View style={[styles.checkbox, {
+                        borderColor: agreeTerms ? Colors.brand.secondary : c.border,
+                        backgroundColor: agreeTerms ? Colors.brand.secondary : 'transparent',
+                        marginRight: 0, marginTop: 0
+                    }]}>
+                        {agreeTerms && <Ionicons name="checkmark" size={12} color="#fff" />}
+                    </View>
+                </TouchableOpacity>
                 <Text style={[styles.termsText, { color: c.textSecondary, fontSize: compact ? FontSize.xs : FontSize.sm }]}>
-                    I agree to the{' '}
-                    <Text style={{ color: Colors.brand.secondary, fontWeight: '600' }}>Terms of Service</Text>
-                    {' '}and{' '}
-                    <Text style={{ color: Colors.brand.secondary, fontWeight: '600' }}>Privacy Policy</Text>
+                    <Text onPress={() => setAgreeTerms(!agreeTerms)}>I agree to the </Text>
+                    <Link href="/terms" asChild>
+                        <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }}>Terms of Service</Text>
+                    </Link>
+                    <Text onPress={() => setAgreeTerms(!agreeTerms)}> and </Text>
+                    <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
                 </Text>
-            </TouchableOpacity>
+            </View>
 
             {/* Create Account button */}
             <Animated.View style={{ transform: [{ scale: buttonScale }] }}>

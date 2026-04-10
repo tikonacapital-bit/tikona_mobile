@@ -72,9 +72,9 @@ function RootLayoutInner() {
             SplashScreen.hideAsync().catch(() => {});
         }
 
-        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback';
+        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms';
 
-        if (isSignedIn && inAuthGroup) {
+        if (isSignedIn && inAuthGroup && segments[0] !== 'terms') {
             // Redirect to dashboard if logged in but trying to access an intro or auth screen
             router.replace('/(tabs)');
             
@@ -108,6 +108,7 @@ function RootLayoutInner() {
                         <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
                         <Stack.Screen name="subscription/index" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="support" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="terms" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
                         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
                         <Stack.Screen name="oauth-native-callback" options={{ headerShown: false, animation: 'none' }} />
                     </Stack>

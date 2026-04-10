@@ -77,6 +77,23 @@ export default function LoginScreen() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        if (!email.trim() || !validateEmail(email)) {
+            showAlert('Email Required', 'Please enter your email address first, then tap "Forgot password?"');
+            return;
+        }
+        setLoading(true);
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+            if (error) throw error;
+            showAlert('Check Your Email', `We've sent a password reset link to ${email.trim()}. Please check your inbox and spam folder.`);
+        } catch (err: any) {
+            showAlert('Reset Failed', err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleGoogleSignIn = useCallback(async () => {
         try {
             setLoading(true);
@@ -176,7 +193,7 @@ export default function LoginScreen() {
                 <View style={[styles.labelRow, !compact && { marginBottom: 8 }]}>
                     {!compact && <Text style={[styles.label, { color: c.textSecondary, marginBottom: 0 }]}>Password</Text>}
                     {compact && <View />}
-                    <TouchableOpacity onPress={() => showAlert('Reset Password', 'Password reset coming soon.')}>
+                    <TouchableOpacity onPress={handleForgotPassword}>
                         <Text style={[styles.forgotText, { color: Colors.brand.secondary, fontSize: compact ? FontSize.xs : FontSize.sm }]}>
                             Forgot password?
                         </Text>
@@ -316,9 +333,11 @@ export default function LoginScreen() {
                             </View>
                             <Text style={[styles.termsText, { color: c.textTertiary }]}>
                                 By signing in, you agree to our{' '}
-                                <Text style={{ color: Colors.brand.secondary }}>Terms</Text>
+                                <Link href="/terms" asChild>
+                                    <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }}>Terms of Service</Text>
+                                </Link>
                                 {' '}and{' '}
-                                <Text style={{ color: Colors.brand.secondary }}>Privacy Policy</Text>
+                                <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
                             </Text>
                         </View>
 
@@ -362,9 +381,11 @@ export default function LoginScreen() {
 
                 <Text style={[styles.termsText, { color: c.textTertiary }]}>
                     By signing in, you agree to our{' '}
-                    <Text style={{ color: Colors.brand.secondary }}>Terms of Service</Text>
+                    <Link href="/terms" asChild>
+                        <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }}>Terms of Service</Text>
+                    </Link>
                     {' '}and{' '}
-                    <Text style={{ color: Colors.brand.secondary }}>Privacy Policy</Text>
+                    <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
                 </Text>
             </ScrollView>
         </KeyboardAvoidingView>
