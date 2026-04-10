@@ -295,7 +295,7 @@ export default function HomeScreen() {
                                     <Ionicons name="wallet-outline" size={isNarrow ? 12 : 14} color="rgba(255,255,255,0.6)" />
                                     <Text style={[styles.statLabel, isNarrow && { fontSize: 9 }]}>Credits</Text>
                                     <Text style={[styles.statValue, isNarrow && { fontSize: 10 }, { color: '#fff' }]} numberOfLines={1}>
-                                        {wallet?.credits_balance?.toLocaleString() || '0'}
+                                        {(() => { const dc = Math.round((wallet?.credits_balance ?? 0) / 502); return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`; })()}
                                     </Text>
                                 </TouchableOpacity>
                             </View>

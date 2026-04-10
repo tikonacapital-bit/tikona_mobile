@@ -23,7 +23,13 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TOKENS_PER_CREDIT = 502; // 1 display credit = ₹1 ≈ 502 OpenRouter tokens
+// ─── Display conversion: 1 display credit = ₹1 ─────────────────────────────
+// Internally tokens are stored at ~502 tokens per ₹1. We divide raw token
+// balance by this constant so users see a ₹-equivalent number everywhere.
+const TOKENS_PER_CREDIT = 502;
+const toDisplayCredits = (tokens: number) => Math.round(tokens / TOKENS_PER_CREDIT);
+const formatDisplayCredits = (dc: number) =>
+    dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`;
 
 interface Message {
     id: string;
@@ -155,7 +161,7 @@ export default function AIChatScreen() {
         const trimmed = text.trim();
         if (!trimmed || loading || !sector) return;
 
-        const balance = wallet ? wallet.credits_balance : 50000;
+        const balance = wallet ? wallet.credits_balance : 0;
         if (balance < 100) {
             Alert.alert(
                 'Insufficient Credits',
@@ -300,7 +306,7 @@ export default function AIChatScreen() {
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
                                 <Ionicons name="flash" size={9} color={isDark ? '#94a3b8' : '#64748b'} />
                                 <Text style={{ fontSize: 9, fontWeight: '600', color: isDark ? '#94a3b8' : '#64748b' }}>
-                                    {Math.round(item.tokensUsed / TOKENS_PER_CREDIT).toLocaleString('en-IN')} credits
+                                    {toDisplayCredits(item.tokensUsed)} credits
                                 </Text>
                             </View>
                         ) : null}
@@ -359,7 +365,7 @@ export default function AIChatScreen() {
                         >
                             <Ionicons name="diamond" size={12} color="#FCD34D" />
                             <Text style={{ color: '#FCD34D', fontSize: 11, fontWeight: '800' }}>
-                                {wallet?.credits_balance ? (wallet.credits_balance >= 1000000 ? `${(wallet.credits_balance / 1000000).toFixed(1)}M` : wallet.credits_balance >= 1000 ? `${(wallet.credits_balance / 1000).toFixed(1)}K` : wallet.credits_balance) : 0}
+                                {wallet ? formatDisplayCredits(toDisplayCredits(wallet.credits_balance)) : '0'}
                             </Text>
                         </TouchableOpacity>
 

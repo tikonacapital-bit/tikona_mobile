@@ -400,7 +400,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     // Fix #4: Guard against double recording start
     if (recordingRef.current || isRecording || isProcessing || isStoppingRef.current) return;
 
-    const balance = wallet ? wallet.credits_balance : 50000;
+    const balance = wallet ? wallet.credits_balance : 0;
     if (balance < 100) {
       Alert.alert(
         'Insufficient Credits',
@@ -580,7 +580,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     const text = textInput.trim();
     if (!text || isProcessing) return;
 
-    const balance = wallet ? wallet.credits_balance : 50000;
+    const balance = wallet ? wallet.credits_balance : 0;
     if (balance < 100) {
       Alert.alert(
         'Insufficient Credits',
@@ -986,7 +986,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           >
               <Ionicons name="diamond" size={12} color="#FCD34D" />
               <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>
-                  {wallet?.credits_balance ? (wallet.credits_balance >= 1000000 ? `${(wallet.credits_balance / 1000000).toFixed(1)}M` : wallet.credits_balance >= 1000 ? `${(wallet.credits_balance / 1000).toFixed(1)}K` : wallet.credits_balance) : 0}
+                  {(() => { const dc = Math.round((wallet?.credits_balance ?? 0) / 502); return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`; })()}
               </Text>
           </TouchableOpacity>
 

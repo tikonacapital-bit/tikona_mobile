@@ -383,7 +383,7 @@ export default function RegisterScreen() {
         <View>
             <Text style={[styles.verifyTitle, { color: c.text }]}>Check your email</Text>
             <Text style={[styles.verifySubtitle, { color: c.textSecondary }]}>
-                We sent a 6-digit code to {email}
+            We sent a verification code to {email}
             </Text>
             <TextInput
                 style={[styles.codeInput, compact && { fontSize: 28, height: 64 }, {
@@ -394,9 +394,9 @@ export default function RegisterScreen() {
                 value={code}
                 onChangeText={setCode}
                 keyboardType="numeric"
-                placeholder="000000"
+                placeholder="00000000"
                 placeholderTextColor={c.textTertiary}
-                maxLength={6}
+                maxLength={8}
             />
             <TouchableOpacity
                 style={[styles.primaryButton, { backgroundColor: Colors.brand.secondary, marginTop: 16 }]}

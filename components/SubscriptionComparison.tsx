@@ -34,10 +34,21 @@ export function SubscriptionComparison() {
     const isDark = theme === 'dark';
     const { isDesktop } = useResponsiveLayout();
 
-    const renderCell = (value: boolean | string, isLast = false) => {
+    const gridColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)';
+    const borderWidth = StyleSheet.hairlineWidth;
+
+    const renderCell = (value: boolean | string, isLast = false, height?: number) => {
+        const cellStyle = [
+            styles.cell, 
+            isLast && styles.lastCell, 
+            isDesktop && styles.webCell,
+            height ? { height } : undefined,
+            { borderRightWidth: isLast ? 0 : borderWidth, borderRightColor: gridColor }
+        ];
+
         if (typeof value === 'boolean') {
             return (
-                <View style={[styles.cell, isLast && styles.lastCell, isDesktop && styles.webCell]}>
+                <View style={cellStyle}>
                     <Ionicons
                         name={value ? "checkmark-circle" : "close-circle"}
                         size={20}
@@ -47,31 +58,38 @@ export function SubscriptionComparison() {
             );
         }
         return (
-            <View style={[styles.cell, isLast && styles.lastCell, isDesktop && styles.webCell]}>
+            <View style={cellStyle}>
                 <Text style={[styles.cellText, { color: c.textSecondary }]}>{value}</Text>
             </View>
         );
     };
 
-    const TableContent = (
-        <View style={isDesktop && styles.webTableWrapper}>
+    const getRowHeight = (index: number) => {
+        if ([3, 4, 5].includes(index)) return 50; 
+        return 80;
+    };
+
+    const headerHeight = 50;
+
+    const DesktopContent = (
+        <View style={styles.webTableWrapper}>
             {/* Table Header */}
-            <View style={[styles.row, styles.tableHeader, { borderBottomColor: c.border }]}>
-                <View style={[styles.featureColumn, isDesktop && styles.webFeatureColumn]}>
+            <View style={[styles.row, styles.tableHeader, { borderBottomColor: gridColor, borderBottomWidth: borderWidth }]}>
+                <View style={[styles.featureColumn, styles.webFeatureColumn, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}>
                     <Text style={[styles.headerText, { color: c.textSecondary }]}>Feature</Text>
                 </View>
-                <View style={[styles.cell, isDesktop && styles.webCell]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Midcap</Text></View>
-                <View style={[styles.cell, isDesktop && styles.webCell]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Smallcap</Text></View>
-                <View style={[styles.cell, isDesktop && styles.webCell]}><Text style={[styles.headerText, { color: c.textSecondary }]}>SME</Text></View>
-                <View style={[styles.cell, styles.lastCell, isDesktop && styles.webCell, { backgroundColor: isDark ? '#1e3a8a20' : '#ebf5ff' }]}>
+                <View style={[styles.cell, styles.webCell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Midcap</Text></View>
+                <View style={[styles.cell, styles.webCell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Smallcap</Text></View>
+                <View style={[styles.cell, styles.webCell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>SME</Text></View>
+                <View style={[styles.cell, styles.lastCell, styles.webCell, { backgroundColor: isDark ? '#1e3a8a20' : '#ebf5ff' }]}>
                     <Text style={[styles.headerText, { color: Colors.brand.primary, fontWeight: '800' }]}>Bundle</Text>
                 </View>
             </View>
 
             {/* Table Rows */}
             {COMPARISON_DATA.map((row, index) => (
-                <View key={index} style={[styles.row, { borderBottomColor: c.borderLight }]}>
-                    <View style={[styles.featureColumn, isDesktop && styles.webFeatureColumn]}>
+                <View key={index} style={[styles.row, { borderBottomColor: gridColor, borderBottomWidth: borderWidth }]}>
+                    <View style={[styles.featureColumn, styles.webFeatureColumn, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}>
                         <Text style={[styles.rowName, { color: c.text }]}>{row.name}</Text>
                     </View>
                     {renderCell(row.midcap)}
@@ -83,6 +101,44 @@ export function SubscriptionComparison() {
         </View>
     );
 
+    const MobileContent = (
+        <View style={{ flexDirection: 'row' }}>
+            {/* Sticky Left Column */}
+            <View style={{ width: 100, borderRightWidth: borderWidth, borderRightColor: gridColor, zIndex: 10, backgroundColor: c.card }}>
+                <View style={[styles.featureColumn, { height: headerHeight, borderBottomWidth: borderWidth, borderBottomColor: gridColor, justifyContent: 'center' }]}>
+                    <Text style={[styles.headerText, { color: c.textSecondary }]}>Feature</Text>
+                </View>
+                {COMPARISON_DATA.map((row, index) => (
+                    <View key={index} style={[styles.featureColumn, { height: getRowHeight(index), borderBottomWidth: borderWidth, borderBottomColor: gridColor, justifyContent: 'center' }]}>
+                        <Text style={[styles.rowName, { color: c.text }]}>{row.name}</Text>
+                    </View>
+                ))}
+            </View>
+
+            {/* Scrollable Data Columns */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ borderRightWidth: borderWidth, borderRightColor: gridColor }}>
+                    <View style={[styles.row, { height: headerHeight, borderBottomWidth: borderWidth, borderBottomColor: gridColor }]}>
+                        <View style={[styles.cell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Midcap</Text></View>
+                        <View style={[styles.cell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>Smallcap</Text></View>
+                        <View style={[styles.cell, { borderRightWidth: borderWidth, borderRightColor: gridColor }]}><Text style={[styles.headerText, { color: c.textSecondary }]}>SME</Text></View>
+                        <View style={[styles.cell, styles.lastCell, { backgroundColor: isDark ? '#1e3a8a20' : '#ebf5ff' }]}>
+                            <Text style={[styles.headerText, { color: Colors.brand.primary, fontWeight: '800' }]}>Bundle</Text>
+                        </View>
+                    </View>
+                    {COMPARISON_DATA.map((row, index) => (
+                        <View key={index} style={[styles.row, { height: getRowHeight(index), borderBottomWidth: borderWidth, borderBottomColor: gridColor }]}>
+                            {renderCell(row.midcap, false, getRowHeight(index))}
+                            {renderCell(row.smallcap, false, getRowHeight(index))}
+                            {renderCell(row.sme, false, getRowHeight(index))}
+                            {renderCell(row.bundle, true, getRowHeight(index))}
+                        </View>
+                    ))}
+                </View>
+            </ScrollView>
+        </View>
+    );
+
     return (
         <Card theme={theme} style={styles.container}>
             <View style={styles.headerRow}>
@@ -91,12 +147,10 @@ export function SubscriptionComparison() {
 
             {isDesktop ? (
                 <View style={styles.desktopContainer}>
-                    {TableContent}
+                    {DesktopContent}
                 </View>
             ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {TableContent}
-                </ScrollView>
+                MobileContent
             )}
         </Card>
     );
@@ -135,40 +189,43 @@ const styles = StyleSheet.create({
         borderBottomWidth: 2,
     },
     featureColumn: {
-        width: 140,
-        paddingLeft: 16,
-        paddingVertical: 12,
+        width: 100,
+        paddingLeft: 8,
+        paddingVertical: 8,
     },
     webFeatureColumn: {
         flex: 1.5,
-        paddingLeft: 8,
+        paddingLeft: 16,
+        paddingVertical: 12,
     },
     cell: {
-        width: 140,
+        width: 75,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 2,
     },
     webCell: {
         flex: 1,
         width: 'auto',
+        paddingVertical: 12,
+        paddingHorizontal: 8,
     },
     lastCell: {
-        width: 150,
+        width: 80,
     },
     headerText: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '700',
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.2,
     },
     rowName: {
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: '600',
     },
     cellText: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '500',
         textAlign: 'center',
     },

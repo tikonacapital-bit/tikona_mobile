@@ -1,15 +1,13 @@
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import { useAlert } from '@/context/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
     ActivityIndicator,
-    Alert,
-    Animated,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet,
@@ -20,8 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─── Display conversion: 1 display credit = ₹1 ─────────────────────────────
-// Internally tokens are stored at 150,000 tokens per ₹299 (≈502 tokens/₹).
-// We divide raw token balance by this to show users a ₹-equivalent number.
+// Internally tokens are stored at ~502 tokens per ₹1. We divide raw token
+// balance by this constant so users see a ₹-equivalent number everywhere.
 const TOKENS_PER_DISPLAY_CREDIT = 502;
 const toDisplayCredits = (tokens: number) => Math.round(tokens / TOKENS_PER_DISPLAY_CREDIT);
 const formatDisplayCredits = (dc: number) =>
@@ -70,140 +68,48 @@ const CREDIT_PLANS = [
     },
 ];
 
-// ─── Polling Config ────────────────────────────────────────────────────────────
-const POLL_INTERVAL_MS = 3000;     // check every 3 seconds
-const MAX_POLL_DURATION_MS = 120000; // stop after 2 minutes
-
 export default function BuyCreditsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
     const { userId, wallet, refreshWallet } = useAuth();
+    const { showAlert } = useAlert();
 
     const [isProcessing, setIsProcessing] = React.useState<string | null>(null);
-    const [isPolling, setIsPolling] = React.useState(false);
-    const [pollMessage, setPollMessage] = React.useState('');
-    const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const pollStartRef = useRef<number>(0);
-
-    // Animated pulse for balance
-    const pulseAnim = useRef(new Animated.Value(1)).current;
-
-    // Clean up polling on unmount
-    useEffect(() => {
-        return () => {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-        };
-    }, []);
-
-    // Pulse animation when polling succeeds
-    const triggerPulse = useCallback(() => {
-        Animated.sequence([
-            Animated.timing(pulseAnim, { toValue: 1.15, duration: 200, useNativeDriver: true }),
-            Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        ]).start();
-    }, [pulseAnim]);
-
-    // ── Start polling wallet for updated balance ──────────────────────────────
-    const startPolling = useCallback((expectedMinBalance: number) => {
-        setIsPolling(true);
-        setPollMessage('Waiting for Razorpay confirmation...');
-        pollStartRef.current = Date.now();
-
-        pollTimerRef.current = setInterval(async () => {
-            const elapsed = Date.now() - pollStartRef.current;
-
-            // Timeout guard
-            if (elapsed > MAX_POLL_DURATION_MS) {
-                if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-                setIsPolling(false);
-                setPollMessage('');
-                const msg = 'Payment is being processed. Credits will appear shortly — pull down to refresh.';
-                if (Platform.OS === 'web') alert(msg);
-                else Alert.alert('Still Processing', msg);
-                return;
-            }
-
-            // Check balance
-            await refreshWallet();
-        }, POLL_INTERVAL_MS);
-    }, [refreshWallet]);
-
-    // Watch wallet changes during polling — stop when balance increases
-    const prevBalanceRef = useRef<number>(wallet?.credits_balance ?? 0);
-    useEffect(() => {
-        const currentBalance = wallet?.credits_balance ?? 0;
-        if (isPolling && currentBalance > prevBalanceRef.current) {
-            // Credits arrived!
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            setIsPolling(false);
-            setPollMessage('');
-            triggerPulse();
-
-            const gained = currentBalance - prevBalanceRef.current;
-            const gainedLabel = formatDisplayCredits(toDisplayCredits(gained));
-            const balanceLabel = formatDisplayCredits(toDisplayCredits(currentBalance));
-            const msg = `🎉 ${gainedLabel} credits added! New balance: ${balanceLabel}`;
-            if (Platform.OS === 'web') alert(msg);
-            else Alert.alert('Credits Added!', msg);
-
-            prevBalanceRef.current = currentBalance;
-        } else {
-            prevBalanceRef.current = currentBalance;
-        }
-    }, [wallet?.credits_balance, isPolling, triggerPulse]);
 
     // ── Handle Purchase ─────────────────────────────────────────────────────────
     const handleBuy = async (plan: typeof CREDIT_PLANS[0]) => {
-        if (isProcessing || isPolling) return;
+        if (isProcessing) return;
         setIsProcessing(plan.id);
 
         try {
             if (!userId) {
-                const msg = 'Please login to continue.';
-                if (Platform.OS === 'web') alert(msg);
-                else Alert.alert('Error', msg);
+                showAlert('Login Required', 'Please login to continue.', [{ text: 'OK' }]);
                 return;
             }
 
-            // Record current balance before payment
-            prevBalanceRef.current = wallet?.credits_balance ?? 0;
-
-            // 1. Create secure Razorpay payment link via edge function
-            const { data, error } = await supabase.functions.invoke('create-razorpay-link', {
-                body: {
-                    plan_id: plan.id,
-                    redirect_url: Platform.OS === 'web' ? window.location.origin + '/buy-credits' : undefined
-                },
-            });
-
-            if (error || !data?.payment_link) {
-                console.error('[BuyCredits] Function error:', error || data);
-                const msg = 'Could not generate payment link. Please try again.';
-                if (Platform.OS === 'web') alert(msg);
-                else Alert.alert('Payment Setup Failed', msg);
-                return;
+            let redirectUrl = '';
+            if (plan.id === 'pack_299') {
+                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e777e2c321d96b8b252c';
+            } else if (plan.id === 'pack_999') {
+                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e809e2c321d96b8b25d0';
+            } else if (plan.id === 'pack_4999') {
+                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e87be2c321d96b8b267a';
             }
 
-            // 2. Open Razorpay checkout
-            if (Platform.OS === 'web') {
-                window.location.href = data.payment_link;
+            if (redirectUrl) {
+                if (Platform.OS === 'web') {
+                    window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+                } else {
+                    Linking.openURL(redirectUrl);
+                }
             } else {
-                await WebBrowser.openAuthSessionAsync(
-                    data.payment_link,
-                    'tikonamobile://payment-success'
-                );
+                showAlert('Error', 'Payment link not found.');
             }
-
-            // 3. Start polling for credit arrival
-            const expectedMin = (wallet?.credits_balance ?? 0) + plan.credits;
-            startPolling(expectedMin);
 
         } catch (e) {
             console.error('[BuyCredits] Error:', e);
-            const msg = 'Could not open payment gateway.';
-            if (Platform.OS === 'web') alert(msg);
-            else Alert.alert('Payment Failed', msg);
+            showAlert('Payment Failed', 'Could not open payment link. Please try again.');
         } finally {
             setIsProcessing(null);
         }
@@ -226,26 +132,18 @@ export default function BuyCreditsScreen() {
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
                 {/* ── Wallet Balance Card ─────────────────────────────────── */}
-                <Animated.View style={[styles.walletCard, { backgroundColor: isDark ? '#1e1b4b' : '#EEF2FF', borderColor: isDark ? '#312e81' : '#c7d2fe', transform: [{ scale: pulseAnim }] }]}>
+                <View style={[styles.walletCard, { backgroundColor: isDark ? '#1e1b4b' : '#EEF2FF', borderColor: isDark ? '#312e81' : '#c7d2fe' }]}>
                     <View style={styles.walletIconRow}>
                         <View style={[styles.walletIconBg, { backgroundColor: Colors.brand.accent + '22' }]}>
                             <Ionicons name="flash" size={28} color={Colors.brand.accent} />
                         </View>
-                        {isPolling && (
-                            <View style={styles.pollingBadge}>
-                                <ActivityIndicator size="small" color={Colors.brand.primary} />
-                                <Text style={[styles.pollingText, { color: Colors.brand.primary }]}>
-                                    {pollMessage || 'Checking...'}
-                                </Text>
-                            </View>
-                        )}
                     </View>
                     <Text style={[styles.balanceLabel, { color: isDark ? '#a5b4fc' : '#6366f1' }]}>Current Balance</Text>
                     <Text style={[styles.balanceValue, { color: c.text }]}>
                         {displayBalance}
                     </Text>
                     <Text style={[styles.balanceUnit, { color: c.textTertiary }]}>AI Credits</Text>
-                </Animated.View>
+                </View>
 
                 {/* ── Plans ─────────────────────────────────────────────── */}
                 <Text style={[styles.sectionTitle, { color: c.text }]}>Top Up Your Credits</Text>
@@ -271,8 +169,12 @@ export default function BuyCreditsScreen() {
                                         <Text style={styles.popularText}>⭐ MOST POPULAR</Text>
                                     </View>
                                 )}
-                                {plan.savings && !plan.popular && (
-                                    <View style={[styles.savingsBadge, { backgroundColor: '#10b981' }]}>
+                                {plan.savings && (
+                                    <View style={[
+                                        styles.savingsBadge,
+                                        { backgroundColor: '#10b981' },
+                                        plan.popular ? { right: 'auto', left: 20 } : {}
+                                    ]}>
                                         <Text style={styles.savingsText}>{plan.savings}</Text>
                                     </View>
                                 )}
@@ -302,11 +204,11 @@ export default function BuyCreditsScreen() {
                                         styles.buyBtn,
                                         {
                                             backgroundColor: plan.popular ? Colors.brand.primary : isDark ? '#1F2937' : '#f3f4f6',
-                                            opacity: isProcessing || isPolling ? 0.6 : 1,
+                                            opacity: isProcessing ? 0.6 : 1,
                                         },
                                     ]}
                                     onPress={() => handleBuy(plan)}
-                                    disabled={!!isProcessing || isPolling}
+                                    disabled={!!isProcessing}
                                     activeOpacity={0.8}
                                 >
                                     {isActive ? (
@@ -338,7 +240,7 @@ export default function BuyCreditsScreen() {
                 <View style={[styles.securityBadge, { backgroundColor: isDark ? '#064e3b' : '#ecfdf5', borderColor: isDark ? '#065f46' : '#a7f3d0' }]}>
                     <Ionicons name="shield-checkmark" size={18} color="#10b981" />
                     <Text style={[styles.securityText, { color: isDark ? '#6ee7b7' : '#065f46' }]}>
-                        Secured by Razorpay • 256-bit SSL Encrypted
+                        Secured by Tradebox • 256-bit SSL Encrypted
                     </Text>
                 </View>
 
@@ -380,6 +282,19 @@ export default function BuyCreditsScreen() {
                             After payment, credits are added{' '}
                             <Text style={{ fontWeight: '700', color: c.text }}>automatically within 30 seconds</Text>.
                             No manual activation needed.
+                        </Text>
+                    </View>
+
+                    <View style={styles.infoRow}>
+                        <Text style={styles.infoDot}>•</Text>
+                        <Text style={[styles.infoText, { color: c.textSecondary }]}>
+                            In case of emergency, contact support at{' '}
+                            <Text 
+                                style={{ fontWeight: '700', color: Colors.brand.primary, textDecorationLine: 'underline' }}
+                                onPress={() => Linking.openURL('mailto:contact@tikonacapital.com')}
+                            >
+                                contact@tikonacapital.com
+                            </Text>.
                         </Text>
                     </View>
                 </View>

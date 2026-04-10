@@ -405,6 +405,14 @@ serve(async (req: Request) => {
         // Step 3: TTS
         const responseAudio = await textToSpeech(aiReply, detectedLang);
 
+        // Deduct tokens for LLM call (speech_to_speech was NOT deducting — fixed)
+        await supabaseClient.rpc('deduct_ai_credits', {
+          p_user_id: user.id,
+          p_amount: tokens_used,
+          p_transaction_type: 'report_chat',
+          p_metadata: { action: 'speech_to_speech', tokens_used }
+        }).catch((e: any) => console.error("[report-ai-chat] speech_to_speech deduct failed:", e));
+
         return new Response(
           JSON.stringify({
             user_transcript: sttResult.transcript,

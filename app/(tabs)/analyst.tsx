@@ -10,23 +10,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
 import { useAuth } from '@/context/AuthContext';
-import { Alert } from 'react-native';
+import { useAlert } from '@/context/AlertContext';
 
 export default function AIAnalystScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { wallet } = useAuth();
+    const { wallet, kyc } = useAuth();
+    const { showAlert } = useAlert();
 
     const handleSectorClick = (sector: string) => {
-        const balance = wallet ? wallet.credits_balance : 50000;
+        if (kyc?.status !== 'approved') {
+            showAlert(
+                'Action Required',
+                'Please complete your KYC verification to access AI Analyst features.',
+                [
+                    { text: 'Not Now', style: 'cancel' },
+                    { text: 'Complete KYC', onPress: () => router.push('/(kyc)' as any) }
+                ]
+            );
+            return;
+        }
+
+        const balance = wallet ? wallet.credits_balance : 0;
         
         if (balance < 100) {
-            Alert.alert(
+            showAlert(
                 'Insufficient Credits',
                 'You don\'t have enough AI credits remaining. Please top up to continue.',
                 [
-                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Not Now', style: 'cancel' },
                     { text: 'Get Credits', onPress: () => router.push('/buy-credits' as any) }
                 ]
             );

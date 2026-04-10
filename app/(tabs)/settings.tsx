@@ -258,7 +258,7 @@ export default function SettingsScreen() {
                 </View>
 
                 <Section title="ACCOUNT" theme={theme}>
-                    <Row theme={theme} icon="flash-outline" label="AI Credits" value={`${((wallet?.credits_balance ?? 0) >= 1000000 ? `${((wallet?.credits_balance ?? 0) / 1000000).toFixed(1)}M` : (wallet?.credits_balance ?? 0) >= 1000 ? `${Math.round((wallet?.credits_balance ?? 0) / 1000)}K` : (wallet?.credits_balance ?? 0))} remaining`} onPress={() => router.push('/buy-credits' as any)} />
+                    <Row theme={theme} icon="flash-outline" label="AI Credits" value={`${(() => { const dc = Math.round((wallet?.credits_balance ?? 0) / 502); return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`; })()} remaining`} onPress={() => router.push('/buy-credits' as any)} />
                     <Row theme={theme} icon="shield-checkmark" label="KYC Verification" value={kyc?.status || 'Not Done'} onPress={() => router.push('/(kyc)')} />
                     <Row theme={theme} icon="bar-chart" label="Risk Profile" value={profile?.display_label || profile?.risk_profile || 'Not Set'} onPress={() => router.push('/(profiling)')} />
                     <Row theme={theme} icon="diamond" label="Subscription" value={(subscription?.plan || 'None').charAt(0).toUpperCase() + (subscription?.plan || 'None').slice(1)} onPress={() => router.push('/subscription')} />
@@ -274,9 +274,8 @@ export default function SettingsScreen() {
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
                 </Section>
 
-                <Section title="LEGAL" theme={theme}>
-                    <Row theme={theme} icon="document-text-outline" label="Terms of Service" onPress={() => Linking.openURL('https://www.tikonacapital.com/terms-of-service')} />
-                    <Row theme={theme} icon="shield-outline" label="Privacy Policy" onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')} />
+                <Section title="LEGAL & COMPLIANCE" theme={theme}>
+                    <Row theme={theme} icon="shield-checkmark-outline" label="Regulatory & Compliance" onPress={() => router.push('/regulatory')} />
                 </Section>
 
                 <Section title="" theme={theme}>
