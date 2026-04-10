@@ -307,59 +307,24 @@ export default function HomeScreen() {
                     {/* ── Quick Actions ── */}
                     <View style={styles.section}>
                         <SectionHeader title="Quick Actions" theme={theme} />
-                        {isWideWeb ? (
-                            <View style={styles.actionGrid}>
-                                {QUICK_ACTIONS.map((item, idx) => {
-                                    const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
-                                    return (
-                                        <TouchableOpacity
-                                            key={item.label}
-                                            style={[styles.actionBtn, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
-                                            onPress={() => router.push(item.route)}
-                                            activeOpacity={0.7}
-                                        >
-                                            <View style={[styles.actionIconCircle, { backgroundColor: accent.bg }]}>
-                                                <Ionicons name={item.icon} size={22} color={accent.color} />
-                                            </View>
-                                            <Text style={[styles.actionLabel, { color: c.text }]}>{item.label}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </View>
-                        ) : (
-                            <View style={styles.actionScrollWrapper}>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={styles.actionScroll}
-                                >
-                                    {QUICK_ACTIONS.map((item, idx) => {
-                                        const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
-                                        return (
-                                            <TouchableOpacity
-                                                key={item.label}
-                                                style={[styles.actionBtnPhone, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
-                                                onPress={() => router.push(item.route)}
-                                                activeOpacity={0.7}
-                                            >
-                                                <View style={[styles.actionIconCircleLarge, { backgroundColor: accent.bg }]}>
-                                                    <Ionicons name={item.icon} size={26} color={accent.color} />
-                                                </View>
-                                                <Text style={[styles.actionLabelPhone, { color: c.text }]}>{item.label}</Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
-                                {/* Right-edge fade — signals more content */}
-                                <LinearGradient
-                                    colors={['transparent', c.background]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.actionFade}
-                                    pointerEvents="none"
-                                />
-                            </View>
-                        )}
+                        <View style={styles.actionGrid}>
+                            {QUICK_ACTIONS.map((item, idx) => {
+                                const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
+                                return (
+                                    <TouchableOpacity
+                                        key={item.label}
+                                        style={[styles.actionBtn, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
+                                        onPress={() => router.push(item.route)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={[styles.actionIconCircle, { backgroundColor: accent.bg }]}>
+                                            <Ionicons name={item.icon} size={22} color={accent.color} />
+                                        </View>
+                                        <Text style={[styles.actionLabel, { color: c.text }]} adjustsFontSizeToFit numberOfLines={1}>{item.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
                     </View>
 
                     {/* ── Latest Research ── */}
@@ -562,72 +527,30 @@ const styles = StyleSheet.create({
     // ── Quick Actions ──
     section: { marginBottom: Spacing['2xl'] },
 
-    // Tablet / web: 4-in-a-row
+    // 4-in-a-row grid for Quick Actions
     actionGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
+        marginTop: Spacing.sm,
     },
     actionBtn: {
-        width: '23.5%',
+        width: '23.5%', // 4 items fit in 100%
         alignItems: 'center',
-        paddingVertical: Spacing.lg,
-        paddingHorizontal: Spacing.xs,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: 2,
         borderRadius: BorderRadius.xl,
         borderWidth: 1,
-        gap: 4,
+        gap: 6,
     },
     actionIconCircle: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.xs,
-    },
-    actionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
-
-    // Quick actions horizontal scroll
-    actionScrollWrapper: {
-        position: 'relative',
-    },
-    actionScroll: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-        paddingBottom: Spacing.xs,
-    },
-    actionFade: {
-        position: 'absolute',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: 48,
-    },
-
-    // Phone: 2×2 grid (kept for potential future use)
-    actionGridPhone: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.md,
-    },
-    actionBtnPhone: {
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: Spacing.xs,
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.md,
-        borderRadius: BorderRadius.xl,
-        borderWidth: 1,
-        width: 80,
-    },
-    actionIconCircleLarge: {
         width: 44,
         height: 44,
         borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    actionLabelPhone: { fontSize: FontSize.xs, fontWeight: '600', textAlign: 'center' },
+    actionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
 
     // ── View All ──
     viewAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
