@@ -170,7 +170,7 @@ export default function PortfolioScreen() {
             const file = result.assets[0];
             setExcelFileName(file.name || 'file');
 
-            const b64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+            const b64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' as any });
             const wb = XLSX.read(b64, { type: 'base64', cellDates: false });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });

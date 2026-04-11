@@ -1,4 +1,4 @@
-import { Card, EmptyState, RecommendationBadge, ResponsiveContainer, ResponsiveScrollView, SectionHeader, StatusChip } from '@/components/ui';
+import { EmptyState, RecommendationBadge, ResponsiveScrollView } from '@/components/ui';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -8,16 +8,18 @@ import { supabase } from '@/lib/supabase';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+    Animated,
     Image,
     Platform,
     RefreshControl,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -26,25 +28,122 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// ─── Quick Actions Config ────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-    { icon: 'document-text-outline' as const, label: 'Reports', route: '/(tabs)/reports' as const, color: '#3A5BA0', bg: '#EFF6FF' },
-    { icon: 'pie-chart-outline' as const, label: 'Portfolio', route: '/(tabs)/portfolio' as const, color: '#059669', bg: '#ECFDF5' },
-    { icon: 'people-outline' as const, label: 'Analysts', route: '/(tabs)/analyst' as const, color: '#7C3AED', bg: '#F5F3FF' },
-    { icon: 'diamond-outline' as const, label: 'Plans', route: '/subscription' as const, color: '#FFA500', bg: '#FFF7ED' },
+    {
+        icon: 'document-text' as const,
+        label: 'Reports',
+        route: '/(tabs)/reports' as const,
+        gradientLight: ['#3B82F6', '#60A5FA'] as [string, string],
+        gradientDark: ['#1D4ED8', '#3B82F6'] as [string, string],
+        iconColor: '#ffffff',
+        glow: '#3B82F6',
+    },
+    {
+        icon: 'pie-chart' as const,
+        label: 'Portfolio',
+        route: '/(tabs)/portfolio' as const,
+        gradientLight: ['#0D9488', '#14B8A6'] as [string, string],
+        gradientDark: ['#0F766E', '#0D9488'] as [string, string],
+        iconColor: '#ffffff',
+        glow: '#0D9488',
+    },
+    {
+        icon: 'people' as const,
+        label: 'Analysts',
+        route: '/(tabs)/analyst' as const,
+        gradientLight: ['#7C3AED', '#8B5CF6'] as [string, string],
+        gradientDark: ['#5B21B6', '#7C3AED'] as [string, string],
+        iconColor: '#ffffff',
+        glow: '#7C3AED',
+    },
+    {
+        icon: 'diamond' as const,
+        label: 'Plans',
+        route: '/subscription' as const,
+        gradientLight: ['#E11D48', '#F43F5E'] as [string, string],
+        gradientDark: ['#BE123C', '#E11D48'] as [string, string],
+        iconColor: '#ffffff',
+        glow: '#E11D48',
+    },
 ] as const;
 
-const QUICK_ACTIONS_DARK = [
-    { color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
-    { color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
-    { color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
-    { color: '#FBBF24', bg: 'rgba(251,191,36,0.12)' },
-];
 
 function formatDate(dateStr: string) {
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ─── Animated Quick Action Tile ───────────────────────────────────────────────
+function ActionTile({
+    item,
+    isDark,
+    isNarrow,
+}: {
+    item: typeof QUICK_ACTIONS[number];
+    isDark: boolean;
+    isNarrow: boolean;
+}) {
+    const scale = useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+        Animated.spring(scale, {
+            toValue: 0.93,
+            useNativeDriver: true,
+            speed: 50,
+            bounciness: 4,
+        }).start();
+    };
+    const handlePressOut = () => {
+        Animated.spring(scale, {
+            toValue: 1,
+            useNativeDriver: true,
+            speed: 20,
+            bounciness: 8,
+        }).start();
+    };
+
+    return (
+        <Animated.View style={[{ transform: [{ scale }], flex: 1 }]}>
+            <TouchableOpacity
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    router.push(item.route);
+                }}
+                activeOpacity={1}
+                style={styles.actionTile}
+            >
+                <LinearGradient
+                    colors={isDark ? item.gradientDark : item.gradientLight}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[
+                        styles.actionTileGradient,
+                        {
+                            shadowColor: item.glow,
+                            shadowOffset: { width: 0, height: 6 },
+                            shadowOpacity: isDark ? 0.5 : 0.3,
+                            shadowRadius: 10,
+                            elevation: 8,
+                        },
+                    ]}
+                >
+                    <View style={styles.actionIconWrapper}>
+                        <Ionicons name={item.icon} size={isNarrow ? 20 : 22} color={item.iconColor} />
+                    </View>
+                    <Text style={[styles.actionLabel, isNarrow && { fontSize: 10 }]} numberOfLines={1}>
+                        {item.label}
+                    </Text>
+                </LinearGradient>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}
+
+
+// ─── Home Screen ─────────────────────────────────────────────────────────────
 export default function HomeScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
@@ -54,30 +153,38 @@ export default function HomeScreen() {
     const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
     const { width: screenWidth } = useWindowDimensions();
-    const isNarrow = screenWidth < 360;     // very small phones (SE 1st gen = 320)
+    const isNarrow = screenWidth < 360;
     const [refreshing, setRefreshing] = useState(false);
     const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'Investor';
-
-
-
     const userEmail = user?.primaryEmailAddress?.emailAddress;
+
+    // Pulse animation for the KYC dot
+    const pulse = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        if (kyc?.status !== 'not_started' && kyc?.status !== 'rejected') return;
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, { toValue: 1.4, duration: 700, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [kyc?.status]);
 
     const { data: recentReports } = useQuery({
         queryKey: ['recent_reports', subscription?.plan],
         queryFn: async (): Promise<ResearchReport[]> => {
             if (!subscription?.is_active) return [];
-
             let query = supabase
                 .from('research_reports')
                 .select('report_id, company_name, nse_symbol, recommendation, target_price, published_at, pdf_file_url, audio_file_url, video_file_url')
                 .eq('is_published', true)
                 .order('published_at', { ascending: false })
                 .limit(3);
-
             if (subscription.plan !== 'all_in_growth') {
                 query = query.eq('plan', subscription.plan);
             }
-
             const { data } = await query;
             return data ?? [];
         },
@@ -95,19 +202,18 @@ export default function HomeScreen() {
     }, [refreshUserData, queryClient]);
 
     const kycStatus = kyc?.status || 'not_started';
-    const kycVariant = kycStatus === 'approved' ? 'success' : kycStatus === 'pending' ? 'warning' : 'danger';
-    const planLabel = subscription?.plan ? subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1) : 'Free';
+    const planLabel = subscription?.plan
+        ? subscription.plan.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        : 'Free';
 
     // ── Push Notifications (native only) ──
     const hasNotified = useRef(false);
     useEffect(() => {
         if (Platform.OS === 'web') return;
         if (isLoadingData) return;
-
         const scheduleReminder = async () => {
             if (hasNotified.current || !user) return;
             const uid = user.id;
-
             let saved: string | null = null;
             try {
                 if (Platform.OS === 'web') {
@@ -118,15 +224,11 @@ export default function HomeScreen() {
             } catch (e) {
                 logger.warn('[Notifications] Preference read error:', e);
             }
-
             const prefs = saved ? JSON.parse(saved) : { master: true, reports: true, kyc: true };
             if (!prefs.master) return;
-
             hasNotified.current = true;
-
             const { status } = await Notifications.requestPermissionsAsync();
             if (status !== 'granted') return;
-
             if (Platform.OS === 'android') {
                 await Notifications.setNotificationChannelAsync('default', {
                     name: 'default',
@@ -135,7 +237,6 @@ export default function HomeScreen() {
                     lightColor: '#FF231F7C',
                 });
             }
-
             if (prefs.kyc) {
                 if (kycStatus === 'not_started' || kycStatus === 'rejected') {
                     setTimeout(async () => {
@@ -161,14 +262,12 @@ export default function HomeScreen() {
                     }, 5000);
                 }
             }
-
             if (prefs.reports && kycStatus === 'approved' && subscription?.is_active) {
                 try {
                     const { count } = await supabase
                         .from('research_reports')
                         .select('report_id', { count: 'exact', head: true })
                         .eq('is_published', true);
-
                     if (count !== null) {
                         let lastCountStr: string | null = null;
                         const countKey = `last_report_count_${uid}`;
@@ -179,9 +278,7 @@ export default function HomeScreen() {
                                 lastCountStr = await SecureStore.getItemAsync(countKey);
                             }
                         } catch (e) { }
-
                         const lastCount = lastCountStr ? parseInt(lastCountStr, 10) : 0;
-
                         if (count > lastCount) {
                             const newCount = count - lastCount;
                             setTimeout(async () => {
@@ -195,7 +292,6 @@ export default function HomeScreen() {
                                 });
                             }, 3000);
                         }
-
                         try {
                             if (Platform.OS === 'web') {
                                 localStorage.setItem(countKey, count.toString());
@@ -209,13 +305,21 @@ export default function HomeScreen() {
                 }
             }
         };
-
         if (user && !hasNotified.current) scheduleReminder();
     }, [user, kycStatus, profile, isLoadingData]);
 
-    // ── Greeting based on time ──
+    // ── Greeting ──
     const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const greeting = hour < 12 ? '☀️ Good morning' : hour < 17 ? '🌤 Good afternoon' : '🌙 Good evening';
+
+    // ── KYC Banner (only when not approved) ──
+    const showKycBanner = kycStatus !== 'approved';
+
+    // ── AI Credit display ──
+    const displayCredits = (() => {
+        const dc = Math.round((wallet?.credits_balance ?? 0) / 502);
+        return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`;
+    })();
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
@@ -223,372 +327,631 @@ export default function HomeScreen() {
                 style={{ flex: 1 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.secondary} />}
             >
-                {/* ── Header ── */}
-                <View style={{ position: 'relative', overflow: 'hidden' }}>
+                {/* ── HERO HEADER ── */}
+                <View style={styles.heroWrapper}>
                     <LinearGradient
-                        colors={isDark ? ['#0F1B35', '#1a2d52', '#0C0F14'] : ['#1F4690', '#2d5ab5', '#3A5BA0']}
+                        colors={isDark
+                            ? ['#060d1f', '#0d1b35', '#101c38']
+                            : ['#1a3a7a', '#1F4690', '#2a52a8']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={[styles.header, { paddingTop: Math.max(insets.top + 12, 32) }]}
+                        style={[styles.heroGradient, { paddingTop: Math.max(insets.top + 16, 32) }]}
                     >
-                        <ResponsiveContainer>
-                            {/* Top row: avatar + greeting + pills */}
-                            <View style={styles.headerContent}>
-                                <View style={styles.headerLeft}>
-                                    <View style={styles.avatarContainer}>
-                                        <View style={[styles.avatarRing, kyc?.status === 'approved' && styles.avatarRingVerified]}>
-                                            {user?.imageUrl ? (
-                                                <Image source={{ uri: user.imageUrl }} style={styles.headerAvatar} />
-                                            ) : (
-                                                <View style={styles.headerAvatarFallback}>
-                                                    <Text style={styles.headerAvatarText}>
-                                                        {displayName.charAt(0).toUpperCase()}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                        {kyc?.status === 'approved' && (
-                                            <View style={styles.verifiedBadge}>
-                                                <Ionicons name="checkmark-sharp" size={9} color="#fff" />
-                                            </View>
+                        {/* Decorative orbs */}
+                        <View style={[styles.orb, styles.orbTopRight, isDark && styles.orbDark]} />
+                        <View style={[styles.orb, styles.orbBottomLeft, isDark && styles.orbDark]} />
+
+                        {/* ── Top Row ── */}
+                        <View style={styles.heroTopRow}>
+                            <View style={styles.heroLeft}>
+                                {/* Avatar */}
+                                <View style={styles.avatarOuter}>
+                                    <View style={[
+                                        styles.avatarInner,
+                                        kycStatus === 'approved' && styles.avatarInnerVerified,
+                                    ]}>
+                                        {user?.imageUrl ? (
+                                            <Image source={{ uri: user.imageUrl }} style={styles.avatarImg} />
+                                        ) : (
+                                            <LinearGradient
+                                                colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
+                                                style={styles.avatarFallback}
+                                            >
+                                                <Text style={styles.avatarInitial}>
+                                                    {displayName.charAt(0).toUpperCase()}
+                                                </Text>
+                                            </LinearGradient>
                                         )}
                                     </View>
-                                    <View>
-                                        <Text style={styles.greetingText}>{greeting},</Text>
-                                        <Text style={styles.nameText} numberOfLines={1}>{displayName}</Text>
-                                    </View>
+                                    {kycStatus === 'approved' && (
+                                        <View style={styles.verifiedBadge}>
+                                            <Ionicons name="checkmark-sharp" size={8} color="#fff" />
+                                        </View>
+                                    )}
                                 </View>
 
-                                <TouchableOpacity
-                                    style={[styles.pill, styles.pillGold]}
-                                    onPress={() => router.push('/subscription')}
-                                    activeOpacity={0.75}
-                                >
-                                    <Ionicons name="diamond" size={11} color={Colors.brand.gold} />
-                                    <Text style={[styles.pillText, { color: Colors.brand.gold }]} numberOfLines={1}>
-                                        {planLabel}
-                                    </Text>
-                                </TouchableOpacity>
+                                {/* Greeting */}
+                                <View>
+                                    <Text style={styles.greetText}>{greeting},</Text>
+                                    <Text style={styles.nameText} numberOfLines={1}>{displayName}</Text>
+                                </View>
                             </View>
 
-                            {/* Bottom stats strip */}
-                            <View style={[styles.statsStrip, isNarrow && styles.statsStripCompact]}>
-                                <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(kyc)')} activeOpacity={0.7}>
-                                    <Ionicons name="shield-checkmark-outline" size={isNarrow ? 12 : 14} color="rgba(255,255,255,0.6)" />
-                                    <Text style={[styles.statLabel, isNarrow && { fontSize: 9 }]}>KYC</Text>
-                                    <Text style={[styles.statValue, isNarrow && { fontSize: 10 }, {
-                                        color: kycStatus === 'approved' ? '#34D399' : kycStatus === 'pending' ? '#FBBF24' : '#F87171'
-                                    }]} numberOfLines={1}>
+                            {/* Plan Pill */}
+                            <TouchableOpacity
+                                style={styles.planPill}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/subscription'); }}
+                                activeOpacity={0.75}
+                            >
+                                <Ionicons name="diamond" size={11} color="#FFD700" />
+                                <Text style={styles.planPillText} numberOfLines={1}>{planLabel}</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* ── Stats Glass Card ── */}
+                        <BlurView
+                            intensity={isDark ? 20 : 50}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={styles.statsCard}
+                        >
+                            {/* KYC Stat */}
+                            <TouchableOpacity
+                                style={styles.statItem}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(kyc)'); }}
+                                activeOpacity={0.7}
+                            >
+                                <View style={[styles.statIconBg, {
+                                    backgroundColor: kycStatus === 'approved'
+                                        ? 'rgba(31,70,144,0.25)'
+                                        : 'rgba(255,165,0,0.2)',
+                                }]}>
+                                    <Ionicons
+                                        name="shield-checkmark"
+                                        size={15}
+                                        color={kycStatus === 'approved' ? '#FFE5B4' : kycStatus === 'pending' ? '#FFA500' : '#FFA500'}
+                                    />
+                                </View>
+                                <View>
+                                    <Text style={styles.statLabel}>KYC</Text>
+                                    <Text style={styles.statValue} numberOfLines={1}>
                                         {kycStatus === 'approved' ? 'Verified' : kycStatus === 'pending' ? 'Pending' : 'Incomplete'}
                                     </Text>
-                                </TouchableOpacity>
-                                <View style={styles.statDivider} />
-                                <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(profiling)')} activeOpacity={0.7}>
-                                    <Ionicons name="bar-chart-outline" size={isNarrow ? 12 : 14} color="rgba(255,255,255,0.6)" />
-                                    <Text style={[styles.statLabel, isNarrow && { fontSize: 9 }]}>Profile</Text>
-                                    <Text style={[styles.statValue, isNarrow && { fontSize: 10 }, { color: profile ? '#34D399' : '#9CA3AF' }]} numberOfLines={1}>
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={styles.statDivider} />
+
+                            {/* Profile Stat */}
+                            <TouchableOpacity
+                                style={styles.statItem}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(profiling)'); }}
+                                activeOpacity={0.7}
+                            >
+                                <View style={[styles.statIconBg, { backgroundColor: 'rgba(58,91,160,0.3)' }]}>
+                                    <Ionicons name="analytics" size={15} color="#FFE5B4" />
+                                </View>
+                                <View>
+                                    <Text style={styles.statLabel}>Profile</Text>
+                                    <Text style={styles.statValue} numberOfLines={1}>
                                         {profile?.display_label || profile?.risk_profile || 'Not Set'}
                                     </Text>
-                                </TouchableOpacity>
-                                <View style={styles.statDivider} />
-                                <TouchableOpacity style={styles.statItem} onPress={() => router.push('/buy-credits')} activeOpacity={0.7}>
-                                    <Ionicons name="wallet-outline" size={isNarrow ? 12 : 14} color="rgba(255,255,255,0.6)" />
-                                    <Text style={[styles.statLabel, isNarrow && { fontSize: 9 }]}>Credits</Text>
-                                    <Text style={[styles.statValue, isNarrow && { fontSize: 10 }, { color: '#fff' }]} numberOfLines={1}>
-                                        {(() => { const dc = Math.round((wallet?.credits_balance ?? 0) / 502); return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`; })()}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </ResponsiveContainer>
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={styles.statDivider} />
+
+                            {/* Credits Stat */}
+                            <TouchableOpacity
+                                style={styles.statItem}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/buy-credits'); }}
+                                activeOpacity={0.7}
+                            >
+                                <View style={[styles.statIconBg, { backgroundColor: 'rgba(255,165,0,0.2)' }]}>
+                                    <Ionicons name="flash" size={15} color="#FFA500" />
+                                </View>
+                                <View>
+                                    <Text style={styles.statLabel}>AI Credits</Text>
+                                    <Text style={styles.statValue} numberOfLines={1}>{displayCredits}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </BlurView>
                     </LinearGradient>
+
+                    {/* Curved bottom */}
+                    <View style={[styles.heroCurve, { backgroundColor: c.background }]} />
                 </View>
 
-                <ResponsiveContainer style={styles.bodyContainer}>
+                {/* ── BODY ── */}
+                <View style={[styles.body, isWideWeb && styles.bodyWide]}>
+
+                    {/* ── KYC Action Banner ── */}
+                    {showKycBanner && (
+                        <TouchableOpacity
+                            style={[styles.kycBanner, isDark ? styles.kycBannerDark : styles.kycBannerLight]}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push('/(kyc)'); }}
+                            activeOpacity={0.85}
+                        >
+                            <LinearGradient
+                                colors={kycStatus === 'pending'
+                                    ? ['rgba(251,191,36,0.12)', 'rgba(251,191,36,0.04)']
+                                    : ['rgba(248,113,113,0.12)', 'rgba(248,113,113,0.04)']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.kycBannerGradient}
+                            >
+                                <View style={[styles.kycBannerIcon, {
+                                    backgroundColor: kycStatus === 'pending' ? 'rgba(251,191,36,0.2)' : 'rgba(248,113,113,0.2)',
+                                }]}>
+                                    <Animated.View style={{ transform: [{ scale: pulse }] }}>
+                                        <Ionicons
+                                            name={kycStatus === 'pending' ? 'time' : 'alert-circle'}
+                                            size={20}
+                                            color={kycStatus === 'pending' ? '#FBBF24' : '#F87171'}
+                                        />
+                                    </Animated.View>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.kycBannerTitle, {
+                                        color: kycStatus === 'pending'
+                                            ? (isDark ? '#FBBF24' : '#D97706')
+                                            : (isDark ? '#F87171' : '#DC2626'),
+                                    }]}>
+                                        {kycStatus === 'pending' ? 'KYC Under Review' : 'Complete Your KYC'}
+                                    </Text>
+                                    <Text style={[styles.kycBannerSub, { color: c.textSecondary }]}>
+                                        {kycStatus === 'pending'
+                                            ? 'Your documents are being verified. This usually takes 1–2 business days.'
+                                            : 'Verify your identity to access premium research reports.'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
+
                     {/* ── Quick Actions ── */}
                     <View style={styles.section}>
-                        <SectionHeader title="Quick Actions" theme={theme} />
-                        <View style={styles.actionGrid}>
-                            {QUICK_ACTIONS.map((item, idx) => {
-                                const accent = isDark ? QUICK_ACTIONS_DARK[idx] : { color: item.color, bg: item.bg };
-                                return (
-                                    <TouchableOpacity
-                                        key={item.label}
-                                        style={[styles.actionBtn, { backgroundColor: c.surface, borderColor: c.cardBorder }]}
-                                        onPress={() => router.push(item.route)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <View style={[styles.actionIconCircle, { backgroundColor: accent.bg }]}>
-                                            <Ionicons name={item.icon} size={22} color={accent.color} />
-                                        </View>
-                                        <Text style={[styles.actionLabel, { color: c.text }]} adjustsFontSizeToFit numberOfLines={1}>{item.label}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={[styles.sectionTitle, { color: c.text }]}>Quick Actions</Text>
+                        </View>
+                        <View style={styles.actionRow}>
+                            {QUICK_ACTIONS.map((item) => (
+                                <ActionTile key={item.label} item={item} isDark={isDark} isNarrow={isNarrow} />
+                            ))}
                         </View>
                     </View>
 
                     {/* ── Latest Research ── */}
                     <View style={styles.section}>
-                        <SectionHeader
-                            title="Latest Research"
-                            theme={theme}
-                            action={
-                                <TouchableOpacity
-                                    onPress={() => router.push('/(tabs)/reports')}
-                                    style={styles.viewAllBtn}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={styles.viewAllText}>View All</Text>
-                                    <Ionicons name="arrow-forward" size={13} color={Colors.brand.secondary} />
-                                </TouchableOpacity>
-                            }
-                        />
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={[styles.sectionTitle, { color: c.text }]}>Latest Research</Text>
+                            <TouchableOpacity
+                                onPress={() => router.push('/(tabs)/reports')}
+                                style={styles.viewAllBtn}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.viewAllText}>View All</Text>
+                                <Ionicons name="arrow-forward" size={13} color={Colors.brand.secondary} />
+                            </TouchableOpacity>
+                        </View>
 
                         {recentReports && recentReports.length > 0 ? (
-                            recentReports.map((report, idx) => (
-                                <TouchableOpacity
-                                    key={report.report_id}
-                                    style={[
-                                        styles.reportCard,
-                                        {
-                                            backgroundColor: c.surface,
-                                            borderColor: c.cardBorder,
-                                            marginBottom: idx < recentReports.length - 1 ? Spacing.sm : 0,
-                                        }
-                                    ]}
-                                    onPress={() => router.push(`/report/${report.report_id}` as any)}
-                                    activeOpacity={0.75}
-                                >
-                                    {/* Left accent bar */}
-                                    <View style={[styles.reportAccentBar, { backgroundColor: isDark ? c.info : Colors.brand.secondary }]} />
+                            <View style={styles.reportsList}>
+                                {recentReports.map((report, idx) => (
+                                    <TouchableOpacity
+                                        key={report.report_id}
+                                        style={[
+                                            styles.reportCard,
+                                            { backgroundColor: c.surface },
+                                            isDark ? styles.reportCardDark : styles.reportCardLight,
+                                            idx > 0 && { marginTop: Spacing.md },
+                                        ]}
+                                        onPress={() => {
+                                            Haptics.selectionAsync();
+                                            router.push(`/report/${report.report_id}` as any);
+                                        }}
+                                        activeOpacity={0.8}
+                                    >
+                                        {/* Icon */}
+                                        <View style={[styles.reportIconBg, {
+                                            backgroundColor: isDark ? 'rgba(31,70,144,0.2)' : '#EEF2FF',
+                                        }]}>
+                                            <Ionicons name="document-text" size={20} color={isDark ? '#FFE5B4' : Colors.brand.secondary} />
+                                        </View>
 
-                                    <View style={[styles.reportIconBg, { backgroundColor: isDark ? c.infoBg : '#EFF6FF' }]}>
-                                        <Ionicons name="document-text" size={18} color={isDark ? c.info : Colors.brand.secondary} />
-                                    </View>
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.reportName, { color: c.text }]} numberOfLines={1}>{report.company_name}</Text>
-                                        <View style={styles.reportMeta}>
-                                            <Text style={[styles.reportSymbol, { color: c.textTertiary }]}>{report.nse_symbol}</Text>
-                                            {report.target_price && (
-                                                <>
-                                                    <View style={[styles.metaDot, { backgroundColor: c.textTertiary }]} />
-                                                    <Text style={[styles.reportTarget, { color: c.success }]}>
-                                                        ₹{report.target_price.toLocaleString('en-IN')}
-                                                    </Text>
-                                                </>
+                                        {/* Info */}
+                                        <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                                            <Text style={[styles.reportName, { color: c.text }]} numberOfLines={1}>
+                                                {report.company_name}
+                                            </Text>
+                                            <View style={styles.reportMeta}>
+                                                <Text style={[styles.reportSymbol, { color: c.textTertiary }]}>
+                                                    {report.nse_symbol}
+                                                </Text>
+                                                {report.target_price && (
+                                                    <>
+                                                        <View style={[styles.metaDot, { backgroundColor: c.textTertiary }]} />
+                                                        <Text style={[styles.reportTarget, { color: c.success }]}>
+                                                            ₹{report.target_price.toLocaleString('en-IN')}
+                                                        </Text>
+                                                    </>
+                                                )}
+                                            </View>
+                                            {report.published_at && (
+                                                <Text style={[styles.reportDate, { color: c.textTertiary }]}>
+                                                    {formatDate(report.published_at)}
+                                                </Text>
                                             )}
                                         </View>
-                                        {report.published_at && (
-                                            <Text style={[styles.reportDate, { color: c.textTertiary }]}>
-                                                {formatDate(report.published_at)}
-                                            </Text>
-                                        )}
-                                    </View>
 
-                                    <View style={styles.reportRight}>
-                                        {report.recommendation && <RecommendationBadge recommendation={report.recommendation} theme={theme} />}
-                                        <View style={styles.mediaIcons}>
-                                            {report.pdf_file_url && <Ionicons name="document" size={12} color={c.textTertiary} />}
-                                            {report.audio_file_url && <Ionicons name="headset" size={12} color={c.textTertiary} />}
-                                            {report.video_file_url && <Ionicons name="videocam" size={12} color={c.textTertiary} />}
+                                        {/* Right side */}
+                                        <View style={styles.reportRight}>
+                                            {report.recommendation && (
+                                                <RecommendationBadge recommendation={report.recommendation} theme={theme} />
+                                            )}
+                                            <View style={[styles.mediaIconRow, {
+                                                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F3F4F6',
+                                            }]}>
+                                                {report.pdf_file_url && <Ionicons name="document" size={11} color={isDark ? '#FFE5B4' : Colors.brand.secondary} />}
+                                                {report.audio_file_url && <Ionicons name="headset" size={11} color={isDark ? '#FFE5B4' : Colors.brand.secondary} />}
+                                                {report.video_file_url && <Ionicons name="videocam" size={11} color={isDark ? '#FFE5B4' : Colors.brand.secondary} />}
+                                                <Ionicons name="chevron-forward" size={13} color={isDark ? '#FFA500' : Colors.brand.secondary} />
+                                            </View>
                                         </View>
-                                        <Ionicons name="chevron-forward" size={16} color={c.textTertiary} />
-                                    </View>
-                                </TouchableOpacity>
-                            ))
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         ) : (
-                            <EmptyState icon="document-text-outline" title="No Reports Yet" subtitle="Published research reports will appear here." theme={theme} />
+                            <EmptyState
+                                icon="document-text-outline"
+                                title="No Reports Yet"
+                                subtitle={subscription?.is_active
+                                    ? 'New research reports will appear here as they are published.'
+                                    : 'Subscribe to a plan to access premium research reports.'}
+                                theme={theme}
+                            />
                         )}
                     </View>
 
                     <View style={{ height: 40 }} />
-                </ResponsiveContainer>
+                </View>
             </ResponsiveScrollView>
         </SafeAreaView>
     );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: { flex: 1 },
 
-    // ── Header ──
-    header: {
-        paddingBottom: 32,
-        borderBottomLeftRadius: BorderRadius['3xl'],
-        borderBottomRightRadius: BorderRadius['3xl'],
+    // ── Hero ──
+    heroWrapper: {
+        position: 'relative',
+    },
+    heroGradient: {
+        paddingBottom: 40,
         overflow: 'hidden',
     },
-    headerContent: {
+    heroCurve: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 32,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+    },
+
+    // Decorative orbs
+    orb: {
+        position: 'absolute',
+        width: 180,
+        height: 180,
+        borderRadius: 90,
+        backgroundColor: 'rgba(96,165,250,0.10)',
+    },
+    orbDark: {
+        backgroundColor: 'rgba(96,165,250,0.06)',
+    },
+    orbTopRight: {
+        top: -60,
+        right: -60,
+    },
+    orbBottomLeft: {
+        bottom: 20,
+        left: -80,
+        backgroundColor: 'rgba(167,139,250,0.08)',
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+    },
+
+    // Top row
+    heroTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: Spacing.xl,
-        marginBottom: Spacing.xl,
+        paddingHorizontal: Spacing['2xl'],
+        marginBottom: Spacing['2xl'],
     },
-    headerLeft: {
+    heroLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
         flex: 1,
         marginRight: Spacing.md,
     },
-    avatarContainer: { position: 'relative' },
-    avatarRing: {
-        borderRadius: 20,
-        padding: 2,
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.25)',
+
+    // Avatar
+    avatarOuter: { position: 'relative' },
+    avatarInner: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        borderWidth: 2.5,
+        borderColor: 'rgba(255,255,255,0.3)',
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    avatarRingVerified: { borderColor: '#34D399' },
+    avatarInnerVerified: { borderColor: '#FFA500' },
+    avatarImg: { width: 50, height: 50, borderRadius: 25 },
+    avatarFallback: {
+        width: 50,
+        height: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarInitial: { fontSize: 20, fontWeight: '800', color: '#fff' },
     verifiedBadge: {
         position: 'absolute',
-        bottom: -2,
-        right: -2,
-        backgroundColor: '#10b981',
-        borderRadius: 10,
-        width: 16,
-        height: 16,
+        bottom: -1,
+        right: -1,
+        width: 17,
+        height: 17,
+        borderRadius: 9,
+        backgroundColor: '#FFA500',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: Colors.brand.primary,
+        borderColor: '#1F4690',
     },
-    headerAvatar: { width: 44, height: 44, borderRadius: 16 },
-    headerAvatarFallback: {
-        width: 44,
-        height: 44,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.15)',
-    },
-    headerAvatarText: { fontSize: 18, fontWeight: '700', color: '#fff' },
-    greetingText: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.65)', letterSpacing: 0.4, marginBottom: 1 },
-    nameText: { fontSize: FontSize.lg, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
 
-    // Pills
-    pill: {
+    // Name
+    greetText: {
+        fontSize: FontSize.xs,
+        color: 'rgba(255,255,255,0.7)',
+        fontWeight: '500',
+        letterSpacing: 0.2,
+        marginBottom: 2,
+    },
+    nameText: {
+        fontSize: FontSize.lg,
+        fontWeight: '800',
+        color: '#fff',
+        letterSpacing: -0.4,
+    },
+
+    // Plan pill
+    planPill: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
-        paddingHorizontal: 11,
+        paddingHorizontal: 12,
         paddingVertical: 7,
         borderRadius: BorderRadius.full,
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(255,215,0,0.15)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,215,0,0.35)',
     },
-    pillStack: {
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        gap: 6,
+    planPillText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#FFD700',
+        letterSpacing: 0.3,
     },
-    pillGold: {
-        backgroundColor: 'rgba(255,165,0,0.12)',
-        borderColor: 'rgba(255,165,0,0.2)',
-    },
-    pillCompact: {
-        paddingHorizontal: 8,
-        paddingVertical: 5,
-    },
-    pillText: { fontSize: FontSize.xs, fontWeight: '700' },
 
-    // Stats strip at bottom of header
-    statsStrip: {
+    // Stats card
+    statsCard: {
         flexDirection: 'row',
-        marginHorizontal: Spacing.xl,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: BorderRadius.xl,
+        marginHorizontal: Spacing['2xl'],
+        borderRadius: 22,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.lg,
+        borderColor: 'rgba(255,255,255,0.18)',
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.md,
+        overflow: 'hidden',
     },
     statItem: {
         flex: 1,
-        alignItems: 'center',
-        gap: 3,
-    },
-    statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500', letterSpacing: 0.5 },
-    statValue: { fontSize: FontSize.xs, fontWeight: '700' },
-    statsStripCompact: {
-        paddingVertical: Spacing.sm,
-        paddingHorizontal: Spacing.md,
-    },
-    statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 2 },
-
-    // ── Body ──
-    bodyContainer: {
-        paddingTop: Spacing.xl,
-        paddingHorizontal: Spacing.xl,
-    },
-
-    // ── Quick Actions ──
-    section: { marginBottom: Spacing['2xl'] },
-
-    // 4-in-a-row grid for Quick Actions
-    actionGrid: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '100%',
-        marginTop: Spacing.sm,
-    },
-    actionBtn: {
-        width: '23.5%', // 4 items fit in 100%
         alignItems: 'center',
-        paddingVertical: Spacing.md,
-        paddingHorizontal: 2,
-        borderRadius: BorderRadius.xl,
-        borderWidth: 1,
-        gap: 6,
+        justifyContent: 'center',
+        gap: 8,
     },
-    actionIconCircle: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
+    statIconBg: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    actionLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+    statLabel: {
+        fontSize: 9,
+        color: 'rgba(255,255,255,0.65)',
+        fontWeight: '600',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+        marginBottom: 2,
+    },
+    statValue: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#fff',
+    },
+    statDivider: {
+        width: 1,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        marginVertical: 4,
+    },
 
-    // ── View All ──
-    viewAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    viewAllText: { color: Colors.brand.secondary, fontSize: FontSize.sm, fontWeight: '600' },
+    // ── Body ──
+    body: {
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xs,
+    },
+    bodyWide: {
+        maxWidth: 768,
+        alignSelf: 'center',
+        width: '100%',
+    },
+
+    // ── KYC Banner ──
+    kycBanner: {
+        borderRadius: 18,
+        marginBottom: Spacing.lg,
+        overflow: 'hidden',
+        borderWidth: 1,
+    },
+    kycBannerLight: {
+        borderColor: 'rgba(220,38,38,0.15)',
+    },
+    kycBannerDark: {
+        borderColor: 'rgba(248,113,113,0.15)',
+    },
+    kycBannerGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        padding: Spacing.lg,
+    },
+    kycBannerIcon: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    kycBannerTitle: {
+        fontSize: FontSize.sm,
+        fontWeight: '800',
+        marginBottom: 3,
+    },
+    kycBannerSub: {
+        fontSize: 11,
+        lineHeight: 16,
+        fontWeight: '500',
+    },
+
+    // ── Section Headers ──
+    section: { marginBottom: Spacing.xl },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: Spacing.sm,
+    },
+    sectionTitle: {
+        fontSize: FontSize.base,
+        fontWeight: '800',
+        letterSpacing: -0.2,
+    },
+
+    // View All
+    viewAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
+    viewAllText: { color: Colors.brand.secondary, fontSize: FontSize.sm, fontWeight: '700' },
+
+
+    // ── Quick Actions ──
+    actionRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    actionTile: {
+        flex: 1,
+    },
+    actionTileGradient: {
+        borderRadius: 20,
+        paddingVertical: 18,
+        paddingHorizontal: 6,
+        alignItems: 'center',
+        gap: 10,
+    },
+    actionIconWrapper: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+    },
+    actionLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#fff',
+        textAlign: 'center',
+        letterSpacing: 0.2,
+    },
 
     // ── Report Cards ──
+    reportsList: {},
     reportCard: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
         padding: Spacing.lg,
-        borderRadius: BorderRadius.xl,
+        borderRadius: 20,
+    },
+    reportCardLight: {
+        shadowColor: '#8A9BBD',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 14,
+        elevation: 3,
         borderWidth: 1,
-        overflow: 'hidden',
+        borderColor: '#F1F5F9',
     },
-    reportAccentBar: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 3,
-        borderTopLeftRadius: BorderRadius.xl,
-        borderBottomLeftRadius: BorderRadius.xl,
+    reportCardDark: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+        elevation: 5,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
     },
+
     reportIconBg: {
-        width: 42,
-        height: 42,
-        borderRadius: 13,
+        width: 46,
+        height: 46,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: 8,
     },
-    reportName: { fontSize: FontSize.base, fontWeight: '700', marginBottom: 2 },
-    reportMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+    reportName: {
+        fontSize: FontSize.base,
+        fontWeight: '800',
+        marginBottom: 3,
+        letterSpacing: -0.3,
+    },
+    reportMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
     metaDot: { width: 3, height: 3, borderRadius: 2 },
-    reportSymbol: { fontSize: FontSize.xs, fontFamily: 'monospace', fontWeight: '500' },
-    reportTarget: { fontSize: FontSize.xs, fontWeight: '700' },
-    reportDate: { fontSize: 10, fontWeight: '400', marginTop: 1 },
-    reportRight: { alignItems: 'flex-end', gap: 6 },
-    mediaIcons: { flexDirection: 'row', gap: 5 },
+    reportSymbol: {
+        fontSize: 11,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontWeight: '600',
+    },
+    reportTarget: { fontSize: 11, fontWeight: '800' },
+    reportDate: { fontSize: 10, fontWeight: '500', letterSpacing: 0.2 },
+    reportRight: { alignItems: 'flex-end', gap: 8 },
+    mediaIconRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 7,
+        paddingVertical: 4,
+        borderRadius: 10,
+    },
 });

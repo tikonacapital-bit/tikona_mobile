@@ -15,6 +15,7 @@ export interface ChatLogMessage {
   timestamp: string;         // ISO string
   input_mode?: 'voice' | 'text'; // only for user messages
   has_audio?: boolean;       // only for assistant messages
+  tokens_used?: number;
 }
 
 export interface ChatSession {

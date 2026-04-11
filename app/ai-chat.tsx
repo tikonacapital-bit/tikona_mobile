@@ -164,7 +164,7 @@ export default function AIChatScreen() {
 
         const balance = wallet ? wallet.credits_balance : 0;
         if (balance < 100) {
-            Alert.alert(
+            showAlert(
                 'Insufficient Credits',
                 'You don\'t have enough AI credits remaining. Please top up to continue.',
                 [
@@ -231,7 +231,7 @@ export default function AIChatScreen() {
                 if (sessionIdRef.current) {
                     await appendMessages(sessionIdRef.current, [
                         { role: 'user', text: trimmed, timestamp: new Date().toISOString() },
-                        { role: 'assistant', text: replyContent, timestamp: new Date().toISOString() }
+                        { role: 'assistant', text: replyContent, timestamp: new Date().toISOString(), tokens_used: tokensUsed }
                     ]);
                 }
             }
@@ -245,7 +245,7 @@ export default function AIChatScreen() {
                 } catch (e) { }
             }
             if (realMsg.includes('402') || realMsg.includes('Insufficient') || realMsg.includes('credits')) {
-                Alert.alert(
+                showAlert(
                     'Insufficient Credits',
                     'You don\'t have enough AI credits remaining. Please top up to continue.',
                     [
@@ -255,7 +255,7 @@ export default function AIChatScreen() {
                 );
             } else {
                 console.error('[AI Chat] Error calling sector-ai-chat:', realMsg, '| Full err:', err);
-                Alert.alert("Debug Error", `Edge Function Error: ${realMsg}`);
+                showAlert("Debug Error", `Edge Function Error: ${realMsg}`);
                 setMessages((prev) => [...prev, {
                     id: (Date.now() + 1).toString(),
                     role: 'assistant',

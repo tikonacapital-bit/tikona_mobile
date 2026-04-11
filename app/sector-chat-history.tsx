@@ -69,18 +69,14 @@ export default function SectorChatHistoryScreen() {
             await deleteChatSession(session.id);
         };
 
-        if (Platform.OS === 'web') {
-            if (confirm('Delete this chat session?')) doDelete();
-        } else {
-            Alert.alert(
-                'Delete Chat',
-                'Are you sure you want to delete this conversation?',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: doDelete },
-                ]
-            );
-        }
+        showAlert(
+            'Delete Chat',
+            'Are you sure you want to delete this conversation?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: doDelete },
+            ]
+        );
     };
 
     const handleContinue = (session: ChatSession) => {
@@ -98,6 +94,9 @@ export default function SectorChatHistoryScreen() {
     const renderSession = ({ item }: { item: ChatSession }) => {
         const preview = getPreview(item);
         const msgCount = item.message_count || (item.messages?.length || 0);
+
+        const totalTokens = (item.messages || []).reduce((acc, msg) => acc + (msg.tokens_used || 0), 0);
+        const creditsUsed = Math.round(totalTokens / 502);
 
         return (
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
@@ -123,6 +122,17 @@ export default function SectorChatHistoryScreen() {
                                 <Text style={[styles.metaText, { color: c.textTertiary }]}>
                                     {msgCount} messages
                                 </Text>
+                                {creditsUsed > 0 && (
+                                    <>
+                                        <View style={[styles.dot, { backgroundColor: c.textTertiary }]} />
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: isDark ? '#1e293b' : '#f1f5f9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                                            <Ionicons name="flash" size={9} color={isDark ? '#94a3b8' : '#64748b'} />
+                                            <Text style={{ fontSize: 10, fontWeight: '600', color: isDark ? '#94a3b8' : '#64748b' }}>
+                                                {creditsUsed} {creditsUsed === 1 ? 'credit' : 'credits'}
+                                            </Text>
+                                        </View>
+                                    </>
+                                )}
                             </View>
                         </View>
                     </View>

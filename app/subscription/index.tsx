@@ -97,7 +97,7 @@ export default function SubscriptionScreen() {
         if (hasInitiatedPaymentRef.current && newPlan && newPlan !== prevPlan) {
             hasInitiatedPaymentRef.current = false;
             const planName = PLANS[newPlan as PlanKey]?.name || newPlan;
-            Alert.alert('🎉 Payment Successful!',
+            showAlert('🎉 Payment Successful!',
                 `You're now subscribed to ${planName}. Enjoy premium research access!`,
                 [{ text: 'Awesome!', onPress: () => router.replace('/(tabs)') }]);
         }
@@ -106,7 +106,7 @@ export default function SubscriptionScreen() {
     const handleSelectPlan = async (planKey: PlanKey) => {
         if (selectingPlan || isRefreshing) return;
         const url = PLANS[planKey].tradeboxUrl;
-        if (!url) { Alert.alert('Coming Soon', 'This plan is coming soon. Stay tuned!'); return; }
+        if (!url) { showAlert('Coming Soon', 'This plan is coming soon. Stay tuned!'); return; }
         if (userId) {
             try {
                 const token = await getToken({ template: 'supabase' });
@@ -123,7 +123,7 @@ export default function SubscriptionScreen() {
         } catch {
             isRedirectingRef.current = false;
             hasInitiatedPaymentRef.current = false;
-            Alert.alert('Error', 'Could not open the secure payment browser. Please try again.');
+            showAlert('Error', 'Could not open the secure payment browser. Please try again.');
         } finally { setSelectingPlan(null); }
     };
 

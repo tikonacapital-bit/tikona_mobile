@@ -158,7 +158,22 @@ export default function SettingsScreen() {
     const handleDeleteAccount = () => {
         showAlert(
             'Delete Account',
-            'This will permanently delete your account and all associated data. This action cannot be undone.',
+            (
+                <View style={{ width: '100%', alignItems: 'center' }}>
+                    <Text style={{ color: c.textSecondary, fontSize: 13, lineHeight: 20, textAlign: 'center', marginBottom: 16 }}>
+                        Your account will be deactivated and marketing data <Text style={{ color: c.danger, fontWeight: 'bold' }}>purged</Text>.
+                    </Text>
+                    <View style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: c.border, width: '100%' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                            <Ionicons name="shield-checkmark" size={16} color={isDark ? '#00D1FF' : Colors.brand.primary} />
+                            <Text style={{ color: c.text, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>SEBI VAULT RETENTION</Text>
+                        </View>
+                        <Text style={{ color: c.textSecondary, fontSize: 13, lineHeight: 18 }}>
+                            By law, we are required to securely retain your <Text style={{ color: c.text, fontWeight: '700' }}>Financial & KYC Records</Text> in cold storage for <Text style={{ color: Colors.brand.primary, fontWeight: '700' }}>5 Years</Text>. It will not be used for any other purpose.
+                        </Text>
+                    </View>
+                </View>
+            ),
             [
                 { text: 'Cancel', style: 'cancel' },
                 {

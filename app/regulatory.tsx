@@ -4,11 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import type { ThemeMode } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Card, ResponsiveScrollView } from '@/components/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function LinkRow({ icon, label, onPress, theme }: { icon: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, theme: any }) {
+function LinkRow({ icon, label, onPress, theme }: { icon: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, theme: ThemeMode }) {
     const c = Colors[theme];
     return (
         <TouchableOpacity style={[styles.row, { borderBottomColor: c.borderLight }]} onPress={onPress} activeOpacity={0.6}>

@@ -69,16 +69,16 @@ export default function RefundScreen() {
         if (!userId || !subscription) return;
         const trimmedUpi = upiId.trim();
         if (!trimmedUpi) {
-            Alert.alert('Required Field', 'Please enter your UPI ID so we can process your refund.');
+            showAlert('Required Field', 'Please enter your UPI ID so we can process your refund.');
             return;
         }
         // Basic UPI format: something@something (e.g. 9876543210@ybl, name@okaxis)
         if (!/^[a-zA-Z0-9.\-_+]+@[a-zA-Z0-9]+$/.test(trimmedUpi)) {
-            Alert.alert('Invalid UPI ID', 'Please enter a valid UPI ID (e.g. 9876543210@ybl or name@okaxis).');
+            showAlert('Invalid UPI ID', 'Please enter a valid UPI ID (e.g. 9876543210@ybl or name@okaxis).');
             return;
         }
 
-        Alert.alert(
+        showAlert(
             'Confirm Refund Request',
             `Are you sure you want to request a refund of ${formatINR(breakdown?.refundAmount || 0)}? This will be reviewed by our team.`,
             [
@@ -100,16 +100,16 @@ export default function RefundScreen() {
                             });
 
                             if (result.success) {
-                                Alert.alert(
+                                showAlert(
                                     '✅ Request Submitted',
                                     'Your refund request has been submitted. Our team will review it within 2-3 business days.',
                                     [{ text: 'OK', onPress: () => loadData() }]
                                 );
                             } else {
-                                Alert.alert('Error', result.error || 'Something went wrong. Please try again.');
+                                showAlert('Error', result.error || 'Something went wrong. Please try again.');
                             }
                         } catch (e: any) {
-                            Alert.alert('Error', e.message || 'Something went wrong.');
+                            showAlert('Error', e.message || 'Something went wrong.');
                         } finally {
                             setSubmitting(false);
                         }

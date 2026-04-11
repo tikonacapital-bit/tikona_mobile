@@ -403,7 +403,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
     const balance = wallet ? wallet.credits_balance : 0;
     if (balance < 100) {
-      Alert.alert(
+      showAlert(
         'Insufficient Credits',
         'You don\'t have enough AI credits remaining. Please top up to continue.'
       );
@@ -562,7 +562,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       }
     } catch (err: any) {
       if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
-          Alert.alert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+          showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
           ]);
@@ -583,7 +583,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
     const balance = wallet ? wallet.credits_balance : 0;
     if (balance < 100) {
-      Alert.alert(
+      showAlert(
         'Insufficient Credits',
         'You don\'t have enough AI credits remaining. Please top up to continue.'
       );
@@ -655,7 +655,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       }
     } catch (err: any) {
       if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
-          Alert.alert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+          showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
           ]);

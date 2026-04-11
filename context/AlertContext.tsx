@@ -4,7 +4,7 @@ import CustomAlert, { AlertVariant, AlertButton } from '@/components/CustomAlert
 /* ─── Types ─── */
 interface AlertConfig {
     title: string;
-    message?: string;
+    message?: string | React.ReactNode;
     variant?: AlertVariant;
     buttons?: AlertButton[];
     autoDismissMs?: number;
@@ -21,7 +21,7 @@ interface AlertContextType {
      */
     showAlert: (
         titleOrConfig: string | AlertConfig,
-        message?: string,
+        message?: string | React.ReactNode,
         buttons?: AlertButton[],
     ) => void;
 }
@@ -39,7 +39,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     const showAlert = useCallback(
         (
             titleOrConfig: string | AlertConfig,
-            message?: string,
+            message?: string | React.ReactNode,
             buttons?: AlertButton[],
         ) => {
             if (typeof titleOrConfig === 'string') {
@@ -47,7 +47,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
                     title: titleOrConfig,
                     message,
                     buttons,
-                    variant: inferVariant(titleOrConfig, message, buttons),
+                    variant: inferVariant(titleOrConfig, typeof message === 'string' ? message : undefined, buttons),
                 });
             } else {
                 setConfig(titleOrConfig);
@@ -80,7 +80,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 /* ─── Helper: auto-detect variant from title keywords ─── */
 function inferVariant(
     title: string,
-    _message?: string,
+    _message?: string | React.ReactNode,
     buttons?: AlertButton[],
 ): AlertVariant {
     const lower = title.toLowerCase();

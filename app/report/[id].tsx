@@ -266,13 +266,13 @@ export default function ReportDetailScreen() {
         if (report.pdf_file_url) {
             setShowPdf(true);
         } else {
-            Alert.alert('Error', 'No PDF available for this report.');
+            showAlert('Error', 'No PDF available for this report.');
         }
     };
 
     const handlePlayAudio = () => {
         if (!report?.audio_file_url) {
-            Alert.alert('Podcast Unavailable', 'No audio summary was found for this report.');
+            showAlert('Podcast Unavailable', 'No audio summary was found for this report.');
             return;
         }
         if (!secureAudioUrl) {
