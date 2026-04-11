@@ -119,12 +119,23 @@ export default function RegisterScreen() {
                 },
             });
             if (error) throw error;
+            // Supabase returns an empty identities array when the email is already
+            // registered (e.g. via Google) rather than throwing an error.
+            if (data?.user && data.user.identities?.length === 0) {
+                showAlert('Email Already Exists', 'An account with this email already exists. Try signing in with Google or use a different email.');
+                return;
+            }
             if (data?.user && !data.session) {
                 setPendingVerification(true);
             }
             // If session exists, navigation handled by _layout.tsx routing effect
         } catch (err: any) {
-            showAlert('Sign Up Failed', err.message);
+            const msg: string = err.message ?? '';
+            if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+                showAlert('Email Already Exists', 'An account with this email already exists. Try signing in with Google or use a different email.');
+            } else {
+                showAlert('Sign Up Failed', msg);
+            }
         } finally {
             setLoading(false);
         }
@@ -336,7 +347,13 @@ export default function RegisterScreen() {
                         <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }}>Terms of Service</Text>
                     </Link>
                     <Text onPress={() => setAgreeTerms(!agreeTerms)}> and </Text>
-                    <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
+                    <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }} onPress={() => {
+                        if (Platform.OS === 'web') {
+                            window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
+                        } else {
+                            Linking.openURL('https://www.tikonacapital.com/privacy-policy');
+                        }
+                    }}>Privacy Policy</Text>
                 </Text>
             </View>
 

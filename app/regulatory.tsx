@@ -51,7 +51,13 @@ export default function RegulatoryScreen() {
                     <LinkRow theme={theme} icon="open-outline" label="SmartODR" onPress={() => Linking.openURL('https://smartodr.in/login')} />
                     <LinkRow theme={theme} icon="open-outline" label="SEBI Scores Portal" onPress={() => Linking.openURL('https://scores.sebi.gov.in/')} />
                     <LinkRow theme={theme} icon="pie-chart-outline" label="Mutual Fund Disclosure" onPress={() => Linking.openURL('https://cms.tikonacapital.com/uploads/Mutual_Fund_Disclosure_of_Commission_Brokerage_c6f41d16f6.pdf')} />
-                    <LinkRow theme={theme} icon="shield-outline" label="Privacy Policy" onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')} />
+                    <LinkRow theme={theme} icon="shield-outline" label="Privacy Policy" onPress={() => {
+                        if (Platform.OS === 'web') {
+                            window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
+                        } else {
+                            Linking.openURL('https://www.tikonacapital.com/privacy-policy');
+                        }
+                    }} />
                     <View style={{ borderBottomWidth: 0 }}>
                         <LinkRow theme={theme} icon="document-text-outline" label="Terms of Service" onPress={() => router.push('/terms')} />
                     </View>

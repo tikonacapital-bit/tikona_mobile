@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable, Linking, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { router } from 'expo-router';
@@ -156,7 +156,7 @@ export default function SettingsScreen() {
     };
 
     const handleDeleteAccount = () => {
-        Alert.alert(
+        showAlert(
             'Delete Account',
             'This will permanently delete your account and all associated data. This action cannot be undone.',
             [
@@ -165,7 +165,7 @@ export default function SettingsScreen() {
                     text: 'Delete My Account',
                     style: 'destructive',
                     onPress: () => {
-                        Alert.alert(
+                        showAlert(
                             'Are you absolutely sure?',
                             'All your data will be permanently removed and you will be logged out immediately.',
                             [

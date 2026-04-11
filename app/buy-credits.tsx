@@ -2,11 +2,13 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAlert } from '@/context/AlertContext';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
     ActivityIndicator,
+    AppState,
     Linking,
     Platform,
     ScrollView,
@@ -32,39 +34,45 @@ const CREDIT_PLANS = [
         id: 'pack_299',
         title: 'Starter Pack',
         credits: 150000,
-        creditsLabel: '299',
+        creditsLabel: '300',
         price: '₹299',
+        amountPaise: 29900,
         pricePerCredit: '~30 chats',
         popular: false,
         icon: 'flash-outline' as const,
         desc: 'Perfect for occasional research queries.',
         gradient: ['#6366f1', '#8b5cf6'],
+        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e777e2c321d96b8b252c',
     },
     {
         id: 'pack_999',
         title: 'Pro Pack',
         credits: 600000,
-        creditsLabel: '1,099',
+        creditsLabel: '1,100',
         price: '₹999',
+        amountPaise: 99900,
         pricePerCredit: '~110 chats',
         popular: true,
         icon: 'diamond-outline' as const,
         desc: 'Most popular for active investors.',
         gradient: ['#f59e0b', '#ef4444'],
         savings: '10% Extra',
+        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e809e2c321d96b8b25d0',
     },
     {
         id: 'pack_4999',
         title: 'Whale Pack',
         credits: 3750000,
-        creditsLabel: '6,249',
+        creditsLabel: '6,250',
         price: '₹4,999',
+        amountPaise: 499900,
         pricePerCredit: '~625 chats',
         popular: false,
         icon: 'rocket-outline' as const,
         desc: 'Best value for power users.',
         gradient: ['#10b981', '#059669'],
         savings: '25% Extra',
+        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e87be2c321d96b8b267a',
     },
 ];
 
@@ -72,10 +80,70 @@ export default function BuyCreditsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
-    const { userId, wallet, refreshWallet } = useAuth();
+    const { userId, user, wallet, refreshWallet } = useAuth();
     const { showAlert } = useAlert();
+    const userEmail = user?.primaryEmailAddress?.emailAddress || '';
 
     const [isProcessing, setIsProcessing] = React.useState<string | null>(null);
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+    // ── Track payment redirect so we can poll on return ─────────────────
+    const isRedirectingRef = useRef(false);
+    const prevBalanceRef = useRef<number>(wallet?.credits_balance ?? 0);
+    const walletBalanceRef = useRef<number>(wallet?.credits_balance ?? 0);
+
+    // Keep refs in sync — but only update prevBalance when NOT polling
+    useEffect(() => {
+        walletBalanceRef.current = wallet?.credits_balance ?? 0;
+        if (!isRefreshing) {
+            prevBalanceRef.current = wallet?.credits_balance ?? 0;
+        }
+    }, [wallet?.credits_balance, isRefreshing]);
+
+    // ── Poll refreshWallet when user returns from Tradebox ──────────────
+    const handleAppFocus = useCallback(async () => {
+        if (!isRedirectingRef.current) return;
+        isRedirectingRef.current = false;
+        setIsRefreshing(true);
+
+        const balanceBefore = prevBalanceRef.current;
+
+        try {
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, i === 0 ? 2000 : 3000));
+                await refreshWallet();
+                // Check early — no need to keep polling if credits arrived
+                if (walletBalanceRef.current > balanceBefore) break;
+            }
+        } finally {
+            setIsRefreshing(false);
+            // Read from ref (always latest) instead of closure (stale)
+            const newBalance = walletBalanceRef.current;
+            if (newBalance > balanceBefore) {
+                const added = toDisplayCredits(newBalance - balanceBefore);
+                showAlert(
+                    '🎉 Credits Added!',
+                    `${formatDisplayCredits(added)} credits have been added to your account.`,
+                    [{ text: 'Awesome!' }]
+                );
+            }
+        }
+    }, [refreshWallet, showAlert]);
+
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            const onVisChange = () => {
+                if (document.visibilityState === 'visible') handleAppFocus();
+            };
+            document.addEventListener('visibilitychange', onVisChange);
+            return () => document.removeEventListener('visibilitychange', onVisChange);
+        } else {
+            const sub = AppState.addEventListener('change', (s) => {
+                if (s === 'active') handleAppFocus();
+            });
+            return () => sub.remove();
+        }
+    }, [handleAppFocus]);
 
     // ── Handle Purchase ─────────────────────────────────────────────────────────
     const handleBuy = async (plan: typeof CREDIT_PLANS[0]) => {
@@ -88,16 +156,33 @@ export default function BuyCreditsScreen() {
                 return;
             }
 
-            let redirectUrl = '';
-            if (plan.id === 'pack_299') {
-                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e777e2c321d96b8b252c';
-            } else if (plan.id === 'pack_999') {
-                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e809e2c321d96b8b25d0';
-            } else if (plan.id === 'pack_4999') {
-                redirectUrl = 'https://tradeboxlive.com/view/services/69d8e87be2c321d96b8b267a';
+            // ── Store pending purchase so webhook can match this user ────
+            // We store the user's registered email so the webhook can find
+            // them even if they enter a different email on Tradebox.
+            try {
+                await supabase
+                    .from('pending_credit_purchases')
+                    .upsert(
+                        {
+                            user_id: userId,
+                            plan_id: plan.id,
+                            credits: plan.credits,
+                            amount_paise: plan.amountPaise,
+                            email: userEmail,
+                            status: 'pending',
+                        },
+                        { onConflict: 'user_id' }
+                    );
+            } catch (e) {
+                console.warn('[BuyCredits] Could not store pending purchase:', e);
+                // Non-blocking — proceed to payment even if this fails
             }
 
+            const redirectUrl = plan.tradeboxUrl;
             if (redirectUrl) {
+                // Mark that we're redirecting so polling kicks in on return
+                isRedirectingRef.current = true;
+
                 if (Platform.OS === 'web') {
                     window.open(redirectUrl, '_blank', 'noopener,noreferrer');
                 } else {
@@ -126,7 +211,9 @@ export default function BuyCreditsScreen() {
                     <Ionicons name="chevron-back" size={24} color={c.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: c.text }]}>Buy AI Credits</Text>
-                <View style={{ width: 40 }} />
+                <View style={{ width: 40 }}>
+                    {isRefreshing && <ActivityIndicator size="small" color={Colors.brand.primary} />}
+                </View>
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -144,6 +231,16 @@ export default function BuyCreditsScreen() {
                     </Text>
                     <Text style={[styles.balanceUnit, { color: c.textTertiary }]}>AI Credits</Text>
                 </View>
+
+                {/* ── Syncing indicator ──────────────────────────────────── */}
+                {isRefreshing && (
+                    <View style={[styles.pollingBadge, { backgroundColor: isDark ? '#1e3a5f' : '#dbeafe' }]}>
+                        <ActivityIndicator size="small" color={Colors.brand.primary} />
+                        <Text style={[styles.pollingText, { color: isDark ? '#93c5fd' : '#1d4ed8' }]}>
+                            Checking for payment… this may take a moment
+                        </Text>
+                    </View>
+                )}
 
                 {/* ── Plans ─────────────────────────────────────────────── */}
                 <Text style={[styles.sectionTitle, { color: c.text }]}>Top Up Your Credits</Text>
@@ -170,11 +267,7 @@ export default function BuyCreditsScreen() {
                                     </View>
                                 )}
                                 {plan.savings && (
-                                    <View style={[
-                                        styles.savingsBadge,
-                                        { backgroundColor: '#10b981' },
-                                        plan.popular ? { right: 'auto', left: 20 } : {}
-                                    ]}>
+                                    <View style={[styles.savingsBadge, { backgroundColor: '#10b981' }]}>
                                         <Text style={styles.savingsText}>{plan.savings}</Text>
                                     </View>
                                 )}
@@ -351,12 +444,13 @@ const styles = StyleSheet.create({
     pollingBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: BorderRadius.full,
+        gap: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: BorderRadius.lg,
+        marginBottom: Spacing.lg,
     },
-    pollingText: { fontSize: 11, fontWeight: '600' },
+    pollingText: { fontSize: 12, fontWeight: '600', flex: 1 },
 
     // Section
     sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', marginBottom: Spacing.lg },
@@ -381,7 +475,7 @@ const styles = StyleSheet.create({
     savingsBadge: {
         position: 'absolute',
         top: -10,
-        right: 20,
+        left: 20,
         paddingHorizontal: 10,
         paddingVertical: 3,
         borderRadius: BorderRadius.full,

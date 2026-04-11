@@ -337,7 +337,13 @@ export default function LoginScreen() {
                                     <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }}>Terms of Service</Text>
                                 </Link>
                                 {' '}and{' '}
-                                <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
+                                <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => {
+                                if (Platform.OS === 'web') {
+                                    window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
+                                } else {
+                                    Linking.openURL('https://www.tikonacapital.com/privacy-policy');
+                                }
+                            }}>Privacy Policy</Text>
                             </Text>
                         </View>
 
@@ -385,7 +391,13 @@ export default function LoginScreen() {
                         <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }}>Terms of Service</Text>
                     </Link>
                     {' '}and{' '}
-                    <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => Linking.openURL('https://www.tikonacapital.com/privacy-policy')}>Privacy Policy</Text>
+                    <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => {
+                                if (Platform.OS === 'web') {
+                                    window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
+                                } else {
+                                    Linking.openURL('https://www.tikonacapital.com/privacy-policy');
+                                }
+                            }}>Privacy Policy</Text>
                 </Text>
             </ScrollView>
         </KeyboardAvoidingView>
