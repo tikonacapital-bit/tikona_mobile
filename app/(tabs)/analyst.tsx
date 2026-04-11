@@ -20,18 +20,6 @@ export default function AIAnalystScreen() {
     const { showAlert } = useAlert();
 
     const handleSectorClick = (sector: string) => {
-        if (kyc?.status !== 'approved') {
-            showAlert(
-                'Action Required',
-                'Please complete your KYC verification to access AI Analyst features.',
-                [
-                    { text: 'Not Now', style: 'cancel' },
-                    { text: 'Complete KYC', onPress: () => router.push('/(kyc)' as any) }
-                ]
-            );
-            return;
-        }
-
         const balance = wallet ? wallet.credits_balance : 0;
         
         if (balance < 100) {

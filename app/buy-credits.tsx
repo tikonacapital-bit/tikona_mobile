@@ -1,7 +1,7 @@
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useAlert } from '@/context/AlertContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -382,7 +382,7 @@ export default function BuyCreditsScreen() {
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
                             In case of emergency, contact support at{' '}
-                            <Text 
+                            <Text
                                 style={{ fontWeight: '700', color: Colors.brand.primary, textDecorationLine: 'underline' }}
                                 onPress={() => Linking.openURL('mailto:contact@tikonacapital.com')}
                             >

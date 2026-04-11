@@ -383,8 +383,8 @@ Deno.serve(async (req) => {
 
     const instructions = playbook?.ai_writing_instructions
       ? (typeof playbook.ai_writing_instructions === 'string'
-          ? playbook.ai_writing_instructions
-          : JSON.stringify(playbook.ai_writing_instructions))
+        ? playbook.ai_writing_instructions
+        : JSON.stringify(playbook.ai_writing_instructions))
       : "";
 
     const { content: reply, tokens_used } = await chatCompletion(sector, message, instructions, history);
