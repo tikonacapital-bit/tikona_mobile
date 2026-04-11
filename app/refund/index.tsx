@@ -1,7 +1,8 @@
+import { useAlert } from '@/context/AlertContext';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    Platform, TextInput, ActivityIndicator, Alert,
+    Platform, TextInput, ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, Spacing, BorderRadius, FontSize } from '@/constants/theme';
@@ -26,6 +27,7 @@ type PlanKey = keyof typeof PLANS;
 export default function RefundScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
+    const { showAlert } = useAlert();
     const { userId, subscription } = useAuth();
 
     const [breakdown, setBreakdown] = useState<RefundBreakdown | null>(null);

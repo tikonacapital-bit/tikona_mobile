@@ -4,10 +4,10 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { deleteChatSession, fetchChatSessions, type ChatSession } from '@/lib/chatLogger';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useAlert } from '@/context/AlertContext';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Platform,
     StyleSheet,
@@ -45,6 +45,7 @@ export default function SectorChatHistoryScreen() {
     const isDark = theme === 'dark';
     const { userId } = useAuth();
 
+    const { showAlert } = useAlert();
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(true);
 

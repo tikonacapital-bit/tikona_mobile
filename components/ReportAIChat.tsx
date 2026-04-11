@@ -32,10 +32,10 @@ import { useRouter } from 'expo-router';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAlert } from '@/context/AlertContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   AppState,
   FlatList,
@@ -207,6 +207,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const router = useRouter();
   const theme = useColorScheme();
   const c = Colors[theme];
+  const { showAlert } = useAlert();
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
   const { userId, wallet, refreshWallet, getToken } = useAuth();

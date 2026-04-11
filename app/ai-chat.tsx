@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useAlert } from '@/context/AlertContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     Animated,
     FlatList,
     Keyboard,
@@ -95,6 +95,7 @@ export default function AIChatScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
+    const { showAlert } = useAlert();
     const insets = useSafeAreaInsets();
     const { userId, wallet, refreshWallet } = useAuth();
     const sessionIdRef = useRef<string | null>(null);

@@ -13,9 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useAlert } from '@/context/AlertContext';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Linking, Modal, Platform,
+    ActivityIndicator, Linking, Modal, Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -51,6 +52,7 @@ export default function ReportDetailScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
+    const { showAlert } = useAlert();
     const { subscription, user, getToken } = useAuth();
     const insets = useSafeAreaInsets();
 

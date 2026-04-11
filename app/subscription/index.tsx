@@ -9,11 +9,12 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { router } from 'expo-router';
+import { useAlert } from '@/context/AlertContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import {
     ActivityIndicator,
-    Alert, AppState, Animated,
+    AppState, Animated,
     Platform,
     StyleSheet,
     Text,
@@ -41,6 +42,7 @@ export default function SubscriptionScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const isDark = theme === 'dark';
+    const { showAlert } = useAlert();
     const { subscription, refreshUserData, userId } = useAuth();
     const { getToken } = useClerkAuth();
     const { isWideWeb } = useResponsiveLayout();
