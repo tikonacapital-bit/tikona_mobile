@@ -74,7 +74,6 @@ function formatDate(dateStr: string) {
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ─── Animated Quick Action Tile ───────────────────────────────────────────────
 function ActionTile({
     item,
     isDark,
@@ -88,7 +87,7 @@ function ActionTile({
 
     const handlePressIn = () => {
         Animated.spring(scale, {
-            toValue: 0.93,
+            toValue: 0.92,
             useNativeDriver: true,
             speed: 50,
             bounciness: 4,
@@ -112,31 +111,33 @@ function ActionTile({
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     router.push(item.route);
                 }}
-                activeOpacity={1}
-                style={styles.actionTile}
+                activeOpacity={0.8}
+                style={[
+                    styles.actionTileModern,
+                    {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
+                        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        shadowColor: isDark ? '#000' : '#8A9BBD',
+                    }
+                ]}
             >
-                <LinearGradient
-                    colors={isDark ? item.gradientDark : item.gradientLight}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                        styles.actionTileGradient,
-                        {
-                            shadowColor: item.glow,
-                            shadowOffset: { width: 0, height: 6 },
-                            shadowOpacity: isDark ? 0.5 : 0.3,
-                            shadowRadius: 10,
-                            elevation: 8,
-                        },
-                    ]}
-                >
-                    <View style={styles.actionIconWrapper}>
-                        <Ionicons name={item.icon} size={isNarrow ? 20 : 22} color={item.iconColor} />
-                    </View>
-                    <Text style={[styles.actionLabel, isNarrow && { fontSize: 10 }]} numberOfLines={1}>
-                        {item.label}
-                    </Text>
-                </LinearGradient>
+                <View style={styles.actionIconContainer}>
+                    <LinearGradient
+                        colors={isDark ? ['rgba(31,70,144,0.4)', 'rgba(31,70,144,0.1)'] : ['#F0F4FA', '#E1E9F6']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.actionIconPulse}
+                    >
+                        <Ionicons name={item.icon} size={isNarrow ? 22 : 24} color={isDark ? '#93c5fd' : '#1F4690'} />
+                    </LinearGradient>
+                </View>
+                <Text style={[
+                    styles.actionLabelModern,
+                    isNarrow && { fontSize: 10 },
+                    { color: isDark ? '#F1F5F9' : '#0F172A' }
+                ]} numberOfLines={1}>
+                    {item.label}
+                </Text>
             </TouchableOpacity>
         </Animated.View>
     );
@@ -322,7 +323,7 @@ export default function HomeScreen() {
     })();
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
+        <View style={[styles.container, { backgroundColor: c.background }]}>
             <ResponsiveScrollView
                 style={{ flex: 1 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.brand.secondary} />}
@@ -616,7 +617,7 @@ export default function HomeScreen() {
                     <View style={{ height: 40 }} />
                 </View>
             </ResponsiveScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -865,34 +866,40 @@ const styles = StyleSheet.create({
     // ── Quick Actions ──
     actionRow: {
         flexDirection: 'row',
-        gap: 10,
+        gap: 12,
     },
-    actionTile: {
+    actionTileModern: {
         flex: 1,
-    },
-    actionTileGradient: {
-        borderRadius: 20,
+        borderRadius: 24,
         paddingVertical: 18,
-        paddingHorizontal: 6,
+        paddingHorizontal: 4,
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
+        borderWidth: 1,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
     },
-    actionIconWrapper: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+    actionIconContainer: {
+        shadowColor: '#1F4690',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    actionIconPulse: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.25)',
     },
-    actionLabel: {
-        fontSize: 11,
-        fontWeight: '800',
-        color: '#fff',
-        textAlign: 'center',
+    actionLabelModern: {
+        fontSize: 12,
+        fontWeight: '700',
         letterSpacing: 0.2,
+        textAlign: 'center',
     },
 
     // ── Report Cards ──
