@@ -72,9 +72,9 @@ function RootLayoutInner() {
             SplashScreen.hideAsync().catch(() => {});
         }
 
-        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms';
+        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms' || segments[0] === 'delete-account';
 
-        if (isSignedIn && inAuthGroup && segments[0] !== 'terms') {
+        if (isSignedIn && inAuthGroup && segments[0] !== 'terms' && segments[0] !== 'delete-account') {
             // Redirect to dashboard if logged in but trying to access an intro or auth screen
             router.replace('/(tabs)');
             
@@ -111,6 +111,7 @@ function RootLayoutInner() {
                         <Stack.Screen name="terms" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
                         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
                         <Stack.Screen name="oauth-native-callback" options={{ headerShown: false, animation: 'none' }} />
+                        <Stack.Screen name="delete-account" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
                     </Stack>
                     {/* Global persistent audio mini-player */}
                     <AudioPlayerBar />
