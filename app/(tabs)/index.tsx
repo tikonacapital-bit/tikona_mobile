@@ -920,6 +920,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 2,
+        borderRadius: 24,
     },
     actionIconPulse: {
         width: 48,
