@@ -68,6 +68,60 @@ serve(async (req: Request) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // ── 2a. Archive All Application Data to SEBI Vault ─────────────
+    console.log(`[Delete Account] Archiving all comprehensive data for SEBI/DPDP mandates for user: ${userId}`);
+    const [
+      { data: kyc }, { data: wal }, { data: purchases }, { data: payments }, { data: hist }, { data: subs }, { data: refunds },
+      { data: chats }, { data: reports }, { data: portfolios }, { data: pushTokens }, { data: webhooks }, { data: profileObj }
+    ] = await Promise.all([
+      adminClient.from("kyc").select("*").eq("user_id", userId).maybeSingle(),
+      adminClient.from("ai_wallets").select("*").eq("user_id", userId).maybeSingle(),
+      adminClient.from("pending_credit_purchases").select("*").eq("user_id", userId),
+      adminClient.from("pending_payments").select("*").eq("user_id", userId),
+      adminClient.from("ai_credit_history").select("*").eq("user_id", userId),
+      adminClient.from("subscriptions").select("*").eq("user_id", userId),
+      adminClient.from("refund_requests").select("*").eq("user_id", userId),
+      adminClient.from("ai_chat_sessions").select("*").eq("user_id", userId),
+      adminClient.from("user_report_assignments").select("*").eq("email", user.email || ""),
+      adminClient.from("portfolio_holdings").select("*").eq("user_id", userId),
+      adminClient.from("push_tokens").select("*").eq("user_id", userId),
+      adminClient.from("webhook_logs").select("*").eq("user_id", userId),
+      adminClient.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
+
+    const financialData = {
+      wallet: wal,
+      pending_credit_purchases: purchases,
+      pending_payments: payments,
+      ai_credit_history: hist,
+      subscriptions: subs,
+      refund_requests: refunds,
+    };
+
+    const appData = {
+      ai_chat_sessions: chats,
+      user_report_assignments: reports,
+      portfolio_holdings: portfolios,
+      push_tokens: pushTokens,
+      webhook_logs: webhooks,
+      profiles: profileObj,
+    };
+
+    const { error: vaultError } = await adminClient.from("sebi_compliance_vault").insert({
+      original_user_id: userId,
+      email: user.email,
+      kyc_data: kyc || null,
+      financial_data: financialData,
+      app_data: appData
+    });
+    
+    if (vaultError) {
+      console.warn(`[Delete Account] Failed to archive data in SEBI vault:`, vaultError);
+    } else {
+      console.log(`[Delete Account] ✅ Financial & KYC data securely archived in cold storage (5-year retention)`);
+    }
+
+    // ── 2b. Delete from all user-related tables ─────────────────────────
     // Delete from all user-related tables
     // Order matters: delete dependent records first
     const deletionTasks = [

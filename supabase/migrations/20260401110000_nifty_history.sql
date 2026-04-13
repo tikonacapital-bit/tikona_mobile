@@ -9,6 +9,8 @@ create table if not exists nifty_history (
 -- Allow anyone to read (anon key) — these are public market prices
 alter table nifty_history enable row level security;
 
+drop policy if exists "public read nifty_history" on nifty_history;
+
 create policy "public read nifty_history"
     on nifty_history for select
     using (true);

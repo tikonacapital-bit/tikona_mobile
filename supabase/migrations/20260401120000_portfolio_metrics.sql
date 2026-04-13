@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS public.portfolio_metrics (
 -- RLS: users can only read their own portfolio's metrics
 ALTER TABLE public.portfolio_metrics ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users read own metrics" ON public.portfolio_metrics;
+
 CREATE POLICY "Users read own metrics"
     ON public.portfolio_metrics FOR SELECT
     USING (

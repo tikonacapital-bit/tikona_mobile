@@ -84,26 +84,59 @@ function ActionTile({
     isNarrow: boolean;
 }) {
     const scale = useRef(new Animated.Value(1)).current;
+    const glow = useRef(new Animated.Value(0)).current;
 
     const handlePressIn = () => {
-        Animated.spring(scale, {
-            toValue: 0.92,
-            useNativeDriver: true,
-            speed: 50,
-            bounciness: 4,
-        }).start();
+        Animated.parallel([
+            Animated.spring(scale, {
+                toValue: 0.92,
+                useNativeDriver: true,
+                speed: 50,
+                bounciness: 4,
+            }),
+            Animated.timing(glow, {
+                toValue: 1,
+                duration: 100,
+                useNativeDriver: true,
+            })
+        ]).start();
     };
     const handlePressOut = () => {
-        Animated.spring(scale, {
-            toValue: 1,
-            useNativeDriver: true,
-            speed: 20,
-            bounciness: 8,
-        }).start();
+        Animated.parallel([
+            Animated.spring(scale, {
+                toValue: 1,
+                useNativeDriver: true,
+                speed: 20,
+                bounciness: 8,
+            }),
+            Animated.timing(glow, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            })
+        ]).start();
     };
 
     return (
-        <Animated.View style={[{ transform: [{ scale }], flex: 1 }]}>
+        <Animated.View style={[{ transform: [{ scale }], flex: 1, position: 'relative' }]}>
+            {/* Animated Glow Backdrop */}
+            <Animated.View
+                pointerEvents="none"
+                style={[
+                    StyleSheet.absoluteFillObject,
+                    {
+                        backgroundColor: '#1F4690',
+                        borderRadius: 24,
+                        opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }),
+                        shadowColor: '#1F4690',
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 1,
+                        shadowRadius: 20,
+                        elevation: 10,
+                        transform: [{ scale: 1.05 }],
+                    }
+                ]}
+            />
             <TouchableOpacity
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
@@ -111,11 +144,11 @@ function ActionTile({
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     router.push(item.route);
                 }}
-                activeOpacity={0.8}
+                activeOpacity={0.9}
                 style={[
                     styles.actionTileModern,
                     {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#FFFFFF',
+                        backgroundColor: isDark ? 'rgba(30,41,59,0.95)' : '#FFFFFF',
                         borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
                         shadowColor: isDark ? '#000' : '#8A9BBD',
                     }
