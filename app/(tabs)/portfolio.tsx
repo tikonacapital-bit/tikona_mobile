@@ -5,6 +5,7 @@ import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { fetchNiftyClose, fetchNiftyCurrentClose } from '@/lib/niftyBhavcopy';
+import { formatTokensAsCredits } from '@/lib/credits';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import type { EnrichedHolding } from '@/lib/types';
 import { computeXIRR, type Cashflow } from '@/lib/xirr';
@@ -1603,7 +1604,7 @@ export default function PortfolioScreen() {
                                             </View>
                                             {thesisTokensUsed != null && (
                                                 <Text style={{ fontSize: 10, color: Colors.brand.secondary, fontWeight: '600', backgroundColor: Colors.brand.secondary + '15', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 12 }}>
-                                                    -{thesisTokensUsed} credits
+                                                    -{formatTokensAsCredits(thesisTokensUsed)} credits
                                                 </Text>
                                             )}
                                         </View>

@@ -3,7 +3,7 @@
     "name": "Tikona Research",
     "slug": "tikona-mobile",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "tikonamobile",
     "userInterfaceStyle": "automatic",
@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
-      "versionCode": 11,
+      "versionCode": 19,
       "package": "com.kishanyash.tikonamobile",
       "intentFilters": [
         {
@@ -30,17 +30,10 @@
               "scheme": "tikonamobile"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
-      "permissions": [
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "VIBRATE"
-      ],
+      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "VIBRATE"],
       "blockedPermissions": [
         "WRITE_EXTERNAL_STORAGE",
         "READ_EXTERNAL_STORAGE",
@@ -70,9 +63,7 @@
         "expo-build-properties",
         {
           "android": {
-            "extraCMakeArgs": [
-              "-DANDROID_STL=c++_shared"
-            ]
+            "extraCMakeArgs": ["-DANDROID_STL=c++_shared"]
           }
         }
       ],

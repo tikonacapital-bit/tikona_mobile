@@ -18,6 +18,7 @@ import {
   type ChatLogMessage,
   type ChatSession,
 } from '@/lib/chatLogger';
+import { formatTokensAsCredits } from '@/lib/credits';
 import { logger } from '@/lib/logger';
 import {
   buildReportContext,
@@ -211,6 +212,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const isDark = theme === 'dark';
   const flatListRef = useRef<FlatList>(null);
   const { userId, wallet, refreshWallet, getToken } = useAuth();
+  const walletCreditText = formatTokensAsCredits(wallet?.credits_balance ?? 0);
   const insets = useSafeAreaInsets();
   const { width: SW, height: SH } = useWindowDimensions();
 
@@ -894,7 +896,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                   <Text style={[s.msgText, { color: c.text }]}>{item.text}</Text>
                   {item.tokensUsed != null && (
                     <Text style={{ fontSize: 10, color: Colors.brand.secondary, fontWeight: '600', backgroundColor: Colors.brand.secondary + '15', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 12, overflow: 'hidden', alignSelf: 'flex-start', marginTop: 10, marginBottom: item.hasAudio ? 6 : 0 }}>
-                      -{item.tokensUsed} credits
+                      -{formatTokensAsCredits(item.tokensUsed)} credits
                     </Text>
                   )}
                   {item.hasAudio && (
@@ -987,7 +989,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           >
               <Ionicons name="diamond" size={12} color="#FCD34D" />
               <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>
-                  {(() => { const dc = Math.round((wallet?.credits_balance ?? 0) / 502); return dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`; })()}
+                  {walletCreditText}
               </Text>
           </TouchableOpacity>
 

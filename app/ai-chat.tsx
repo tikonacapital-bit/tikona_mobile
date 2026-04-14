@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
 import { appendMessages, createChatSession } from '@/lib/chatLogger';
+import { formatDisplayCredits, toDisplayCredits } from '@/lib/credits';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,13 +24,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// ─── Display conversion: 1 display credit = ₹1 ─────────────────────────────
-// Internally tokens are stored at ~502 tokens per ₹1. We divide raw token
-// balance by this constant so users see a ₹-equivalent number everywhere.
-const TOKENS_PER_CREDIT = 502;
-const toDisplayCredits = (tokens: number) => Math.round(tokens / TOKENS_PER_CREDIT);
-const formatDisplayCredits = (dc: number) =>
-    dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`;
 
 interface Message {
     id: string;

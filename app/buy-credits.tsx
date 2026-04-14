@@ -2,6 +2,7 @@ import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { formatDisplayCredits, toDisplayCredits } from '@/lib/credits';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -19,15 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ─── Display conversion: 1 display credit = ₹1 ─────────────────────────────
-// Internally tokens are stored at ~502 tokens per ₹1. We divide raw token
-// balance by this constant so users see a ₹-equivalent number everywhere.
-const TOKENS_PER_DISPLAY_CREDIT = 502;
-const toDisplayCredits = (tokens: number) => Math.round(tokens / TOKENS_PER_DISPLAY_CREDIT);
-const formatDisplayCredits = (dc: number) =>
-    dc >= 1000000 ? `${(dc / 1000000).toFixed(1)}M` : dc >= 1000 ? `${(dc / 1000).toFixed(1)}K` : `${dc}`;
 
-// ─── Credit Plans ───────────────────────────────────────────────────────────
 // `credits` = actual tokens granted (backend). Labels show ₹-equivalent for users.
 const CREDIT_PLANS = [
     {
@@ -398,7 +391,6 @@ export default function BuyCreditsScreen() {
     );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
