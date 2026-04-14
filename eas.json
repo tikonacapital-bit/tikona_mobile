@@ -14,18 +14,10 @@
       }
     },
     "preview": {
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "@SUPABASE_URL",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@SUPABASE_ANON_KEY"
-      },
       "distribution": "internal",
       "channel": "preview"
     },
     "production": {
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "@SUPABASE_URL",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@SUPABASE_ANON_KEY"
-      },
       "distribution": "store",
       "channel": "production",
       "autoIncrement": true

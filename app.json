@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
-      "versionCode": 19,
+      "versionCode": 22,
       "package": "com.kishanyash.tikonamobile",
       "intentFilters": [
         {
