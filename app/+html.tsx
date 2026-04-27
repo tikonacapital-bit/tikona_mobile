@@ -18,14 +18,26 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#1e3a8a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Tikona" />
-        <link rel="apple-touch-icon" href="/logo192.png" />
+        <meta name="apple-mobile-web-app-title" content="Tikona Research" />
+        <link rel="apple-touch-icon" href="/icon.png" />
 
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
           However, body scrolling is often nice to have for web. If you want to enable it, remove this line.
         */}
         <ScrollViewStyleReset />
+
+        {/* Inject Font for Vector Icons to fix boxes on SSG Web */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @font-face {
+                font-family: 'ionicons';
+                src: url('/fonts/Ionicons.ttf') format('truetype');
+              }
+            `,
+          }}
+        />
 
         {/* Register Service Worker for PWA */}
         <script

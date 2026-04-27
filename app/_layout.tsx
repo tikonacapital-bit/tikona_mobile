@@ -1,4 +1,5 @@
 import AudioPlayerBar from '@/components/AudioPlayerBar';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AlertProvider } from '@/context/AlertContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -14,6 +15,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -134,6 +137,8 @@ function RootLayoutInner() {
                     </Stack>
                     {/* Global persistent audio mini-player */}
                     <AudioPlayerBar />
+                    {/* PWA install banner — web only, auto-hides after user acts */}
+                    <PWAInstallPrompt />
                     <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
                 </View>
             </AlertProvider>
@@ -142,6 +147,10 @@ function RootLayoutInner() {
 }
 
 export default function RootLayout() {
+    const [fontsLoaded, error] = useFonts({
+        ...Ionicons.font,
+    });
+
     const [queryClient] = useState(() => new QueryClient({
         defaultOptions: {
             queries: {
@@ -150,6 +159,12 @@ export default function RootLayout() {
             },
         },
     }));
+
+    // Optionally show a loading screen while fonts are loading
+    // but Expo Router static rendering works best if we don't return null
+    useEffect(() => {
+        if (error) throw error;
+    }, [error]);
 
     return (
         <ErrorBoundary>
