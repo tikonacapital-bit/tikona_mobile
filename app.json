@@ -17,7 +17,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "pan",
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "versionCode": 22,
       "package": "com.kishanyash.tikonamobile",
@@ -44,7 +44,13 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Tikona Research",
+      "shortName": "Tikona",
+      "display": "standalone",
+      "backgroundColor": "#ffffff",
+      "themeColor": "#1e3a8a",
+      "description": "Boutique wealth management and equity research platform."
     },
     "plugins": [
       "expo-router",

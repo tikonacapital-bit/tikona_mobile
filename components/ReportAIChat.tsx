@@ -7,6 +7,7 @@
  */
 
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import {
@@ -29,17 +30,17 @@ import {
 } from '@/lib/sarvamAI';
 import type { ResearchReport } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAlert } from '@/context/AlertContext';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   AppState,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -215,6 +216,8 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   const walletCreditText = formatTokensAsCredits(wallet?.credits_balance ?? 0);
   const insets = useSafeAreaInsets();
   const { width: SW, height: SH } = useWindowDimensions();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const inputRef = useRef<TextInput>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [textInput, setTextInput] = useState('');
@@ -337,6 +340,19 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     );
     anim.start();
     return () => anim.stop();
+  }, []);
+
+  // ── Keyboard listeners (Android fix) ─────────────────────────────────
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
   // Build report context on mount/report change
@@ -564,10 +580,10 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       }
     } catch (err: any) {
       if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
-          showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
-          ]);
+        showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
+        ]);
       } else {
         logger.error('[Recording] Processing error:', err);
         addSystemMessage('Something went wrong processing your voice. Please try again.');
@@ -657,10 +673,10 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
       }
     } catch (err: any) {
       if (err?.message === '402_INSUFFICIENT_CREDITS' || err?.message?.includes('402')) {
-          showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
-          ]);
+        showAlert('Insufficient Credits', 'You need AI Credits to ask questions.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Get Credits', onPress: () => { onClose(); router.push('/buy-credits' as any); } }
+        ]);
       } else {
         logger.error('[Chat] Error:', err);
         if (mountedRef.current) {
@@ -953,7 +969,8 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <KeyboardAvoidingView
         style={[s.container, { backgroundColor: c.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {/* ── Premium Header ─────────────────────────────────────────── */}
         <LinearGradient
@@ -982,15 +999,15 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           </View>
 
           {/* Credits Chip */}
-          <TouchableOpacity 
-              onPress={() => { onClose(); router.push('/buy-credits' as any); }}
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.15)', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.4)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, gap: 4, marginRight: 4 }}
-              activeOpacity={0.8}
+          <TouchableOpacity
+            onPress={() => { onClose(); router.push('/buy-credits' as any); }}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.15)', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.4)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, gap: 4, marginRight: 4 }}
+            activeOpacity={0.8}
           >
-              <Ionicons name="diamond" size={12} color="#FCD34D" />
-              <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>
-                  {walletCreditText}
-              </Text>
+            <Ionicons name="diamond" size={12} color="#FCD34D" />
+            <Text style={{ color: '#FCD34D', fontSize: 12, fontWeight: '800' }}>
+              {walletCreditText}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={loadHistory} style={s.headerBtn} activeOpacity={0.7}>
@@ -1164,6 +1181,8 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           contentContainerStyle={s.chatContainer}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         />
 
         {/* ── Bottom Controls ────────────────────────────────────────── */}
@@ -1171,19 +1190,21 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
           style={[
             s.bottomBar,
             {
-              backgroundColor: c.surface,
-              borderTopColor: c.border,
+              backgroundColor: isDark ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.97)',
+              borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : c.border,
+              paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? 8 : Math.max(insets.bottom, 8)) : Math.max(insets.bottom, 16),
             },
           ]}
         >
           {/* Suggestion Chips — pinned inside bottom bar */}
-          {messages.length <= 1 && !isRecording && !isProcessing && !isSpeaking && (
+          {messages.length <= 1 && !isRecording && !isProcessing && !isSpeaking && keyboardHeight === 0 && (
             <>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={s.chipsScroll}
                 style={s.chipsBreakout}
+                keyboardShouldPersistTaps="always"
               >
                 {SUGGESTIONS.map((chip) => (
                   <TouchableOpacity
@@ -1198,6 +1219,7 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                     onPress={() => {
                       setTextInput(chip);
                       setShowTextInput(true);
+                      setTimeout(() => inputRef.current?.focus(), 100);
                     }}
                     activeOpacity={0.7}
                   >
@@ -1282,12 +1304,16 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
           {/* Input Area */}
           {!isRecording && !isProcessing && !isSpeaking && (
-            <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={s.inputArea}>
               {showTextInput ? (
                 <View style={s.textInputRow}>
                   <TouchableOpacity
-                    onPress={() => setShowTextInput(false)}
-                    style={[s.inputToggle, { backgroundColor: Colors.brand.primary + '10' }]}
+                    onPress={() => { Keyboard.dismiss(); setShowTextInput(false); }}
+                    style={[s.inputToggle, {
+                      backgroundColor: isDark ? Colors.brand.primary + '18' : Colors.brand.primary + '0C',
+                      borderWidth: 1,
+                      borderColor: isDark ? Colors.brand.primary + '30' : Colors.brand.primary + '20',
+                    }]}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="mic" size={20} color={Colors.brand.primary} />
@@ -1296,12 +1322,13 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                     style={[
                       s.textInputWrap,
                       {
-                        backgroundColor: isDark ? c.inputBg : '#F9FAFB',
-                        borderColor: c.inputBorder,
+                        backgroundColor: isDark ? '#1C2230' : '#F8FAFC',
+                        borderColor: textInput.trim() ? Colors.brand.primary + '55' : (isDark ? '#334155' : '#E2E8F0'),
                       },
                     ]}
                   >
                     <TextInput
+                      ref={inputRef}
                       style={[s.textInputField, { color: c.text }]}
                       placeholder="Ask about this report..."
                       placeholderTextColor={c.textTertiary}
@@ -1310,21 +1337,24 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
                       onSubmitEditing={sendTextMessage}
                       returnKeyType="send"
                       multiline={false}
+                      autoFocus
                     />
-                    {textInput.trim().length > 0 && (
-                      <TouchableOpacity
-                        onPress={sendTextMessage}
-                        activeOpacity={0.8}
-                      >
-                        <LinearGradient
-                          colors={[Colors.brand.primary, Colors.brand.secondary]}
-                          style={s.sendBtn}
-                        >
-                          <Ionicons name="send" size={14} color="#fff" />
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
                   </View>
+                  <TouchableOpacity
+                    onPress={sendTextMessage}
+                    disabled={!textInput.trim()}
+                    activeOpacity={0.8}
+                  >
+                    <LinearGradient
+                      colors={textInput.trim()
+                        ? [Colors.brand.primary, Colors.brand.secondary]
+                        : [isDark ? '#1F2937' : '#E5E7EB', isDark ? '#1F2937' : '#E5E7EB']
+                      }
+                      style={s.sendBtn}
+                    >
+                      <Ionicons name="send" size={16} color={textInput.trim() ? '#fff' : c.textTertiary} />
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
               ) : (
                 <View style={s.voiceInputArea}>
@@ -1598,9 +1628,14 @@ const s = StyleSheet.create({
 
   // ── Bottom bar ────────────────────────────────────────────────────────
   bottomBar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     paddingTop: 0,
     paddingHorizontal: Spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   // ── Voice input ───────────────────────────────────────────────────────
@@ -1676,12 +1711,12 @@ const s = StyleSheet.create({
   textInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   inputToggle: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1689,20 +1724,21 @@ const s = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 44,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    height: 48,
   },
   textInputField: {
     flex: 1,
     fontSize: FontSize.base,
     letterSpacing: -0.1,
+    paddingVertical: Platform.OS === 'android' ? 8 : 0,
   },
   sendBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },

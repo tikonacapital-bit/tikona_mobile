@@ -338,11 +338,7 @@ export default function LoginScreen() {
                                 </Link>
                                 {' '}and{' '}
                                 <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => {
-                                if (Platform.OS === 'web') {
-                                    window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
-                                } else {
-                                    Linking.openURL('https://www.tikonacapital.com/privacy-policy');
-                                }
+                                router.push('/privacy-policy');
                             }}>Privacy Policy</Text>
                             </Text>
                         </View>
@@ -392,11 +388,7 @@ export default function LoginScreen() {
                     </Link>
                     {' '}and{' '}
                     <Text style={{ color: Colors.brand.secondary, textDecorationLine: 'underline' }} onPress={() => {
-                                if (Platform.OS === 'web') {
-                                    window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
-                                } else {
-                                    Linking.openURL('https://www.tikonacapital.com/privacy-policy');
-                                }
+                                router.push('/privacy-policy');
                             }}>Privacy Policy</Text>
                 </Text>
             </ScrollView>

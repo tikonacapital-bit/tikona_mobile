@@ -453,7 +453,7 @@ export default function HomeScreen() {
                                 </View>
                             </TouchableOpacity>
 
-                            <View style={styles.statDivider} />
+                            {Platform.OS === 'web' && <View style={styles.statDivider} />}
 
                             {/* Profile Stat */}
                             <TouchableOpacity
@@ -472,7 +472,7 @@ export default function HomeScreen() {
                                 </View>
                             </TouchableOpacity>
 
-                            <View style={styles.statDivider} />
+                            {Platform.OS === 'web' && <View style={styles.statDivider} />}
 
                             {/* Credits Stat */}
                             <TouchableOpacity

@@ -6,6 +6,7 @@ import { MediaPlayerProvider } from '@/context/MediaPlayerContext';
 import { ThemeProvider, useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Stack, router, useSegments } from 'expo-router';
@@ -44,11 +45,14 @@ if (Constants.appOwnership !== 'expo') {
  */
 const SPLASH_TIMEOUT_MS = 8000;
 
+const DISCLAIMER_KEY = 'tikona_disclaimer_accepted';
+
 function RootLayoutInner() {
     const colorScheme = useColorScheme();
     const { isLoaded, isSignedIn, isLoadingData, subscription, user } = useAuth();
     const segments = useSegments();
     const splashHidden = useRef(false);
+    const disclaimerChecked = useRef(false);
 
     // Safety net: force-hide splash after timeout even if Auth never loads
     useEffect(() => {
@@ -72,23 +76,36 @@ function RootLayoutInner() {
             SplashScreen.hideAsync().catch(() => {});
         }
 
-        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms' || segments[0] === 'delete-account';
+        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms' || segments[0] === 'delete-account' || segments[0] === 'privacy-policy';
 
-        if (isSignedIn && inAuthGroup && segments[0] !== 'terms' && segments[0] !== 'delete-account') {
-            // Redirect to dashboard if logged in but trying to access an intro or auth screen
-            router.replace('/(tabs)');
-            
-            // Only nudge brand new users (created within the last 5 minutes)
-            // Guard with !isLoadingData to avoid false redirect when subscription hasn't loaded yet
-            const isNewUser = user?.createdAt ? (Date.now() - new Date(user.createdAt).getTime() < 5 * 60 * 1000) : false;
-            
-            if (isNewUser && !isLoadingData && !subscription?.is_active) {
-                setTimeout(() => {
-                    router.push('/subscription');
-                }, 100);
+        if (isSignedIn && inAuthGroup && segments[0] !== 'terms' && segments[0] !== 'delete-account' && segments[0] !== 'privacy-policy') {
+            // Check if user has accepted the investment disclaimer
+            if (!disclaimerChecked.current) {
+                disclaimerChecked.current = true;
+                AsyncStorage.getItem(DISCLAIMER_KEY).then((val) => {
+                    if (!val) {
+                        router.replace('/investment-disclaimer');
+                    } else {
+                        router.replace('/(tabs)');
+                        // Only nudge brand new users (created within the last 5 minutes)
+                        const isNewUser = user?.createdAt ? (Date.now() - new Date(user.createdAt).getTime() < 5 * 60 * 1000) : false;
+                        if (isNewUser && !isLoadingData && !subscription?.is_active) {
+                            setTimeout(() => router.push('/subscription'), 100);
+                        }
+                    }
+                }).catch(() => {
+                    router.replace('/(tabs)');
+                });
+            } else {
+                router.replace('/(tabs)');
+                const isNewUser = user?.createdAt ? (Date.now() - new Date(user.createdAt).getTime() < 5 * 60 * 1000) : false;
+                if (isNewUser && !isLoadingData && !subscription?.is_active) {
+                    setTimeout(() => router.push('/subscription'), 100);
+                }
             }
         } else if (!isSignedIn && !inAuthGroup && segments[0] !== undefined) {
             // Redirect to login if not logged in and trying to access protected screens
+            disclaimerChecked.current = false; // Reset on sign out
             router.replace('/(auth)/login');
         }
     }, [isSignedIn, isLoaded, segments, isLoadingData, subscription, user]);
@@ -112,6 +129,8 @@ function RootLayoutInner() {
                         <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
                         <Stack.Screen name="oauth-native-callback" options={{ headerShown: false, animation: 'none' }} />
                         <Stack.Screen name="delete-account" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="privacy-policy" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="investment-disclaimer" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
                     </Stack>
                     {/* Global persistent audio mini-player */}
                     <AudioPlayerBar />

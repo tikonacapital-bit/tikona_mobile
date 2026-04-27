@@ -1,4 +1,5 @@
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { SECTOR_ANALYSTS } from '@/lib/analysts';
@@ -8,13 +9,13 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAlert } from '@/context/AlertContext';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
     FlatList,
     Keyboard,
-    KeyboardAvoidingView, Platform,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -108,7 +109,9 @@ export default function AIChatScreen() {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const listRef = useRef<FlatList>(null);
+    const inputRef = useRef<TextInput>(null);
     const hasResumed = useRef(false);
 
     // Resume a previous session if params are provided
@@ -140,6 +143,22 @@ export default function AIChatScreen() {
             }
         }
     }, [resumeSessionId, resumeMessages]);
+
+    // ── Keyboard listeners (Android fix) ─────────────────────────────────
+    useEffect(() => {
+        const showSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                setKeyboardHeight(e.endCoordinates.height);
+                setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+            }
+        );
+        const hideSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => setKeyboardHeight(0)
+        );
+        return () => { showSub.remove(); hideSub.remove(); };
+    }, []);
 
     const resetChat = useCallback(() => {
         sessionIdRef.current = null;
@@ -315,7 +334,8 @@ export default function AIChatScreen() {
         <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
                 {/* Premium Header */}
                 <LinearGradient
@@ -353,7 +373,7 @@ export default function AIChatScreen() {
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         {/* Premium Credits Section */}
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => router.push('/buy-credits' as any)}
                             style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(252, 211, 77, 0.15)', borderWidth: 1, borderColor: 'rgba(252, 211, 77, 0.4)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 6, gap: 4 }}
                             activeOpacity={0.8}
@@ -392,6 +412,14 @@ export default function AIChatScreen() {
                     </Text>
                 </View>
 
+                {/* AI Disclaimer Banner — required for Google Play financial services compliance */}
+                <View style={[styles.aiDisclaimerBar, { backgroundColor: isDark ? 'rgba(234,179,8,0.06)' : 'rgba(234,179,8,0.08)', borderBottomColor: isDark ? 'rgba(234,179,8,0.1)' : 'rgba(234,179,8,0.15)' }]}>
+                    <Ionicons name="information-circle" size={12} color={isDark ? '#fbbf24' : '#b45309'} />
+                    <Text style={[styles.aiDisclaimerText, { color: isDark ? '#fbbf24' : '#92400e' }]}>
+                        AI responses are for informational purposes only. Not investment advice. Consult your financial advisor.
+                    </Text>
+                </View>
+
                 {/* Messages */}
                 <FlatList
                     ref={listRef}
@@ -401,6 +429,8 @@ export default function AIChatScreen() {
                     contentContainerStyle={styles.messageList}
                     showsVerticalScrollIndicator={false}
                     onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
                     ListFooterComponent={
                         loading ? (
                             <View style={styles.typingRow}>
@@ -440,16 +470,26 @@ export default function AIChatScreen() {
                 )}
 
                 {/* Premium Input Bar */}
-                <View style={[styles.inputBar, { backgroundColor: isDark ? '#0f172a' : '#fff', borderTopWidth: 0, paddingBottom: Math.max(insets.bottom, 16), shadowColor: '#000', shadowOpacity: isDark ? 0.2 : 0.05, shadowRadius: 10, elevation: 6 }]}>
+                <View style={[styles.inputBar, {
+                    backgroundColor: isDark ? 'rgba(15,23,42,0.97)' : 'rgba(255,255,255,0.97)',
+                    borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : '#E2E8F0',
+                    paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'android' ? 8 : Math.max(insets.bottom, 8)) : Math.max(insets.bottom, 16),
+                    shadowColor: '#000',
+                    shadowOpacity: isDark ? 0.25 : 0.08,
+                    shadowOffset: { width: 0, height: -3 },
+                    shadowRadius: 12,
+                    elevation: 8,
+                }]}>
                     <View style={[
                         styles.inputWrap,
                         {
                             backgroundColor: isDark ? '#1e293b' : '#f8fafc',
                             borderColor: input.trim() ? analystColor + '55' : (isDark ? '#334155' : '#e2e8f0'),
-                            borderWidth: 1,
+                            borderWidth: 1.5,
                         },
                     ]}>
                         <TextInput
+                            ref={inputRef}
                             style={[styles.input, { color: c.text }]}
                             placeholder={`Ask ${analyst?.analyst?.split(' ')[0] ?? 'the analyst'}...`}
                             placeholderTextColor={c.textTertiary}
@@ -470,7 +510,7 @@ export default function AIChatScreen() {
                         <LinearGradient
                             colors={input.trim() && !loading
                                 ? [Colors.brand.primary, '#1e40af']
-                                : [c.surfaceElevated, c.surfaceElevated]
+                                : [isDark ? '#1F2937' : '#E5E7EB', isDark ? '#1F2937' : '#E5E7EB']
                             }
                             style={styles.sendBtn}
                         >
@@ -522,6 +562,17 @@ const styles = StyleSheet.create({
     sectorPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: BorderRadius.full },
     sectorPillText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
     sectorDesc: { fontSize: 11, flex: 1 },
+
+    // AI Disclaimer
+    aiDisclaimerBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: 6,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    aiDisclaimerText: { fontSize: 10, flex: 1, lineHeight: 14 },
 
     // Messages
     messageList: {
@@ -578,18 +629,26 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         gap: 10,
         paddingHorizontal: Spacing.xl,
-        paddingTop: 10,
-        borderTopWidth: StyleSheet.hairlineWidth,
+        paddingTop: 12,
+        borderTopWidth: 1,
     },
     inputWrap: {
         flex: 1, borderWidth: 1.5,
         borderRadius: 24,
-        paddingHorizontal: 16, paddingVertical: 10,
+        paddingHorizontal: 16,
+        paddingVertical: Platform.OS === 'android' ? 4 : 10,
         maxHeight: 120,
+        minHeight: 48,
+        justifyContent: 'center',
     },
-    input: { fontSize: FontSize.base, lineHeight: 22 },
+    input: {
+        fontSize: FontSize.base,
+        lineHeight: 22,
+        paddingVertical: Platform.OS === 'android' ? 6 : 0,
+    },
     sendBtn: {
         width: 44, height: 44, borderRadius: 22,
         justifyContent: 'center', alignItems: 'center',
+        marginBottom: Platform.OS === 'android' ? 2 : 0,
     },
 });

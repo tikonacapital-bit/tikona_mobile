@@ -2,14 +2,13 @@ import { DonutChart, PnlBarChart, getChartColor } from '@/components/charts';
 import { Card, EmptyState, MetricCard, ResponsiveScrollView } from '@/components/ui';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useAlert } from '@/context/AlertContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, useAuth as useClerkAuth } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { fetchNiftyClose, fetchNiftyCurrentClose } from '@/lib/niftyBhavcopy';
 import { formatTokensAsCredits } from '@/lib/credits';
+import { fetchNiftyClose, fetchNiftyCurrentClose } from '@/lib/niftyBhavcopy';
 import { getAuthenticatedSupabase, supabase } from '@/lib/supabase';
 import type { EnrichedHolding } from '@/lib/types';
 import { computeXIRR, type Cashflow } from '@/lib/xirr';
-import { useAuth as useClerkAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -587,7 +586,7 @@ export default function PortfolioScreen() {
             const token = await getToken({ template: 'supabase' });
             const client = getAuthenticatedSupabase(token);
             await client.from('portfolio_holdings').update({ investment_thesis: thesisInput.trim() }).eq('id', selectedHolding.id!);
-            
+
             queryClient.invalidateQueries({ queryKey: ['holdings'] });
 
             const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/check-thesis`, {
@@ -599,7 +598,7 @@ export default function PortfolioScreen() {
                 body: JSON.stringify({ symbol: selectedHolding.nse_symbol, thesis: thesisInput.trim() })
             });
             const data = await res.json();
-            
+
             if (!res.ok) {
                 if (res.status === 402) {
                     showAlert('Insufficient Credits', 'You need AI Tokens to check market theses.', [
@@ -610,7 +609,7 @@ export default function PortfolioScreen() {
                 }
                 throw new Error(data.error || 'Failed to check thesis');
             }
-            
+
             setThesisFeedback(data.reply);
             if (data.tokens_used) {
                 setThesisTokensUsed(data.tokens_used);
@@ -940,13 +939,13 @@ export default function PortfolioScreen() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderLight, gap: 8 }}>
                                         {/* Slim Thesis Button */}
                                         <TouchableOpacity
-                                            style={{ 
-                                                flex: 1, 
-                                                flexDirection: 'row', 
-                                                alignItems: 'center', 
+                                            style={{
+                                                flex: 1,
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
                                                 justifyContent: 'center',
-                                                height: 34, 
-                                                backgroundColor: h.investment_thesis ? Colors.brand.primary + '12' : c.surfaceElevated, 
+                                                height: 34,
+                                                backgroundColor: h.investment_thesis ? Colors.brand.primary + '12' : c.surfaceElevated,
                                                 borderRadius: BorderRadius.full,
                                                 borderWidth: 1,
                                                 borderColor: h.investment_thesis ? Colors.brand.primary + '30' : 'transparent',
@@ -1020,7 +1019,7 @@ export default function PortfolioScreen() {
 
                 {/* ── Add Stock Modal ── */}
                 <Modal visible={showAdd} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1 }}>
                         <TouchableWithoutFeedback onPress={closeModal}>
                             <Animated.View style={[styles.modalBackdrop, { opacity: backdropAnim }]} />
                         </TouchableWithoutFeedback>
@@ -1522,7 +1521,7 @@ export default function PortfolioScreen() {
                         setShowThesisModal(false);
                     });
                 }} statusBarTranslucent>
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1 }}>
                         <TouchableWithoutFeedback onPress={() => {
                             Animated.parallel([
                                 Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
@@ -1564,7 +1563,7 @@ export default function PortfolioScreen() {
                             </View>
 
                             <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: Spacing['2xl'] }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                                
+
                                 <Text style={[styles.inputLabel, { color: c.textSecondary, marginTop: Spacing.sm }]}>Your Thesis</Text>
                                 <TextInput
                                     style={[styles.thesisInput, { backgroundColor: c.inputBg, borderColor: c.inputBorder, color: c.text, minHeight: 100 }]}

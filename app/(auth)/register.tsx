@@ -348,11 +348,7 @@ export default function RegisterScreen() {
                     </Link>
                     <Text onPress={() => setAgreeTerms(!agreeTerms)}> and </Text>
                     <Text style={{ color: Colors.brand.secondary, fontWeight: '600', textDecorationLine: 'underline' }} onPress={() => {
-                        if (Platform.OS === 'web') {
-                            window.open('https://www.tikonacapital.com/privacy-policy', '_blank', 'width=900,height=700,noopener,noreferrer');
-                        } else {
-                            Linking.openURL('https://www.tikonacapital.com/privacy-policy');
-                        }
+                        router.push('/privacy-policy');
                     }}>Privacy Policy</Text>
                 </Text>
             </View>

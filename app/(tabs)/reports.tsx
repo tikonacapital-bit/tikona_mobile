@@ -26,6 +26,7 @@ const PAGE_SIZE = 12;
 export default function ReportsScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
+    const isDark = theme === 'dark';
     const { userId, user, subscription, isLoadingData } = useAuth();
     const { gridColumns } = useResponsiveLayout();
 
@@ -186,6 +187,14 @@ export default function ReportsScreen() {
                             <Text style={styles.headerSubtitle}>In-depth analysis by expert research analysts</Text>
                         </View>
                     </LinearGradient>
+                </View>
+
+                {/* Regulatory Disclaimer Banner — Google Play financial services compliance */}
+                <View style={[styles.disclaimerBanner, { backgroundColor: isDark ? 'rgba(234,179,8,0.06)' : 'rgba(234,179,8,0.06)', borderColor: isDark ? 'rgba(234,179,8,0.15)' : 'rgba(234,179,8,0.12)' }]}>
+                    <Ionicons name="shield-checkmark" size={13} color={isDark ? '#fbbf24' : '#b45309'} />
+                    <Text style={[styles.disclaimerBannerText, { color: isDark ? '#fbbf24' : '#92400e' }]}>
+                        For informational purposes only · Not investment advice · SEBI RA: INH000009807
+                    </Text>
                 </View>
 
                 {/* Status Bar Background for consistency */}
@@ -449,4 +458,6 @@ const styles = StyleSheet.create({
     mediaRow: { flexDirection: 'row', gap: 6 },
     disclaimerFooter: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingTop: Spacing.lg, marginTop: Spacing.sm, borderTopWidth: 1, paddingBottom: Spacing.xl },
     disclaimerText: { flex: 1, fontSize: 11, lineHeight: 15 },
+    disclaimerBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.xl, paddingVertical: 8, borderBottomWidth: 1 },
+    disclaimerBannerText: { flex: 1, fontSize: 10, fontWeight: '600', lineHeight: 14 },
 });
