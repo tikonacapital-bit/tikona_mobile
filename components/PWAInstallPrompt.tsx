@@ -11,7 +11,7 @@ declare global {
 export default function PWAInstallPrompt() {
   const [showBanner, setShowBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const slideAnim = React.useRef(new Animated.Value(120)).current;
+  const slideAnim = React.useRef(new Animated.Value(200)).current;
 
   useEffect(() => {
     // Only run on web
@@ -56,7 +56,7 @@ export default function PWAInstallPrompt() {
 
   const dismiss = () => {
     Animated.timing(slideAnim, {
-      toValue: 120,
+      toValue: 200,
       duration: 250,
       useNativeDriver: true,
     }).start(() => setShowBanner(false));
@@ -67,19 +67,21 @@ export default function PWAInstallPrompt() {
 
   return (
     <Animated.View style={[styles.banner, { transform: [{ translateY: slideAnim }] }]}>
-      <View style={styles.left}>
-        <Text style={styles.icon}>📲</Text>
-        <View>
-          <Text style={styles.title}>Install Tikona Research</Text>
-          <Text style={styles.subtitle}>Add to home screen for faster access</Text>
+      <View style={styles.topRow}>
+        <View style={styles.iconContainer}>
+          <Text style={styles.icon}>📲</Text>
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.title} numberOfLines={1}>Install Tikona Research</Text>
+          <Text style={styles.subtitle} numberOfLines={2}>Add to home screen for faster access</Text>
         </View>
       </View>
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.dismissBtn} onPress={dismiss}>
+      <View style={styles.bottomRow}>
+        <TouchableOpacity style={styles.dismissBtn} onPress={dismiss} activeOpacity={0.8}>
           <Text style={styles.dismissText}>Not now</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.installBtn} onPress={handleInstall}>
-          <Text style={styles.installText}>Install</Text>
+        <TouchableOpacity style={styles.installBtn} onPress={handleInstall} activeOpacity={0.8}>
+          <Text style={styles.installText}>Install App</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -89,67 +91,79 @@ export default function PWAInstallPrompt() {
 const styles = StyleSheet.create({
   banner: {
     position: 'absolute' as any,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 24,
+    left: 16,
+    right: 16,
     backgroundColor: '#1e3a8a',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 20,
+    elevation: 10,
     zIndex: 9999,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
   },
-  left: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
+    marginBottom: 16,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   icon: {
-    fontSize: 28,
-    marginRight: 4,
+    fontSize: 24,
+  },
+  textContainer: {
+    flex: 1,
   },
   title: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
   },
   subtitle: {
     color: '#93c5fd',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
   },
-  actions: {
+  bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
+    justifyContent: 'space-between',
+    gap: 12,
   },
   dismissBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  dismissText: {
-    color: '#93c5fd',
-    fontSize: 13,
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   installBtn: {
+    flex: 1,
     backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+  },
+  dismissText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 15,
   },
   installText: {
     color: '#1e3a8a',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 15,
   },
 });

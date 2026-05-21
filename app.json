@@ -46,7 +46,7 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png",
       "name": "Tikona Research",
-      "shortName": "Tikona",
+      "shortName": "Tikona Research",
       "display": "standalone",
       "backgroundColor": "#ffffff",
       "themeColor": "#1e3a8a",

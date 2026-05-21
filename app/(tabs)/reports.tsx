@@ -189,13 +189,6 @@ export default function ReportsScreen() {
                     </LinearGradient>
                 </View>
 
-                {/* Regulatory Disclaimer Banner — Google Play financial services compliance */}
-                <View style={[styles.disclaimerBanner, { backgroundColor: isDark ? 'rgba(234,179,8,0.06)' : 'rgba(234,179,8,0.06)', borderColor: isDark ? 'rgba(234,179,8,0.15)' : 'rgba(234,179,8,0.12)' }]}>
-                    <Ionicons name="shield-checkmark" size={13} color={isDark ? '#fbbf24' : '#b45309'} />
-                    <Text style={[styles.disclaimerBannerText, { color: isDark ? '#fbbf24' : '#92400e' }]}>
-                        For informational purposes only · Not investment advice · SEBI RA: INH000009807
-                    </Text>
-                </View>
 
                 {/* Status Bar Background for consistency */}
                 <View style={{ height: 1, backgroundColor: c.border }} />

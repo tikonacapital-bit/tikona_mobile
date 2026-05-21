@@ -37,29 +37,14 @@ export const Logo: React.FC<LogoProps> = ({
             stacked && styles.containerStacked,
             align === 'left' && !stacked && { justifyContent: 'flex-start' }
         ]}>
-            {/* Circular Wrapper to "zoom" into your original image and hide the white borders */}
-            <View
+            <Image
+                source={require('@/assets/images/icon.png')}
                 style={{
                     width: size,
                     height: size,
-                    borderRadius: size / 2,
-                    backgroundColor: '#FFFFFF', // Clean white background for the logo circle
-                    overflow: 'hidden',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(32, 61, 111, 0.1)',
                 }}
-            >
-                <Image
-                    source={require('@/assets/images/icon.png')}
-                    style={{
-                        width: size * 1.8,  // Scale up to zoom past the image's white space
-                        height: size * 1.8, // Scale up to make the symbol fill the circle
-                    }}
-                    resizeMode="contain"
-                />
-            </View>
+                resizeMode="contain"
+            />
             {showText && (
                 <View style={[!stacked && { marginLeft: size * 0.3 }, stacked && { marginTop: 16, alignItems: 'center' }]}>
                     <Text
