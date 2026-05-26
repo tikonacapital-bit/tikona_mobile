@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Refund Action — Supabase Edge Function
+// Refund Action — Supabase Edge Function (Telegram Bot Integration)
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // This function handles TWO things:
 //   1. POST /refund-action  — called by the app when a user submits a refund request
-//      → Sends email notification to admin with Approve/Reject links
+//      → Sends instant message notification to Telegram chat with Approve/Reject links
 //
-//   2. GET /refund-action?action=approve&id=xxx&token=xxx  — clicked by admin from email
+//   2. GET /refund-action?action=approve&id=xxx&token=xxx  — clicked by admin from Telegram
 //      → Approves or rejects the refund request + deactivates subscription if approved
 //
 // Deploy:
@@ -15,8 +15,9 @@
 // Environment variables (set in Supabase Dashboard → Edge Functions → Secrets):
 //   SUPABASE_URL              — auto-injected
 //   SUPABASE_SERVICE_ROLE_KEY — auto-injected
-//   RESEND_API_KEY            — your Resend.com API key (for sending emails)
-//   REFUND_SECRET             — a random string used to sign admin action links
+//   TELEGRAM_BOT_TOKEN        — Telegram Bot HTTP API Token (from @BotFather)
+//   TELEGRAM_CHAT_ID          — Your numeric Telegram Chat/User ID (from @userinfobot)
+//   REFUND_SECRET             — A random string used to sign admin action links
 //
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -26,7 +27,6 @@ import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") || "tikonacapital@gmail.com";
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "onboarding@resend.dev";
 
 const PLAN_NAMES: Record<string, string> = {
   midcap_wealth: "Mid Cap Wealth Builders",
@@ -83,11 +83,13 @@ function formatINR(amount: number): string {
   return "₹" + amount.toLocaleString("en-IN");
 }
 
-// ─── Send admin email via Resend ──────────────────────────────────────────────
-async function sendAdminEmail(request: any): Promise<boolean> {
-  const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendKey) {
-    console.warn("[Refund] RESEND_API_KEY not set — skipping email notification");
+// ─── Send Admin Notification via Telegram ─────────────────────────────────────
+async function sendAdminTelegram(request: any): Promise<boolean> {
+  const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+  const chatId = Deno.env.get("TELEGRAM_CHAT_ID");
+
+  if (!botToken || !chatId) {
+    console.warn("[Refund] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram notification");
     return false;
   }
 
@@ -103,124 +105,44 @@ async function sendAdminEmail(request: any): Promise<boolean> {
 
   const planName = PLAN_NAMES[request.plan] || request.plan;
 
-  const emailHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Refund Request</title>
-</head>
-<body style="margin:0;padding:0;background-color:#f7f8fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px;">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#1F4690,#3A5BA0);border-radius:16px 16px 0 0;padding:32px;text-align:center;">
-      <h1 style="color:#fff;margin:0;font-size:24px;">🔄 New Refund Request</h1>
-      <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:14px;">Action required — review and respond</p>
-    </div>
+  // Format message using Telegram's supported HTML tags
+  const messageText = `<b>🔄 New Refund Request</b>
+━━━━━━━━━━━━━━━━━━
+<b>Plan:</b> ${planName}
+<b>Total Paid:</b> ${formatINR(request.total_paid)}
+<b>Refund Amount:</b> <b>${formatINR(request.refund_amount)}</b> (Pro-rata)
+<b>User UPI ID:</b> <code>${request.upi_id}</code> <i>(Tap to copy)</i>
+<b>User ID:</b> <code>${request.user_id}</code>
+<b>Months Used:</b> ${request.months_used} months
+<b>Months Remaining:</b> ${request.months_remaining} months
 
-    <!-- Body -->
-    <div style="background:#fff;padding:32px;border-radius:0 0 16px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-      
-      <!-- Request Details -->
-      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">User ID</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#111827;">
-            <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:12px;">${request.user_id}</code>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">Plan</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#111827;">${planName}</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">Total Paid</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#111827;">${formatINR(request.total_paid)}</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">User UPI ID</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#111827;">
-            <code style="background:#f3f4f6;padding:2px 8px;border-radius:4px;font-size:13px;">${request.upi_id}</code>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">Months Used</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#DC2626;">${request.months_used} months</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;color:#6b7280;font-size:14px;">Months Remaining</td>
-          <td style="padding:12px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;font-size:14px;color:#059669;">${request.months_remaining} months</td>
-        </tr>
-        <tr>
-          <td style="padding:12px 0;color:#6b7280;font-size:14px;">Refund Amount</td>
-          <td style="padding:12px 0;text-align:right;font-weight:800;font-size:20px;color:#059669;">${formatINR(request.refund_amount)}</td>
-        </tr>
-      </table>
-
-      ${request.reason ? `
-      <!-- Reason -->
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:24px;">
-        <p style="margin:0 0 4px;color:#6b7280;font-size:12px;font-weight:600;letter-spacing:0.5px;">USER'S REASON</p>
-        <p style="margin:0;color:#111827;font-size:14px;line-height:1.5;">${request.reason}</p>
-      </div>
-      ` : ""}
-
-      <!-- Action Buttons -->
-      <div style="text-align:center;margin-top:8px;">
-        <p style="color:#6b7280;font-size:13px;margin-bottom:16px;">Click a button below to take action:</p>
-        
-        <a href="${approveUrl}" 
-           style="display:inline-block;background:#059669;color:#fff;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin:0 8px 12px;">
-          ✅ Approve Refund
-        </a>
-        
-        <a href="${rejectUrl}" 
-           style="display:inline-block;background:#DC2626;color:#fff;padding:14px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;margin:0 8px 12px;">
-          ❌ Reject Refund
-        </a>
-      </div>
-
-      <p style="color:#9ca3af;font-size:11px;text-align:center;margin-top:24px;">
-        Request ID: ${request.id}<br>
-        Submitted: ${new Date(request.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <p style="text-align:center;color:#9ca3af;font-size:11px;margin-top:16px;">
-      Tikona Capital — Automated Refund System
-    </p>
-  </div>
-</body>
-</html>`;
+${request.reason ? `<b>User's Reason:</b>\n<i>"${request.reason}"</i>` : `<b>User's Reason:</b> None`}
+━━━━━━━━━━━━━━━━━━
+👉 <a href="${approveUrl}"><b>Approve Refund</b></a>
+👉 <a href="${rejectUrl}"><b>Reject Refund</b></a>`;
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [ADMIN_EMAIL],
-        subject: `🔄 Refund Request: ${planName} — ${formatINR(request.refund_amount)}`,
-        html: emailHtml,
+        chat_id: chatId,
+        text: messageText,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
       }),
     });
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("[Refund] Resend error:", errText);
+      console.error("[Refund] Telegram API error:", errText);
       return false;
     }
 
-    console.log("[Refund] ✅ Admin email sent successfully");
+    console.log("[Refund] ✅ Telegram notification sent successfully");
     return true;
   } catch (err) {
-    console.error("[Refund] Email send failed:", err);
+    console.error("[Refund] Telegram dispatch failed:", err);
     return false;
   }
 }
@@ -238,7 +160,7 @@ serve(async (req: Request) => {
   const url = new URL(req.url);
 
   // ════════════════════════════════════════════════════════════════════════════
-  // GET — Admin clicks approve/reject from email
+  // GET — Admin clicks approve/reject from Telegram message
   // ════════════════════════════════════════════════════════════════════════════
   if (req.method === "GET") {
     const action = url.searchParams.get("action"); // "approve" or "reject"
@@ -262,7 +184,7 @@ serve(async (req: Request) => {
     // Verify HMAC token
     const valid = await verifyToken(requestId, action, token);
     if (!valid) {
-      return new Response(renderResultPage("error", "Invalid Token", "This link has expired or is invalid. Please check your email for the latest link."), {
+      return new Response(renderResultPage("error", "Invalid Token", "This link has expired or is invalid. Please check Telegram for the latest link."), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "text/html" },
       });
@@ -347,7 +269,7 @@ serve(async (req: Request) => {
               📲 Pay ${formatINR(refundReq.refund_amount)} via UPI App
             </a>
             
-            <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;">â€” OR IF ON DESKTOP â€”</p>
+            <p style="margin:0 0 12px;color:#94a3b8;font-size:12px;">— OR IF ON DESKTOP —</p>
             
             <a href="https://dashboard.razorpay.com/app/payments" target="_blank" style="display:inline-block;background:#1e293b;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;width:100%;box-sizing:border-box;">
               💻 Open Razorpay Dashboard
@@ -385,7 +307,7 @@ serve(async (req: Request) => {
       }
 
       // Fetch the full request from DB and verify it belongs to the claimed user_id
-      // This prevents any caller from triggering admin emails for arbitrary refund IDs
+      // This prevents any caller from triggering admin messages for arbitrary refund IDs
       const supabase = getSupabase();
       const { data: refundReq, error: fetchErr } = await supabase
         .from("refund_requests")
@@ -403,10 +325,10 @@ serve(async (req: Request) => {
         );
       }
 
-      const emailSent = await sendAdminEmail(refundReq);
+      const telegramSent = await sendAdminTelegram(refundReq);
 
       return new Response(
-        JSON.stringify({ success: true, email_sent: emailSent }),
+        JSON.stringify({ success: true, telegram_sent: telegramSent }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (err: any) {
