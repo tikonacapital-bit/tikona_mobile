@@ -23,6 +23,8 @@ export interface ResearchReport {
     // Media
     pdf_file_id?: string | null;
     pdf_file_url?: string | null;
+    pptx_pdf_file_url?: string | null;
+    pptx_file_url?: string | null;
     audio_file_url?: string | null;
     video_file_url?: string | null;
     // Publishing

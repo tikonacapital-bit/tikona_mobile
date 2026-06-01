@@ -46,3 +46,52 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// Push: Handle Web Push Notifications
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    let data = {};
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'New Notification', body: event.data.text() };
+    }
+
+    const title = data.title || 'Notification';
+    const options = {
+      body: data.body,
+      icon: '/icon-192.png', // use the precached icon
+      data: data.data || {}
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  }
+});
+
+// Notification click: Focus or open the PWA
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  
+  const targetUrl = event.notification.data?.url;
+  if (!targetUrl) return;
+
+  let webUrl = targetUrl;
+  if (targetUrl.startsWith('tikonamobile://report/')) {
+    const reportId = targetUrl.replace('tikonamobile://report/', '');
+    webUrl = self.location.origin + '/report/' + reportId;
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url === webUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(webUrl);
+      }
+    })
+  );
+});

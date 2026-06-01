@@ -135,7 +135,7 @@ export default function ReportDetailScreen() {
             // Use supabase client directly — session is persisted, no token juggling needed.
             const { data } = await supabase
                 .from('research_reports')
-                .select('report_id, company_name, nse_symbol, recommendation, target_price, recommendation_rationale, company_background, business_model, management_analysis, industry_overview, industry_tailwinds, demand_drivers, industry_risks, pdf_file_url, audio_file_url, video_file_url, published_at')
+                .select('report_id, company_name, nse_symbol, recommendation, target_price, recommendation_rationale, company_background, business_model, management_analysis, industry_overview, industry_tailwinds, demand_drivers, industry_risks, pdf_file_url, pptx_pdf_file_url, pptx_file_url, audio_file_url, video_file_url, published_at')
                 .or(`report_id.eq.${id},session_id.eq.${id}`)
                 .eq('is_published', true)
                 .maybeSingle();
@@ -150,12 +150,13 @@ export default function ReportDetailScreen() {
         async function fetchSecureUrls() {
             try {
                 // Fetch PDF signed URL
-                if (report?.pdf_file_url && !securePdfUrl) {
-                    if (report.pdf_file_url.startsWith('http')) {
-                        if (isMounted) setSecurePdfUrl(report.pdf_file_url);
+                const pdfTargetUrl = report?.pptx_pdf_file_url || report?.pptx_file_url || report?.pdf_file_url;
+                if (pdfTargetUrl && !securePdfUrl) {
+                    if (pdfTargetUrl.startsWith('http')) {
+                        if (isMounted) setSecurePdfUrl(pdfTargetUrl);
                     } else {
-                        const { data } = await supabase.storage.from('secure_reports').createSignedUrl(report.pdf_file_url, 120);
-                        if (isMounted) setSecurePdfUrl(data?.signedUrl || report.pdf_file_url);
+                        const { data } = await supabase.storage.from('secure_reports').createSignedUrl(pdfTargetUrl, 120);
+                        if (isMounted) setSecurePdfUrl(data?.signedUrl || pdfTargetUrl);
                     }
                 }
 
@@ -189,7 +190,7 @@ export default function ReportDetailScreen() {
 
         if (report) fetchSecureUrls();
         return () => { isMounted = false; };
-    }, [report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken, id]);
+    }, [report?.pptx_pdf_file_url, report?.pptx_file_url, report?.pdf_file_url, report?.video_file_url, report?.audio_file_url, getToken, id]);
 
     // Auto-play as soon as the signed URL arrives if user tapped early
     // NOTE: Must stay above early returns to satisfy Rules of Hooks
@@ -251,7 +252,8 @@ export default function ReportDetailScreen() {
         );
     }
 
-    const hasPdf = !!report.pdf_file_url;
+    const activePdfUrl = report.pptx_pdf_file_url || report.pptx_file_url || report.pdf_file_url;
+    const hasPdf = !!activePdfUrl;
     const hasAudio = !!report.audio_file_url;
     const hasVideo = !!report.video_file_url;
 
@@ -269,7 +271,8 @@ export default function ReportDetailScreen() {
     const audioReady = isCurrentTrack && isLoaded;
 
     const openPdf = async () => {
-        if (report.pdf_file_url) {
+        const activePdfUrl = report.pptx_pdf_file_url || report.pptx_file_url || report.pdf_file_url;
+        if (activePdfUrl) {
             setShowPdf(true);
         } else {
             showAlert('Error', 'No PDF available for this report.');
@@ -647,7 +650,7 @@ export default function ReportDetailScreen() {
                                     activityIndicatorColor={Colors.brand.primary}
                                 />
                             )
-                        ) : !securePdfUrl && report.pdf_file_url ? (
+                        ) : !securePdfUrl && (report.pptx_pdf_file_url || report.pptx_file_url || report.pdf_file_url) ? (
                             // Loading state
                             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
                                 <ActivityIndicator size="large" color={Colors.brand.primary} />
