@@ -13,7 +13,7 @@
       "destination": "/manifest.json"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ],
