@@ -43,7 +43,7 @@
       ]
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png",
       "name": "Tikona Research",
       "shortName": "Tikona Research",
