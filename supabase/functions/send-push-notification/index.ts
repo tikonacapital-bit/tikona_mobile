@@ -21,18 +21,17 @@ serve(async (req) => {
       throw new Error('Supabase environment variables not set');
     }
 
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Check if it's the system service role key (direct authorization)
-    const isServiceRole = authHeader.replace('Bearer ', '') === supabaseServiceKey;
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const isServiceRole = token === supabaseServiceKey;
 
     if (!isServiceRole) {
-      // If not service role, check if it's a valid authenticated user JWT
-      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-        global: { headers: { Authorization: authHeader } },
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-      const { data: { user }, error: authError } = await userClient.auth.getUser();
+      // Verify user's JWT directly using the admin client
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !user) {
+        console.error('JWT verification error:', authError);
         return new Response(
           JSON.stringify({ error: 'Unauthorized: Valid User JWT or Service Role Key required' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
@@ -48,8 +47,6 @@ serve(async (req) => {
     if (!company_name || !plans) {
       throw new Error('Missing required fields: company_name or plans');
     }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Get all active subscriptions for the specified plans (and all_in_growth)
     const targetPlans = [...plans, 'all_in_growth'];
