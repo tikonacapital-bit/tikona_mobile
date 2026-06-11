@@ -135,7 +135,7 @@ export default function ReportDetailScreen() {
             // Use supabase client directly — session is persisted, no token juggling needed.
             const { data } = await supabase
                 .from('research_reports')
-                .select('report_id, company_name, nse_symbol, recommendation, target_price, recommendation_rationale, company_background, business_model, management_analysis, industry_overview, industry_tailwinds, demand_drivers, industry_risks, pdf_file_url, pptx_pdf_file_url, pptx_file_url, audio_file_url, video_file_url, published_at')
+                .select('*')
                 .or(`report_id.eq.${id},session_id.eq.${id}`)
                 .eq('is_published', true)
                 .maybeSingle();

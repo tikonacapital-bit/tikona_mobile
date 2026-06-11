@@ -29,6 +29,7 @@ import {
   type ChatHistoryEntry,
 } from '@/lib/sarvamAI';
 import type { ResearchReport } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
@@ -355,12 +356,37 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
-  // Build report context on mount/report change
+  const [equityData, setEquityData] = useState<any>(null);
+
+  // Fetch equity universe data for financial context
+  useEffect(() => {
+    async function fetchEquityData() {
+      if (!report?.nse_symbol) return;
+      try {
+        const { data, error } = await supabase
+          .from('equity_universe')
+          .select('*')
+          .eq('nse_code', report.nse_symbol)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          setEquityData(data);
+        }
+      } catch (err) {
+        logger.warn('[ReportAIChat] Failed to load equity universe data:', err);
+      }
+    }
+    if (visible && report?.nse_symbol) {
+      fetchEquityData();
+    }
+  }, [visible, report?.nse_symbol]);
+
+  // Build report context on mount/report/equityData change
   useEffect(() => {
     if (report) {
-      reportContext.current = buildReportContext(report);
+      reportContext.current = buildReportContext(report, equityData);
     }
-  }, [report]);
+  }, [report, equityData]);
 
   // Add welcome message when modal opens
   useEffect(() => {
@@ -715,9 +741,9 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
 
       // Try writing to temp file to avoid OOM from huge data: URI strings
       try {
-        tempPath = `${FileSystem.cacheDirectory}ai_audio_${Date.now()}.wav`;
+        tempPath = `${(FileSystem as any).cacheDirectory || ''}ai_audio_${Date.now()}.wav`;
         await FileSystem.writeAsStringAsync(tempPath, base64, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64' as any,
         });
         audioUri = tempPath;
       } catch (fileErr) {

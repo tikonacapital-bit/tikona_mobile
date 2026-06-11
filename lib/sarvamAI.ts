@@ -168,24 +168,14 @@ export async function speechToSpeech(
  * Build report context string from a ResearchReport object.
  * This is sent to the LLM as context for answering questions.
  */
-export function buildReportContext(report: {
-  company_name: string;
-  nse_symbol: string;
-  recommendation?: string | null;
-  target_price?: number | null;
-  recommendation_rationale?: string | null;
-  company_background?: string | null;
-  business_model?: string | null;
-  management_analysis?: string | null;
-  industry_overview?: string | null;
-  industry_tailwinds?: string | null;
-  demand_drivers?: string | null;
-  industry_risks?: string | null;
-}): string {
+export function buildReportContext(
+  report: Record<string, any>,
+  equityData?: Record<string, any> | null
+): string {
   const sections: string[] = [];
 
-  sections.push(`Company: ${report.company_name}`);
-  sections.push(`NSE Symbol: ${report.nse_symbol}`);
+  sections.push(`Company: ${report.company_name || 'N/A'}`);
+  sections.push(`NSE Symbol: ${report.nse_symbol || 'N/A'}`);
 
   if (report.recommendation) {
     sections.push(`Recommendation: ${report.recommendation}`);
@@ -218,5 +208,57 @@ export function buildReportContext(report: {
     sections.push(`\nIndustry Risks:\n${report.industry_risks}`);
   }
 
+  // 1. Add Summary Table if available
+  if (report.summary_table) {
+    sections.push(`\nFinancial Summary Table:\n${report.summary_table}`);
+  }
+
+  // 2. Scan and add any dynamic custom sections (keys starting with cs_)
+  Object.keys(report).forEach((key) => {
+    if (key.startsWith('cs_') && report[key]) {
+      // Convert key name from cs_valuation_analysis to Valuation Analysis
+      const friendlyName = key
+        .slice(3)
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      sections.push(`\n${friendlyName}:\n${report[key]}`);
+    }
+  });
+
+  // 3. Add Key Financial Metrics from Equity Universe
+  if (equityData) {
+    sections.push(`\n--- KEY FINANCIAL METRICS & VALUATION DATA ---`);
+    const metricsMap: Record<string, string> = {
+      market_cap: 'Market Capitalization (Cr)',
+      current_price: 'Current Price (₹)',
+      high_52_week: '52-Week High (₹)',
+      low_52_week: '52-Week Low (₹)',
+      pe_ttm: 'PE Ratio (TTM)',
+      ev_ebitda_ttm: 'EV/EBITDA (TTM)',
+      roe: 'ROE (%)',
+      roce: 'ROCE (%)',
+      debt: 'Total Debt (Cr)',
+      cash_equivalents: 'Cash & Equivalents (Cr)',
+      net_debt: 'Net Debt (Cr)',
+      net_worth: 'Net Worth (Cr)',
+      book_value: 'Book Value (₹)',
+      promoter_holding_pct: 'Promoter Holding (%)',
+      sales_growth_yoy_qtr: 'YoY Quarterly Sales Growth (%)',
+      profit_growth_yoy_qtr: 'YoY Quarterly Profit Growth (%)',
+      revenue_cagr_hist_2yr: '2-Year Historical Revenue CAGR (%)',
+      revenue_cagr_fwd_2yr: '2-Year Forward Revenue CAGR (%)',
+      pat_cagr_hist_2yr: '2-Year Historical PAT CAGR (%)',
+      pat_cagr_fwd_2yr: '2-Year Forward PAT CAGR (%)',
+    };
+
+    Object.entries(metricsMap).forEach(([field, label]) => {
+      if (equityData[field] !== undefined && equityData[field] !== null) {
+        sections.push(`${label}: ${equityData[field]}`);
+      }
+    });
+  }
+
   return sections.join('\n');
 }
+
