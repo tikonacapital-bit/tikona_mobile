@@ -13,17 +13,40 @@ serve(async (req) => {
   }
 
   try {
-    const { company_name, nse_symbol, rating, cmp, target_price, upside_pct, validity_type, validity_date, session_id, plans } = await req.json();
-
-    if (!company_name || !plans) {
-      throw new Error('Missing required fields: company_name or plans');
-    }
-
+    const authHeader = req.headers.get('Authorization') || '';
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Supabase environment variables not set');
+    }
+
+    // Check if it's the system service role key (direct authorization)
+    const isServiceRole = authHeader.replace('Bearer ', '') === supabaseServiceKey;
+
+    if (!isServiceRole) {
+      // If not service role, check if it's a valid authenticated user JWT
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: { user }, error: authError } = await userClient.auth.getUser();
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized: Valid User JWT or Service Role Key required' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+        );
+      }
+      console.log(`Authenticated user ${user.email} calling send-push-notification`);
+    } else {
+      console.log('Service role client calling send-push-notification');
+    }
+
+    const { company_name, nse_symbol, rating, cmp, target_price, upside_pct, validity_type, validity_date, session_id, plans } = await req.json();
+
+    if (!company_name || !plans) {
+      throw new Error('Missing required fields: company_name or plans');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
