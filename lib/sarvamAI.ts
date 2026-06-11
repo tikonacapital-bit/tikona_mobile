@@ -170,7 +170,9 @@ export async function speechToSpeech(
  */
 export function buildReportContext(
   report: Record<string, any>,
-  equityData?: Record<string, any> | null
+  equityData?: Record<string, any> | null,
+  financialModel?: Record<string, any> | null,
+  pptContent?: Record<string, any> | null
 ): string {
   const sections: string[] = [];
 
@@ -255,6 +257,57 @@ export function buildReportContext(
     Object.entries(metricsMap).forEach(([field, label]) => {
       if (equityData[field] !== undefined && equityData[field] !== null) {
         sections.push(`${label}: ${equityData[field]}`);
+      }
+    });
+  }
+
+  // 4. Add Financial Model Snapshot if available
+  if (financialModel) {
+    sections.push(`\n--- DETAILED FINANCIAL MODEL SNAPSHOT ---`);
+    sections.push(`Base Year: ${financialModel.base_year || 'N/A'}`);
+    if (financialModel.assumptions?.projection_years && Array.isArray(financialModel.assumptions.projection_years)) {
+      sections.push(`Projection Years: ${financialModel.assumptions.projection_years.join(', ')}`);
+    }
+    sections.push(`CMP (Model): ₹${financialModel.cmp || 'N/A'}`);
+    sections.push(`Target Price (Model): ₹${financialModel.target_price || 'N/A'}`);
+    sections.push(`Upside (Model): ${financialModel.upside_pct || 'N/A'}`);
+
+    if (financialModel.thesis?.saarthi_total) {
+      sections.push(`SAARTHI Score: ${financialModel.thesis.saarthi_total}/100 (${financialModel.thesis.saarthi_rating || ''})`);
+    }
+
+    if (financialModel.assumptions?.revenue_growth_pct) {
+      sections.push(`Projected Revenue Growth Assumptions: ${JSON.stringify(financialModel.assumptions.revenue_growth_pct)}`);
+    }
+    if (financialModel.assumptions?.ebitda_margin_pct) {
+      sections.push(`Projected EBITDA Margin Assumptions: ${JSON.stringify(financialModel.assumptions.ebitda_margin_pct)}`);
+    }
+    if (financialModel.valuation) {
+      sections.push(`Valuation Fair Values & Multiples: ${JSON.stringify(financialModel.valuation)}`);
+    }
+    if (financialModel.peers) {
+      sections.push(`Peer Set in Model: ${JSON.stringify(financialModel.peers)}`);
+    }
+  }
+
+  // 5. Add Slide / Chart Copy Content if available
+  if (pptContent) {
+    sections.push(`\n--- REPORT SLIDES & CHART DESCRIPTIONS ---`);
+    const slideMappings: Record<string, string> = {
+      financial_commentary: 'Financial Commentary (P&L, Balance Sheet, Cash Flow Charts)',
+      forecast_assumptions: 'Forecast & Operating Assumptions (Projection Charts)',
+      valuation_commentary: 'Valuation & Multiple Analysis (Peer Benchmarks & DCF)',
+      bull_content: 'Bull Case Scenario Analysis (Optimistic Target)',
+      base_content: 'Base Case Scenario Analysis (Most Likely Target)',
+      bear_content: 'Bear Case Scenario Analysis (Downside Target)',
+      entry_strategy: 'Entry & Accumulation Strategy',
+      review_strategy: 'Review & Catalyst Tracking Checkpoints',
+      exit_strategy: 'Exit & Stop-loss Strategy',
+    };
+
+    Object.entries(slideMappings).forEach(([key, label]) => {
+      if (pptContent[key]) {
+        sections.push(`\n[${label}]:\n${pptContent[key]}`);
       }
     });
   }

@@ -357,36 +357,71 @@ export default function ReportAIChat({ visible, onClose, report }: ReportAIChatP
   }, []);
 
   const [equityData, setEquityData] = useState<any>(null);
+  const [financialModel, setFinancialModel] = useState<any>(null);
+  const [pptContent, setPptContent] = useState<any>(null);
 
-  // Fetch equity universe data for financial context
+  // Fetch equity universe, session data & financial model for complete context
   useEffect(() => {
-    async function fetchEquityData() {
-      if (!report?.nse_symbol) return;
-      try {
-        const { data, error } = await supabase
-          .from('equity_universe')
-          .select('*')
-          .eq('nse_code', report.nse_symbol)
-          .maybeSingle();
-        if (error) throw error;
-        if (data) {
-          setEquityData(data);
+    async function fetchAdditionalContext() {
+      if (!report) return;
+
+      // 1. Fetch live stock metrics
+      if (report.nse_symbol) {
+        try {
+          const { data, error } = await supabase
+            .from('equity_universe')
+            .select('*')
+            .eq('nse_code', report.nse_symbol)
+            .maybeSingle();
+          if (error) throw error;
+          if (data) {
+            setEquityData(data);
+          }
+        } catch (err) {
+          logger.warn('[ReportAIChat] Failed to load equity universe data:', err);
         }
-      } catch (err) {
-        logger.warn('[ReportAIChat] Failed to load equity universe data:', err);
+      }
+
+      // 2. Fetch session data & financial model JSON
+      if (report.session_id) {
+        try {
+          const { data: session, error } = await supabase
+            .from('research_sessions')
+            .select('financial_model_json_url, ppt_content_json')
+            .eq('session_id', report.session_id)
+            .maybeSingle();
+
+          if (error) throw error;
+          if (session) {
+            if (session.ppt_content_json) {
+              setPptContent(session.ppt_content_json);
+            }
+
+            if (session.financial_model_json_url) {
+              const res = await fetch(session.financial_model_json_url);
+              if (res.ok) {
+                const fmJson = await res.json();
+                setFinancialModel(fmJson);
+              }
+            }
+          }
+        } catch (err) {
+          logger.warn('[ReportAIChat] Failed to load session or financial model:', err);
+        }
       }
     }
-    if (visible && report?.nse_symbol) {
-      fetchEquityData();
-    }
-  }, [visible, report?.nse_symbol]);
 
-  // Build report context on mount/report/equityData change
+    if (visible && report) {
+      fetchAdditionalContext();
+    }
+  }, [visible, report?.nse_symbol, report?.session_id]);
+
+  // Build report context on mount/report or additional context changes
   useEffect(() => {
     if (report) {
-      reportContext.current = buildReportContext(report, equityData);
+      reportContext.current = buildReportContext(report, equityData, financialModel, pptContent);
     }
-  }, [report, equityData]);
+  }, [report, equityData, financialModel, pptContent]);
 
   // Add welcome message when modal opens
   useEffect(() => {
