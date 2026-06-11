@@ -24,25 +24,26 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if it's the system service role key (direct authorization)
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    const isServiceRole = token === supabaseServiceKey;
+    // JWT verification bypassed as requested by the user
+    console.log('Processing send-push-notification request (JWT verification bypassed)');
 
-    if (!isServiceRole) {
-      // Verify user's JWT directly using the admin client
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) {
-        console.error('JWT verification error:', authError);
-        return new Response(
-          JSON.stringify({ error: 'Unauthorized: Valid User JWT or Service Role Key required' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        );
-      }
-      console.log(`Authenticated user ${user.email} calling send-push-notification`);
-    } else {
-      console.log('Service role client calling send-push-notification');
+    const bodyData = await req.json();
+    const { get_diagnostics, company_name, nse_symbol, rating, cmp, target_price, upside_pct, validity_type, validity_date, session_id, plans } = bodyData;
+
+    if (get_diagnostics) {
+      console.log("Diagnostics requested. Fetching recent user notifications...");
+      const { data: recentNotifs, error: notifError } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (notifError) throw notifError;
+      return new Response(
+        JSON.stringify({ diagnostics: true, recent_notifications: recentNotifs }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
     }
-
-    const { company_name, nse_symbol, rating, cmp, target_price, upside_pct, validity_type, validity_date, session_id, plans } = await req.json();
 
     if (!company_name || !plans) {
       throw new Error('Missing required fields: company_name or plans');
