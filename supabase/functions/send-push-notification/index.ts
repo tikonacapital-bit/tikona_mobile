@@ -102,6 +102,28 @@ serve(async (req) => {
       bodyText = `${direction} ${pctVal}% in ${valType}. Tap to View, Chat and Listen to detailed Investment thesis`;
     }
 
+    // 3.1. Save notifications in database for all target user IDs
+    if (userIds.length > 0) {
+      const dbNotifications = userIds.map(uid => ({
+        user_id: uid,
+        title: titleText,
+        body: bodyText,
+        data: session_id ? { session_id, url: `tikonamobile://report/${session_id}` } : {},
+        read: false,
+      }));
+
+      // Insert in chunks of 100 to prevent large payloads
+      for (let i = 0; i < dbNotifications.length; i += 100) {
+        const chunk = dbNotifications.slice(i, i + 100);
+        const { error: insertErr } = await supabase
+          .from('user_notifications')
+          .insert(chunk);
+        if (insertErr) {
+          console.error('Error inserting notifications in DB chunk:', insertErr);
+        }
+      }
+    }
+
     const expoMessages = [];
     const webSubscriptions = [];
 

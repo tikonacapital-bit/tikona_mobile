@@ -226,6 +226,22 @@ export default function HomeScreen() {
         staleTime: 60000,
     });
 
+    const { data: unreadCount = 0 } = useQuery<number>({
+        queryKey: ['notifications_unread_count', user?.id],
+        queryFn: async () => {
+            if (!user?.id) return 0;
+            const { count, error } = await supabase
+                .from('user_notifications')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('read', false);
+            if (error) throw error;
+            return count || 0;
+        },
+        enabled: !isLoadingData && !!user?.id,
+        refetchInterval: 15000,
+    });
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await Promise.all([
@@ -411,15 +427,31 @@ export default function HomeScreen() {
                                 </View>
                             </View>
 
-                            {/* Plan Pill */}
-                            <TouchableOpacity
-                                style={styles.planPill}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/subscription'); }}
-                                activeOpacity={0.75}
-                            >
-                                <Ionicons name="diamond" size={11} color="#FFD700" />
-                                <Text style={styles.planPillText} numberOfLines={1}>{planLabel}</Text>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                {/* Notification Bell Button */}
+                                <TouchableOpacity
+                                    style={styles.bellBtn}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/notifications' as any); }}
+                                    activeOpacity={0.75}
+                                >
+                                    <Ionicons name="notifications-outline" size={20} color="#fff" />
+                                    {unreadCount > 0 && (
+                                        <View style={styles.bellBadge}>
+                                            <Text style={styles.bellBadgeText}>{unreadCount}</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+
+                                {/* Plan Pill */}
+                                <TouchableOpacity
+                                    style={styles.planPill}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/subscription'); }}
+                                    activeOpacity={0.75}
+                                >
+                                    <Ionicons name="diamond" size={11} color="#FFD700" />
+                                    <Text style={styles.planPillText} numberOfLines={1}>{planLabel}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* ── Stats Glass Card ── */}
@@ -994,5 +1026,31 @@ const styles = StyleSheet.create({
         paddingHorizontal: 7,
         paddingVertical: 4,
         borderRadius: 10,
+    },
+    bellBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    bellBadge: {
+        position: 'absolute',
+        top: -1,
+        right: -1,
+        minWidth: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#FFA500',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 2,
+    },
+    bellBadgeText: {
+        color: '#fff',
+        fontSize: 8,
+        fontWeight: '800',
     },
 });

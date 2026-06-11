@@ -104,6 +104,46 @@ export default function SettingsScreen() {
     const PREFS_KEY = 'notification_preferences';
 
     const [canInstallPWA, setCanInstallPWA] = useState(false);
+    const [webPushSubscribed, setWebPushSubscribed] = useState(false);
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'web') return;
+        if ('Notification' in window) {
+            setWebPushSubscribed(Notification.permission === 'granted');
+        }
+    }, []);
+
+    const handleWebPushToggle = async () => {
+        if (Platform.OS !== 'web') return;
+        if (!user?.id) return;
+        
+        try {
+            if (Notification.permission === 'granted') {
+                const token = await registerForPushNotificationsAsync(user.id);
+                if (token) {
+                    showAlert('Push Configured', 'PWA web push notifications are active on this browser.', [{ text: 'OK' }]);
+                } else {
+                    showAlert('Registration Failed', 'Could not fetch notification subscription token. Check browser permissions.', [{ text: 'OK' }]);
+                }
+            } else {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    setWebPushSubscribed(true);
+                    const token = await registerForPushNotificationsAsync(user.id);
+                    if (token) {
+                        saveNotifSettings({ ...notifSettings, master: true });
+                        showAlert('PWA Notifications Enabled', 'You will now receive push alerts on this browser!', [{ text: 'OK' }]);
+                    } else {
+                        showAlert('Error', 'Failed to register notification token.', [{ text: 'OK' }]);
+                    }
+                } else {
+                    showAlert('Permission Denied', 'Please enable notification permissions for Tikona in your browser settings to receive alerts.', [{ text: 'OK' }]);
+                }
+            }
+        } catch (err) {
+            logger.warn('Web push registration failed:', err);
+        }
+    };
 
     React.useEffect(() => {
         if (Platform.OS !== 'web') return;
@@ -310,6 +350,15 @@ export default function SettingsScreen() {
 
                 <Section title="PREFERENCES" theme={theme}>
                     <Row theme={theme} icon="notifications-outline" label="Notifications" value={notifSettings.master ? 'On' : 'Off'} onPress={() => setShowNotifPicker(true)} />
+                    {Platform.OS === 'web' && (
+                        <Row 
+                            theme={theme} 
+                            icon="notifications-circle-outline" 
+                            label="PWA Push Notifications" 
+                            value={webPushSubscribed ? 'Subscribed' : 'Enable'} 
+                            onPress={handleWebPushToggle} 
+                        />
+                    )}
                     <Row theme={theme} icon="moon-outline" label="Appearance" value={themeLabel} onPress={() => setShowThemePicker(true)} />
                     <Row theme={theme} icon="accessibility-outline" label="Accessibility" onPress={handleOpenAccessibilitySettings} />
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />

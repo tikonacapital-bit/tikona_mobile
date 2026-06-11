@@ -12,6 +12,7 @@ import { Logo } from '@/components/Logo';
 const TAB_ITEMS = [
   { name: 'index', title: 'Home', icon: 'home-outline', iconFocused: 'home' },
   { name: 'reports', title: 'Reports', icon: 'document-text-outline', iconFocused: 'document-text' },
+  { name: 'notifications', title: 'Notifications', icon: 'notifications-outline', iconFocused: 'notifications' },
   { name: 'analyst', title: 'Analyst', icon: 'chatbubbles-outline', iconFocused: 'chatbubbles' },
   { name: 'portfolio', title: 'Portfolio', icon: 'pie-chart-outline', iconFocused: 'pie-chart' },
   { name: 'settings', title: 'Account', icon: 'person-outline', iconFocused: 'person' },
@@ -20,7 +21,11 @@ const TAB_ITEMS = [
 const SIDEBAR_EXPANDED = 280;
 const SIDEBAR_COLLAPSED = 68;
 
-function WebSidebar({ state, navigation }: BottomTabBarProps) {
+interface WebSidebarProps extends BottomTabBarProps {
+  unreadCount?: number;
+}
+
+function WebSidebar({ state, navigation, unreadCount = 0 }: WebSidebarProps) {
   const theme = useColorScheme();
   const c = Colors[theme];
   const isDark = theme === 'dark';
@@ -142,21 +147,31 @@ function WebSidebar({ state, navigation }: BottomTabBarProps) {
                   color={isFocused ? activeColor : isHovered ? c.text : c.textSecondary}
                   style={Platform.OS === 'web' ? { transition: 'color 0.15s ease' } as any : {}}
                 />
+                {tabItem.name === 'notifications' && unreadCount > 0 && (
+                  <View style={styles.sidebarBadge} />
+                )}
               </View>
               {isExpanded && (
-                <Text
-                  style={[
-                    styles.navLabel,
-                    {
-                      color: isFocused ? activeColor : isHovered ? c.text : c.textSecondary,
-                      fontWeight: isFocused ? '700' : '500',
-                    },
-                    Platform.OS === 'web' && ({ transition: 'color 0.15s ease' } as any),
-                  ]}
-                  numberOfLines={1}
-                >
-                  {tabItem.title}
-                </Text>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text
+                    style={[
+                      styles.navLabel,
+                      {
+                        color: isFocused ? activeColor : isHovered ? c.text : c.textSecondary,
+                        fontWeight: isFocused ? '700' : '500',
+                      },
+                      Platform.OS === 'web' && ({ transition: 'color 0.15s ease' } as any),
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tabItem.title}
+                  </Text>
+                  {tabItem.name === 'notifications' && unreadCount > 0 && (
+                    <View style={[styles.badgeTextContainer, { backgroundColor: Colors.brand.secondary }]}>
+                      <Text style={styles.badgeText}>{unreadCount}</Text>
+                    </View>
+                  )}
+                </View>
               )}
             </TouchableOpacity>
           );
@@ -296,17 +311,60 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingTop: 12,
   },
+  sidebarBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3A5BA0',
+  },
+  badgeTextContainer: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });
+
+import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 export default function TabLayout() {
   const theme = useColorScheme();
   const c = Colors[theme];
   const { isWideWeb } = useResponsiveLayout();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ['notifications_unread_count', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error } = await supabase
+        .from('user_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 15000,
+  });
 
   return (
     <Tabs
-      tabBar={isWideWeb ? (props) => <WebSidebar {...props} /> : undefined}
+      tabBar={isWideWeb ? (props) => <WebSidebar {...props} unreadCount={unreadCount} /> : undefined}
       screenOptions={{
         tabBarActiveTintColor: c.tabIconSelected,
         tabBarInactiveTintColor: c.textSecondary,
@@ -359,6 +417,21 @@ export default function TabLayout() {
           title: 'Reports',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons size={22} name={focused ? 'document-text' : 'document-text-outline'} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: Colors.brand.secondary,
+            color: '#fff',
+            fontSize: 10,
+          },
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons size={22} name={focused ? 'notifications' : 'notifications-outline'} color={color} />
           ),
         }}
       />
