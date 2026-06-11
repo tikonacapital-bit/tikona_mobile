@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Platform, Alert } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -80,6 +80,60 @@ export default function NotificationsScreen() {
     },
   });
 
+  // Delete all notifications
+  const deleteAllNotificationsMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) return;
+      const { error } = await supabase
+        .from('user_notifications')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications_unread_count', user?.id] });
+    },
+  });
+
+  // Delete a single notification
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('user_notifications')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['notifications_unread_count', user?.id] });
+    },
+  });
+
+  const handleClearAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Clear All Notifications',
+      'Are you sure you want to delete all notifications? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => {
+            deleteAllNotificationsMutation.mutate();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    Haptics.selectionAsync();
+    deleteNotificationMutation.mutate(id);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
@@ -133,17 +187,30 @@ export default function NotificationsScreen() {
           <Text style={[styles.subtitle, { color: c.textTertiary }]}>Stay updated with recommendations</Text>
         </View>
         
-        {hasUnread && (
-          <TouchableOpacity
-            onPress={handleMarkAllRead}
-            disabled={markAllAsReadMutation.isPending}
-            style={styles.markReadBtn}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="checkmark-done" size={16} color={Colors.brand.secondary} />
-            <Text style={styles.markReadText}>Mark all read</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          {hasUnread && (
+            <TouchableOpacity
+              onPress={handleMarkAllRead}
+              disabled={markAllAsReadMutation.isPending}
+              style={styles.actionBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="checkmark-done" size={15} color={Colors.brand.secondary} />
+              <Text style={styles.actionBtnText}>Mark read</Text>
+            </TouchableOpacity>
+          )}
+          {notifications && notifications.length > 0 && (
+            <TouchableOpacity
+              onPress={handleClearAll}
+              disabled={deleteAllNotificationsMutation.isPending}
+              style={[styles.actionBtn, { backgroundColor: 'rgba(239,68,68,0.08)', marginLeft: Spacing.sm }]}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={15} color="#EF4444" />
+              <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Clear all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {isLoading ? (
@@ -214,9 +281,18 @@ export default function NotificationsScreen() {
                     </Text>
                   </View>
                   
-                  {item.data?.session_id && (
-                    <Ionicons name="chevron-forward" size={16} color={c.textTertiary} style={{ marginLeft: Spacing.sm }} />
-                  )}
+                  <View style={styles.rightActions}>
+                    {item.data?.session_id ? (
+                      <Ionicons name="chevron-forward" size={16} color={c.textTertiary} style={{ marginBottom: Spacing.sm }} />
+                    ) : null}
+                    <TouchableOpacity
+                      onPress={() => handleDeleteNotification(item.id)}
+                      style={[styles.deleteBtn, { marginTop: item.data?.session_id ? Spacing.xs : 0 }]}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={c.textTertiary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </Card>
             );
@@ -258,16 +334,20 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: FontSize.lg, fontWeight: '800' },
   subtitle: { fontSize: FontSize.xs, marginTop: 2 },
-  markReadBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: BorderRadius.md,
     backgroundColor: 'rgba(37,99,235,0.08)',
   },
-  markReadText: {
+  actionBtnText: {
     fontSize: FontSize.xs,
     fontWeight: '700',
     color: Colors.brand.secondary,
@@ -317,5 +397,15 @@ const styles = StyleSheet.create({
   cardDate: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  rightActions: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    paddingLeft: Spacing.sm,
+  },
+  deleteBtn: {
+    padding: 6,
+    borderRadius: BorderRadius.sm,
   },
 });
