@@ -81,12 +81,28 @@ export async function registerForPushNotificationsAsync(userId: string) {
         token = expoTokenResponse.data;
 
         if (Platform.OS === 'android') {
-            Notifications.setNotificationChannelAsync('default', {
+            await Notifications.setNotificationChannelAsync('default', {
                 name: 'default',
                 importance: Notifications.AndroidImportance.MAX,
                 vibrationPattern: [0, 250, 250, 250],
                 lightColor: '#FF231F7C',
             });
+        }
+    }
+
+    if (token && userId) {
+        try {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ expo_push_token: token })
+                .eq('user_id', userId);
+            if (updateError) {
+                logger.error('Failed to update push token in supabase profiles:', updateError);
+            } else {
+                logger.log('Successfully saved push token in supabase profiles');
+            }
+        } catch (dbErr) {
+            logger.error('Error updating profiles with push token:', dbErr);
         }
     }
 

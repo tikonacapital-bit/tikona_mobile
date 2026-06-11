@@ -58,8 +58,12 @@
   ],
   "rewrites": [
     {
+      "source": "/auth/callback",
+      "destination": "/index"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/index"
     }
   ]
 }

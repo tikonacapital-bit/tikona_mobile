@@ -68,6 +68,24 @@ function RootLayoutInner() {
         return () => clearTimeout(timer);
     }, []);
 
+    // Auto-register push notifications when user logs in (both native & web)
+    useEffect(() => {
+        if (isLoaded && isSignedIn && user?.id) {
+            const registerPush = async () => {
+                try {
+                    const { registerForPushNotificationsAsync } = await import('@/lib/notifications');
+                    const token = await registerForPushNotificationsAsync(user.id);
+                    console.log('[Notifications] Auto-registered push token:', token ? 'Success' : 'None');
+                } catch (err) {
+                    console.warn('[Notifications] Auto-registration failed:', err);
+                }
+            };
+            // Run on a slight delay to allow app to finish rendering and prevent UI blocking
+            const timer = setTimeout(registerPush, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoaded, isSignedIn, user?.id]);
+
     // Global protection routing
     useEffect(() => {
         if (!isLoaded) return;

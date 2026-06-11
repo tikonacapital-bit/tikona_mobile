@@ -31,6 +31,7 @@ export default function PWAInstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      window.deferredPrompt = e;
       setShowBanner(true);
       // Slide in animation
       Animated.spring(slideAnim, {

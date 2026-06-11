@@ -13,10 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { company_name, nse_symbol, rating, session_id, plans } = await req.json();
+    const { company_name, nse_symbol, rating, cmp, target_price, upside_pct, validity_type, validity_date, session_id, plans } = await req.json();
 
-    if (!session_id || !company_name || !plans) {
-      throw new Error('Missing required fields: session_id, company_name, or plans');
+    if (!company_name || !plans) {
+      throw new Error('Missing required fields: company_name or plans');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -83,9 +83,23 @@ serve(async (req) => {
     }
 
     // 3. Construct Expo push messages
+    let titleText = `New Recommendation: ${company_name} (${nse_symbol})`;
     let bodyText = `Tap to view the detailed research report and thesis on ${company_name}.`;
     if (rating) {
         bodyText = `Rating: ${rating}. ${bodyText}`;
+    }
+
+    if (nse_symbol && cmp !== undefined && cmp !== null && rating && target_price !== undefined && target_price !== null) {
+      const direction = target_price >= cmp ? 'Upside' : 'Downside';
+      const pctVal = upside_pct !== null && upside_pct !== undefined ? Math.round(Math.abs(upside_pct)) : Math.round(Math.abs(((target_price - cmp) / cmp) * 100));
+      let valType = '1Y';
+      if (validity_type === 'custom') {
+        valType = 'Custom';
+      } else if (validity_type) {
+        valType = validity_type.replace('_year', 'Y').toUpperCase();
+      }
+      titleText = `${nse_symbol}: ${rating} @ INR ${cmp} | TP: ${target_price}`;
+      bodyText = `${direction} ${pctVal}% in ${valType}. Tap to View, Chat and Listen to detailed Investment thesis`;
     }
 
     const expoMessages = [];
@@ -96,9 +110,9 @@ serve(async (req) => {
         expoMessages.push({
           to: pushToken,
           sound: 'default',
-          title: `New Recommendation: ${company_name} (${nse_symbol})`,
+          title: titleText,
           body: bodyText,
-          data: { url: `tikonamobile://report/${session_id}` },
+          data: session_id ? { url: `tikonamobile://report/${session_id}` } : undefined,
         });
       } else if (pushToken.startsWith('{')) {
         try {
@@ -146,9 +160,9 @@ serve(async (req) => {
       );
 
       const webPayload = JSON.stringify({
-        title: `New Recommendation: ${company_name} (${nse_symbol})`,
+        title: titleText,
         body: bodyText,
-        data: { url: `tikonamobile://report/${session_id}` }
+        data: session_id ? { url: `tikonamobile://report/${session_id}` } : undefined
       });
 
       for (const sub of webSubscriptions) {

@@ -103,6 +103,32 @@ export default function SettingsScreen() {
 
     const PREFS_KEY = 'notification_preferences';
 
+    const [canInstallPWA, setCanInstallPWA] = useState(false);
+
+    React.useEffect(() => {
+        if (Platform.OS !== 'web') return;
+        
+        const checkInstallable = () => {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+            setCanInstallPWA(!isStandalone && !localStorage.getItem('pwa-installed') && !!(window as any).deferredPrompt);
+        };
+
+        checkInstallable();
+        
+        const handler = () => checkInstallable();
+        const installHandler = () => {
+            localStorage.setItem('pwa-installed', '1');
+            setCanInstallPWA(false);
+        };
+        
+        window.addEventListener('beforeinstallprompt', handler);
+        window.addEventListener('appinstalled', installHandler);
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handler);
+            window.removeEventListener('appinstalled', installHandler);
+        };
+    }, []);
+
     React.useEffect(() => {
         const loadSettings = async () => {
             try {
@@ -287,6 +313,23 @@ export default function SettingsScreen() {
                     <Row theme={theme} icon="moon-outline" label="Appearance" value={themeLabel} onPress={() => setShowThemePicker(true)} />
                     <Row theme={theme} icon="accessibility-outline" label="Accessibility" onPress={handleOpenAccessibilitySettings} />
                     <Row theme={theme} icon="help-circle-outline" label="Help & Support" onPress={() => router.push('/support')} />
+                    {Platform.OS === 'web' && canInstallPWA && (
+                        <Row 
+                            theme={theme} 
+                            icon="download-outline" 
+                            label="Install PWA App" 
+                            onPress={async () => {
+                                const prompt = (window as any).deferredPrompt;
+                                if (prompt) {
+                                    prompt.prompt();
+                                    const { outcome } = await prompt.userChoice;
+                                    logger.log('[PWA] Manual install choice:', outcome);
+                                    (window as any).deferredPrompt = null;
+                                    setCanInstallPWA(false);
+                                }
+                            }} 
+                        />
+                    )}
                 </Section>
 
                 <Section title="LEGAL & COMPLIANCE" theme={theme}>

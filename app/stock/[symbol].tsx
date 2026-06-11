@@ -8,8 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TradingViewChart } from '@/components/charts';
 
 // ── Formatters ──
 const fmtPrice = (v: number | null | undefined) =>
@@ -78,6 +79,7 @@ export default function StockDetailScreen() {
     const theme = useColorScheme();
     const c = Colors[theme];
     const { getToken } = useClerkAuth();
+    const [selectedRange, setSelectedRange] = React.useState<'1D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '2Y' | '3Y' | '5Y' | '10Y'>('1Y');
 
     const { data: stock, isLoading } = useQuery({
         queryKey: ['stock', symbol],
@@ -195,6 +197,45 @@ export default function StockDetailScreen() {
                             )}
                         </View>
                     )}
+                </Card>
+
+                {/* ── Sleek Stock Chart ── */}
+                <Card theme={theme} style={[styles.card, { padding: Spacing.md }]}>
+                    <View style={chartStyles.header}>
+                        <View style={chartStyles.titleRow}>
+                            <Ionicons name="analytics" size={16} color={Colors.brand.secondary} />
+                            <Text style={[styles.cardTitle, { color: c.text }]}>Technical Chart</Text>
+                        </View>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={chartStyles.scrollContent}
+                            style={chartStyles.scrollView}
+                        >
+                            {(['1D', '1W', '1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '10Y'] as const).map((r) => {
+                                const isSelected = selectedRange === r;
+                                return (
+                                    <TouchableOpacity
+                                        key={r}
+                                        onPress={() => setSelectedRange(r)}
+                                        style={[
+                                            chartStyles.tab,
+                                            isSelected && { backgroundColor: Colors.brand.secondary }
+                                        ]}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[
+                                            chartStyles.tabText,
+                                            { color: isSelected ? '#fff' : c.textSecondary }
+                                        ]}>
+                                            {r}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                    <TradingViewChart symbol={symbol!} theme={theme} range={selectedRange} height={320} />
                 </Card>
 
                 {/* ── Stock Performance ── */}
@@ -553,5 +594,39 @@ const perfStyles = StyleSheet.create({
     weekMetricValue: {
         fontSize: FontSize.sm,
         fontWeight: '800',
+    },
+});
+
+const chartStyles = StyleSheet.create({
+    header: {
+        gap: Spacing.md,
+        marginBottom: Spacing.md,
+        paddingHorizontal: Spacing.xs,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    scrollView: {
+        width: '100%',
+        backgroundColor: Platform.select({ ios: 'rgba(0,0,0,0.03)', default: 'rgba(255,255,255,0.03)' }),
+        borderRadius: 8,
+        padding: 3,
+    },
+    scrollContent: {
+        flexDirection: 'row',
+        gap: 2,
+    },
+    tab: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 6,
+        minWidth: 42,
+        alignItems: 'center',
+    },
+    tabText: {
+        fontSize: 11,
+        fontWeight: '700',
     },
 });
