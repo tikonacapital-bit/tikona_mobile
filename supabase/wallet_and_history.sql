@@ -7,7 +7,7 @@
 create table if not exists public.ai_wallets (
   id uuid not null default gen_random_uuid(),
   user_id text not null,
-  credits_balance integer not null default 50000, -- 50K free token-credits on start
+  credits_balance integer not null default 25100, -- 50K free token-credits on start
   lifetime_credits_used integer not null default 0,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
@@ -74,7 +74,7 @@ declare
 begin
   -- 1. Ensure wallet exists
   insert into public.ai_wallets (user_id, credits_balance)
-  values (p_user_id, 50000)
+  values (p_user_id, 25100)
   on conflict (user_id) do nothing;
 
   -- 2. Lock the row for update and get balance
@@ -125,7 +125,7 @@ declare
 begin
   -- 1. Ensure wallet exists
   insert into public.ai_wallets (user_id, credits_balance)
-  values (p_user_id, 50000)
+  values (p_user_id, 25100)
   on conflict (user_id) do nothing;
 
   -- 2. Lock the row for update and get balance

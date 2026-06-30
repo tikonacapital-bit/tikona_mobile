@@ -167,7 +167,7 @@ export default function SectorChatHistoryScreen() {
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: c.border }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-                    <Ionicons name="chevron-back" size={24} color={c.text} />
+                    <Ionicons name="close" size={24} color={c.text} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.headerTitle, { color: c.text }]}>Chat History</Text>

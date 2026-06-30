@@ -329,10 +329,10 @@ serve(async (req: Request) => {
         if (!walletData) {
           const { data: newWallet } = await supabaseClient
             .from('ai_wallets')
-            .insert({ user_id: user.id, credits_balance: 50000 })
+            .insert({ user_id: user.id, credits_balance: 25100 })
             .select('credits_balance')
             .single();
-          credits = newWallet?.credits_balance ?? 50000;
+          credits = newWallet?.credits_balance ?? 25100;
         } else {
           credits = walletData.credits_balance;
         }

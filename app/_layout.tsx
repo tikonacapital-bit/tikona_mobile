@@ -143,6 +143,7 @@ function RootLayoutInner() {
                         <Stack.Screen name="(profiling)" options={{ headerShown: false }} />
                         <Stack.Screen name="(tabs)" />
                         <Stack.Screen name="report/[id]" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+                        <Stack.Screen name="sector-chat-history" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="stock/[symbol]" options={{ headerShown: false }} />
                         <Stack.Screen name="subscription/index" options={{ headerShown: false, presentation: 'modal' }} />
                         <Stack.Screen name="support" options={{ headerShown: false, animation: 'slide_from_bottom' }} />

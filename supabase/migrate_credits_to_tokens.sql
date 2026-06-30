@@ -21,9 +21,9 @@ SET
 
 -- 2. Update the default column value for new users
 ALTER TABLE public.ai_wallets
-  ALTER COLUMN credits_balance SET DEFAULT 50000;
+  ALTER COLUMN credits_balance SET DEFAULT 25100;
 
--- 3. Re-create the deduct_ai_credits RPC with 50000 default
+-- 3. Re-create the deduct_ai_credits RPC with 25100 default
 CREATE OR REPLACE FUNCTION public.deduct_ai_credits(
   p_user_id text,
   p_amount integer,
@@ -38,7 +38,7 @@ DECLARE
   v_new_balance integer;
 BEGIN
   INSERT INTO public.ai_wallets (user_id, credits_balance)
-  VALUES (p_user_id, 50000)
+  VALUES (p_user_id, 25100)
   ON CONFLICT (user_id) DO NOTHING;
 
   SELECT credits_balance INTO v_current_balance
@@ -69,7 +69,7 @@ BEGIN
 END;
 $$;
 
--- 4. Re-create the increment_ai_credits RPC with 50000 default
+-- 4. Re-create the increment_ai_credits RPC with 25100 default
 CREATE OR REPLACE FUNCTION public.increment_ai_credits(
   p_user_id text,
   p_amount integer,
@@ -84,7 +84,7 @@ DECLARE
   v_new_balance integer;
 BEGIN
   INSERT INTO public.ai_wallets (user_id, credits_balance)
-  VALUES (p_user_id, 50000)
+  VALUES (p_user_id, 25100)
   ON CONFLICT (user_id) DO NOTHING;
 
   SELECT credits_balance INTO v_current_balance
