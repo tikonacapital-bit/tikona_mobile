@@ -358,7 +358,7 @@ export default function BuyCreditsScreen() {
                         <Text style={styles.infoDot}>•</Text>
                         <Text style={[styles.infoText, { color: c.textSecondary }]}>
                             Credits <Text style={{ fontWeight: '700', color: c.text }}>never expire</Text> and carry
-                            over. New users start with <Text style={{ fontWeight: '700', color: c.text }}>100 free credits</Text>.
+                            over. New users start with <Text style={{ fontWeight: '700', color: c.text }}>50 free credits</Text>.
                         </Text>
                     </View>
 

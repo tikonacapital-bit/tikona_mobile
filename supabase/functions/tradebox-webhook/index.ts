@@ -46,9 +46,9 @@ const SUB_AMOUNT_TO_PLAN: Record<number, string> = {
   102: "sme_emerging",       // ₹1.02 test
   103: "all_in_growth",      // ₹1.03 test
   2499900: "midcap_wealth",  // ₹24,999
-  2999900: "smallcap_alpha", // ₹29,999
+  2899900: "smallcap_alpha", // ₹28,999
   3599900: "sme_emerging",   // ₹35,999
-  7499900: "all_in_growth",  // ₹74,999
+  7599900: "all_in_growth",  // ₹75,999
 };
 
 const corsHeaders = {

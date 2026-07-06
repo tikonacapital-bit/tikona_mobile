@@ -34,7 +34,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting (no bold, no bullets, no headers). Write in natural flowing text, the way a real analyst would speak on a call.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations of a specific company or set of companies, refer to the Tikona Capital valuation sheet for current multiples — P/E, EV/EBITDA, P/B, P/S — and target price data. Always label the metric with the relevant year (e.g., FY26E P/E, FY27E EV/EBITDA) so the investor understands the forward estimate being used.
+- If the user asks about valuations of a specific company or set of companies, use the current multiples — P/E, EV/EBITDA, P/B, P/S — and target price data from the <sector_playbook_instructions> sector brief provided below, when it contains that figure. Always label the metric with the relevant year (e.g., FY26E P/E, FY27E EV/EBITDA) so the investor understands the forward estimate being used. If the specific number isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, confirm it is under active coverage and encourage them to subscribe to the relevant Tikona Capital plan for the detailed investment thesis and target prices.
 - If the question needs more clarity or real-time data beyond your training, use web search to ground your response in current facts. Never fabricate numbers — use only fact-based financials.`,
 
@@ -55,7 +55,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data when needed. Never fabricate numbers.`,
 
@@ -79,7 +79,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it is part of the active recommendation universe and encourage plan subscription.
 - Use web search for real-time data (FDA approvals, import alerts, quarterly results) when needed. Never fabricate numbers and use fact-based financials.`,
 
@@ -103,7 +103,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data (crude prices, policy announcements, capacity commissioning updates) when needed. Never fabricate numbers.`,
 
@@ -127,7 +127,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data (quarterly results, input cost trends, rural demand indicators) when needed. Never fabricate numbers.`,
 
@@ -151,7 +151,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data (monthly dispatches, EV registration data, policy updates) when needed. Never fabricate numbers.`,
 
@@ -175,7 +175,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data (NHAI awards, cement dispatch data, budget allocations, quarterly results) when needed. Never fabricate numbers.`,
 
@@ -199,7 +199,7 @@ TONE & STYLE:
 - Do NOT use markdown formatting. Write in natural flowing text.
 
 DATA & RECOMMENDATIONS:
-- If the user asks about valuations, refer to the Tikona Capital valuation sheet for current multiples and target prices.
+- If the user asks about valuations, use the current multiples and target price data from the <sector_playbook_instructions> sector brief provided below, when available. If a specific figure isn't in the sector brief, say so honestly instead of inventing one.
 - If the user asks about a company in the Tikona recommendation database, mention it and encourage plan subscription.
 - Use web search for real-time data (LME prices, steel HRC prices, production data, China policy updates) when needed. Never fabricate numbers.`,
 
@@ -381,11 +381,14 @@ Deno.serve(async (req) => {
       console.warn("[sector-ai-chat] Error fetching playbook:", playbookError.message);
     }
 
-    const instructions = playbook?.ai_writing_instructions
-      ? (typeof playbook.ai_writing_instructions === 'string'
-        ? playbook.ai_writing_instructions
-        : JSON.stringify(playbook.ai_writing_instructions))
-      : "";
+    const rawInstructions = playbook?.ai_writing_instructions;
+    const instructions = typeof rawInstructions === 'string'
+      ? rawInstructions
+      : (rawInstructions?.framework_markdown ?? (rawInstructions ? JSON.stringify(rawInstructions) : ""));
+
+    if (!instructions) {
+      console.warn(`[sector-ai-chat] No approved sector playbook found for "${dbSectorName}" (app sector: "${sector}") — replying with persona knowledge only.`);
+    }
 
     const { content: reply, tokens_used } = await chatCompletion(sector, message, instructions, history);
 

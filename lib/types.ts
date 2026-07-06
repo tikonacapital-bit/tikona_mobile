@@ -161,9 +161,9 @@ export interface RefundRequest {
 // Numeric plan prices (for refund calculation)
 export const PLAN_PRICES: Record<string, number> = {
     midcap_wealth: 24999,
-    smallcap_alpha: 29999,
+    smallcap_alpha: 28999,
     sme_emerging: 35999,
-    all_in_growth: 74999,
+    all_in_growth: 75999,
 };
 
 // AI Chat Session (logs of AI chat conversations)
@@ -271,7 +271,7 @@ export const PLANS = {
     smallcap_alpha: {
         name: 'Smallcap Alpha Picks',
         description: 'Focused ideas for aggressive growth investors',
-        price: '₹29,999',
+        price: '₹28,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14fe46313330572f95675',
         telegramUrl: 'https://t.me/+PVyybrFQfuhkYjA1',
@@ -303,7 +303,7 @@ export const PLANS = {
     all_in_growth: {
         name: 'All In Growth Bundle',
         description: 'Complete access to all research plans',
-        price: '₹74,999',
+        price: '₹75,999',
         period: '/year',
         tradeboxUrl: 'https://tradeboxlive.com/view/packages/69b2a8676eea45a42e7751ae',
         telegramUrl: 'https://t.me/+oW0wvTa0830xMDM1', // Assuming gives access to all or maybe just one. Let's provide midcap as fallback or contact support. I'll omit it or put a placeholder. Let's just leave it empty.
