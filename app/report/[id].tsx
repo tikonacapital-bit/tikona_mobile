@@ -53,9 +53,14 @@ const getDirectDownloadUrl = (url: string | null | undefined) => {
 // so the caller keeps using the native <Video> player with full custom controls.
 const getVideoEmbedUrl = (url: string | null | undefined) => {
     if (!url) return null;
-    const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveMatch && driveMatch[1]) {
-        return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+    if (url.includes('drive.google.com')) {
+        // Covers both link styles Drive hands out:
+        //   .../file/d/{id}/view?usp=drivesdk
+        //   .../uc?id={id}&export=download
+        const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (driveMatch && driveMatch[1]) {
+            return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+        }
     }
     const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
     if (youtubeMatch && youtubeMatch[1]) {
