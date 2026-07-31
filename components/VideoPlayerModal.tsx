@@ -1,4 +1,5 @@
 import { FontSize } from '@/constants/theme';
+import VideoEmbed from '@/components/VideoEmbed';
 import { Ionicons } from '@expo/vector-icons';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface VideoPlayerModalProps {
     visible: boolean;
     uri: string;
+    // Set when `uri` is a Google Drive / YouTube page rather than a direct video
+    // file — renders via WebView/iframe instead of the custom expo-av player.
+    embedUrl?: string | null;
     title?: string;
     subtitle?: string;
     onClose: () => void;
@@ -39,6 +43,7 @@ const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 export default function VideoPlayerModal({
     visible,
     uri,
+    embedUrl,
     title = 'Video Summary',
     subtitle,
     onClose,
@@ -270,6 +275,14 @@ export default function VideoPlayerModal({
                 )}
 
                 {/* ── Video Area ── */}
+                {embedUrl ? (
+                    // Google Drive / YouTube page — not a raw video stream, so it's
+                    // rendered via WebView (native) / iframe (web) with the source's
+                    // own player controls instead of our custom scrubber/speed rig.
+                    <View style={[styles.videoBox, videoFlexStyle]}>
+                        <VideoEmbed uri={embedUrl} style={styles.video} />
+                    </View>
+                ) : (
                 <TouchableWithoutFeedback onPress={handleTap}>
                     <View style={[styles.videoBox, videoFlexStyle]}>
                         <Video
@@ -444,6 +457,7 @@ export default function VideoPlayerModal({
                         ) : null}
                     </View>
                 </TouchableWithoutFeedback>
+                )}
 
                 {/* ── Info Panel ── */}
                 {!isFullscreen && (

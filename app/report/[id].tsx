@@ -47,6 +47,23 @@ const getDirectDownloadUrl = (url: string | null | undefined) => {
     return url;
 };
 
+// Google Drive / YouTube links are HTML pages, not raw video streams — <video>
+// (and expo-av under it) can't decode them. Detect these and hand back an
+// embeddable player URL instead; direct file URLs (e.g. Supabase Storage) return null
+// so the caller keeps using the native <Video> player with full custom controls.
+const getVideoEmbedUrl = (url: string | null | undefined) => {
+    if (!url) return null;
+    const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+        return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+    }
+    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (youtubeMatch && youtubeMatch[1]) {
+        return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+    return null;
+};
+
 export default function ReportDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const theme = useColorScheme();
@@ -547,6 +564,7 @@ export default function ReportDetailScreen() {
                 <VideoPlayerModal
                     visible={videoModalVisible}
                     uri={secureVideoUrl || report.video_file_url!}
+                    embedUrl={getVideoEmbedUrl(secureVideoUrl || report.video_file_url)}
                     title={report.company_name}
                     subtitle="Video Research Brief"
                     onClose={() => setVideoModalVisible(false)}
