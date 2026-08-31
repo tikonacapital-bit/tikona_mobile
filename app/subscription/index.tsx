@@ -103,6 +103,28 @@ export default function SubscriptionScreen() {
         }
     }, [subscription?.plan]);
 
+    const [joiningTelegram, setJoiningTelegram] = useState(false);
+    const hasJoinedTelegram = !!subscription?.telegram_joined_at;
+
+    const handleJoinTelegram = useCallback(async (url: string) => {
+        // Guard against double-taps and against this same button being reused
+        // (e.g. from another device signed into the same account) after the
+        // group has already been joined once.
+        if (subscriptionRef.current?.telegram_joined_at || joiningTelegram || !userId) return;
+        setJoiningTelegram(true);
+        Linking.openURL(url).catch(() => { });
+        try {
+            const token = await getToken({ template: 'supabase' });
+            const client = getAuthenticatedSupabase(token);
+            await client.from('subscriptions').update({ telegram_joined_at: new Date().toISOString() }).eq('user_id', userId);
+            await refreshUserData();
+        } catch (_) {
+            // Non-fatal — worst case the button stays tappable until the next refresh.
+        } finally {
+            setJoiningTelegram(false);
+        }
+    }, [userId, getToken, refreshUserData, joiningTelegram]);
+
     const handleSelectPlan = async (planKey: PlanKey) => {
         if (selectingPlan || isRefreshing) return;
         const url = PLANS[planKey].tradeboxUrl;
@@ -200,11 +222,12 @@ export default function SubscriptionScreen() {
                             </Text>
                             {(PLANS[currentPlan as PlanKey] as any)?.telegramUrl && (
                                 <TouchableOpacity
-                                    style={webStyles.telegramBtn}
-                                    onPress={() => Linking.openURL((PLANS[currentPlan as PlanKey] as any).telegramUrl)}
+                                    style={[webStyles.telegramBtn, hasJoinedTelegram && webStyles.telegramBtnJoined]}
+                                    onPress={() => handleJoinTelegram((PLANS[currentPlan as PlanKey] as any).telegramUrl)}
+                                    disabled={hasJoinedTelegram || joiningTelegram}
                                 >
-                                    <Ionicons name="paper-plane" size={12} color="#fff" />
-                                    <Text style={webStyles.telegramBtnText}>Join Telegram</Text>
+                                    <Ionicons name={hasJoinedTelegram ? 'checkmark-circle' : 'paper-plane'} size={12} color="#fff" />
+                                    <Text style={webStyles.telegramBtnText}>{hasJoinedTelegram ? 'Joined Telegram' : 'Join Telegram'}</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -423,11 +446,12 @@ export default function SubscriptionScreen() {
                         )}
                         {(PLANS[currentPlan as PlanKey] as any)?.telegramUrl && (
                             <TouchableOpacity
-                                style={styles.telegramBtn}
-                                onPress={() => Linking.openURL((PLANS[currentPlan as PlanKey] as any).telegramUrl)}
+                                style={[styles.telegramBtn, hasJoinedTelegram && styles.telegramBtnJoined]}
+                                onPress={() => handleJoinTelegram((PLANS[currentPlan as PlanKey] as any).telegramUrl)}
+                                disabled={hasJoinedTelegram || joiningTelegram}
                             >
-                                <Ionicons name="paper-plane" size={13} color="#fff" />
-                                <Text style={styles.telegramBtnText}>Join PRO Telegram Group</Text>
+                                <Ionicons name={hasJoinedTelegram ? 'checkmark-circle' : 'paper-plane'} size={13} color="#fff" />
+                                <Text style={styles.telegramBtnText}>{hasJoinedTelegram ? 'Joined PRO Telegram Group' : 'Join PRO Telegram Group'}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -678,6 +702,7 @@ const webStyles = StyleSheet.create({
         gap: 5,
     },
     telegramBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    telegramBtnJoined: { backgroundColor: '#6B7280', opacity: 0.7 },
 
     // Grid
     grid: {
@@ -811,6 +836,7 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start', gap: 5,
     },
     telegramBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    telegramBtnJoined: { backgroundColor: '#6B7280', opacity: 0.7 },
     mobileContent: { padding: Spacing.xl },
     infoBanner: {
         flexDirection: 'row', alignItems: 'center', gap: 12,
