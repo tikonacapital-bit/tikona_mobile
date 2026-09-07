@@ -134,6 +134,7 @@ export interface Subscription {
     is_active: boolean;
     amount_paid?: number | null;
     razorpay_payment_id?: string | null;
+    telegram_joined_at?: string | null;
     created_at: string;
     updated_at?: string;
 }

@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             const [profileRes, subRes, refundRes, walletRes] = await Promise.all([
                 supabase.from('profiles').select('id, user_id, risk_score, risk_profile, profile_method, display_label, answers, email, created_at, updated_at').eq('user_id', userId).maybeSingle(),
-                supabase.from('subscriptions').select('id, user_id, plan, started_at, expires_at, is_active, amount_paid, razorpay_payment_id, created_at, updated_at').eq('user_id', userId).maybeSingle(),
+                supabase.from('subscriptions').select('id, user_id, plan, started_at, expires_at, is_active, amount_paid, razorpay_payment_id, telegram_joined_at, created_at, updated_at').eq('user_id', userId).maybeSingle(),
                 supabase.from('refund_requests').select('id, user_id, subscription_id, plan, total_paid, months_used, months_remaining, refund_amount, upi_id, status, reason, admin_notes, reviewed_by, reviewed_at, created_at, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
                 supabase.from('ai_wallets').select('*').eq('user_id', userId).maybeSingle(),
             ]);
