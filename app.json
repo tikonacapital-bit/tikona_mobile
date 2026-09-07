@@ -45,12 +45,12 @@
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "Tikona Research",
+      "name": "Tikona Capital Research",
       "shortName": "Tikona Research",
       "display": "standalone",
       "backgroundColor": "#ffffff",
       "themeColor": "#1e3a8a",
-      "description": "Boutique wealth management and equity research platform."
+      "description": "AI driven Equity Research Platform"
     },
     "plugins": [
       "expo-router",
