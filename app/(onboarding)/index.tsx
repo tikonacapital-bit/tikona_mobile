@@ -27,7 +27,7 @@ const SLIDES = [
         badgeIcon: 'shield-checkmark' as const,
         title: 'Driven by Research,\nBuilt with Networks,\nAct with Conviction.',
         subtitle: 'Trusted by investors across India for expert equity research and analysis.',
-        regNo: 'SEBI Registration No. INH000069807\nBSE Enlistment Number: 5585',
+        regNo: 'SEBI Registration No. INH000009807\nBSE Enlistment Number: 5585',
     },
     {
         id: '2',

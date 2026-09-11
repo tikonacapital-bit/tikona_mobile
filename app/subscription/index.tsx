@@ -196,7 +196,7 @@ export default function SubscriptionScreen() {
 
                         <View style={[webStyles.heroBadge, { backgroundColor: 'rgba(31,70,144,0.1)', borderColor: 'rgba(31,70,144,0.2)' }]}>
                             <Ionicons name="sparkles" size={13} color={Colors.brand.secondary} />
-                            <Text style={[webStyles.heroBadgeText, { color: Colors.brand.secondary }]}>SEBI Registered Research Analyst · INH000069807</Text>
+                            <Text style={[webStyles.heroBadgeText, { color: Colors.brand.secondary }]}>SEBI Registered Research Analyst · INH000009807</Text>
                         </View>
 
                         <Text style={[webStyles.heroTitle, { color: c.text }]}>
@@ -387,7 +387,7 @@ export default function SubscriptionScreen() {
                             borderColor: 'rgba(31,70,144,0.2)',
                         }]}>
                             <Ionicons name="ribbon" size={14} color={Colors.brand.secondary} />
-                            <Text style={[webStyles.sebiTagText, { color: Colors.brand.secondary }]}>SEBI RA · INH000069807</Text>
+                            <Text style={[webStyles.sebiTagText, { color: Colors.brand.secondary }]}>SEBI RA · INH000009807</Text>
                         </View>
                     </View>
 

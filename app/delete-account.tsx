@@ -117,7 +117,7 @@ export default function DeleteAccountScreen() {
                         <Logo size={48} fontSize={14} stacked={true} />
                         <Text style={[styles.title, { color: c.text }]}>Account Deletion</Text>
                         <Text style={[styles.subtitle, { color: c.textSecondary }]}>
-                            Tikona Research · SEBI RA INH000069807
+                            Tikona Research · SEBI RA INH000009807
                         </Text>
                     </View>
 
@@ -369,7 +369,7 @@ export default function DeleteAccountScreen() {
                             Tikona Capital · SEBI Registered Research Analyst
                         </Text>
                         <Text style={[styles.footerText, { color: c.textTertiary }]}>
-                            Registration No: INH000069807
+                            Registration No: INH000009807
                         </Text>
                     </View>
                 </ScrollView>

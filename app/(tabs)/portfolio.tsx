@@ -1012,7 +1012,7 @@ export default function PortfolioScreen() {
                         <Text style={[styles.legalText, { color: c.textTertiary }]}>
                             <Text style={{ fontWeight: '700', color: c.textSecondary }}>LEGAL DISCLAIMER: </Text>
                             This portfolio tracker is for educational and research purposes only. Market data is provided "as is" and may be inaccurate or delayed.
-                            We are a SEBI registered Research Analyst (REG NO: INH000069807). This does not constitute investment advice. Please verify all data with your official broker statements before making trading decisions.
+                            We are a SEBI registered Research Analyst (REG NO: INH000009807). This does not constitute investment advice. Please verify all data with your official broker statements before making trading decisions.
                         </Text>
                     </View>
                 </View>

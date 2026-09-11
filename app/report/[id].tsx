@@ -728,7 +728,7 @@ export default function ReportDetailScreen() {
                             <Text style={[styles.sebiDisclaimerText, { color: c.textTertiary }]}>
                                 Investment in securities market is subject to market risks. Read all the related documents carefully before investing. Registration granted by SEBI and certification from NISM in no way guarantee performance of the intermediary or provide any assurance of returns to investors.{'\n\n'}
                                 This report is prepared for informational purposes only and does not constitute investment advice, an offer to sell, or a solicitation to buy any securities. Past performance is not indicative of future results. Investors should consult their financial advisor before making any investment decisions.{'\n\n'}
-                                SEBI Research Analyst Reg. No.: INH000069807
+                                SEBI Research Analyst Reg. No.: INH000009807
                             </Text>
                         </View>
                     </>

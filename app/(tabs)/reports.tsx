@@ -321,7 +321,7 @@ export default function ReportsScreen() {
                             <View style={[styles.disclaimerFooter, { borderTopColor: c.border }]}>
                                 <Ionicons name="information-circle-outline" size={13} color={c.textTertiary} />
                                 <Text style={[styles.disclaimerText, { color: c.textTertiary }]}>
-                                    Reports are for informational purposes only and do not constitute investment advice. Investment in securities market is subject to market risks. SEBI RA Reg. No.: INH000069807
+                                    Reports are for informational purposes only and do not constitute investment advice. Investment in securities market is subject to market risks. SEBI RA Reg. No.: INH000009807
                                 </Text>
                             </View>
                         ) : null}
