@@ -97,9 +97,11 @@ function RootLayoutInner() {
             SplashScreen.hideAsync().catch(() => {});
         }
 
-        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || segments[0] === 'terms' || segments[0] === 'delete-account' || segments[0] === 'privacy-policy';
+        // Static legal pages reachable without signing in (linked from the onboarding footer)
+        const isPublicPage = ['terms', 'delete-account', 'privacy-policy', 'regulatory', 'mitc', 'ai-policy', 'disclosure', 'disclaimer', 'grievance-policy', 'grievance-contact'].includes(segments[0] as string);
+        const inAuthGroup = !segments[0] || segments[0] === '(auth)' || segments[0] === '(onboarding)' || segments[0] === 'auth' || segments[0] === 'oauth-native-callback' || isPublicPage;
 
-        if (isSignedIn && inAuthGroup && segments[0] !== 'terms' && segments[0] !== 'delete-account' && segments[0] !== 'privacy-policy') {
+        if (isSignedIn && inAuthGroup && !isPublicPage) {
             // Check if user has accepted the investment disclaimer
             if (!disclaimerChecked.current) {
                 disclaimerChecked.current = true;
