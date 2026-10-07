@@ -1,4 +1,5 @@
 import { Logo } from '@/components/Logo';
+import { RegulatoryFooter } from '@/components/RegulatoryFooter';
 import { BorderRadius, Colors, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import {
     Animated,
     FlatList,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -49,8 +51,6 @@ const SLIDES = [
     },
 ];
 
-const DISCLAIMER = 'Investment in securities market are subject to market risks.\nRead all the related documents carefully before investing.';
-
 const CARD_WIDTH = 860;
 const LEFT_PANEL_W = 300;
 
@@ -63,6 +63,8 @@ export default function OnboardingScreen() {
     const scrollX = useRef(new Animated.Value(0)).current;
     const flatListRef = useRef<FlatList>(null);
     const insets = useSafeAreaInsets();
+    // Measured height of the mobile slide area, so slide content can be vertically centered (or scroll if too tall)
+    const [listH, setListH] = useState(0);
 
     const isWideWeb = Platform.OS === 'web' && width >= 768;
     const isSmallScreen = height < 680;
@@ -141,7 +143,13 @@ export default function OnboardingScreen() {
 
     // ─── Mobile slide ─────────────────────────────────────────────────────────
     const renderMobileSlide = ({ item }: { item: typeof SLIDES[0] }) => (
-        <View style={[styles.slide, { width }]}>
+        // Scrolls vertically on short screens so the footer never clips the slide; stays centered when there's room
+        <ScrollView
+            style={{ width, height: listH || undefined }}
+            contentContainerStyle={[styles.slide, { flex: undefined, flexGrow: 1, paddingVertical: 16 }]}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+        >
 
             {/* ── Top: Logo ── */}
             <View style={{ alignItems: 'center' as const, marginBottom: isSmallScreen ? 20 : 36 }}>
@@ -196,7 +204,7 @@ export default function OnboardingScreen() {
                 )}
             </View>
 
-        </View>
+        </ScrollView>
     );
 
     // ─── Desktop layout ───────────────────────────────────────────────────────
@@ -212,6 +220,7 @@ export default function OnboardingScreen() {
                 <View style={[styles.decoCircle1, { backgroundColor: isDark ? '#1F469015' : '#1F469010' }]} />
                 <View style={[styles.decoCircle2, { backgroundColor: isDark ? '#FFA50010' : '#FFA50008' }]} />
 
+                <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                 {/* Centered card */}
                 <View style={styles.desktopOuter}>
                     <View style={[styles.desktopCard, {
@@ -308,13 +317,10 @@ export default function OnboardingScreen() {
 
                     </View>
 
-                    {/* Disclaimer below card */}
-                    <View style={[styles.desktopDisclaimer, { alignSelf: 'center' }]}>
-                        <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, fontSize: 11, textAlign: 'center' }]}>
-                            {DISCLAIMER}
-                        </Text>
-                    </View>
+                    {/* Market-risk disclaimer + Regulatory & Compliance link, in a panel matching the card above */}
+                    <RegulatoryFooter />
                 </View>
+                </ScrollView>
             </LinearGradient>
             </SafeAreaView>
         );
@@ -342,6 +348,7 @@ export default function OnboardingScreen() {
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
                 getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+                onLayout={(e) => setListH(e.nativeEvent.layout.height)}
                 style={{ flex: 1 }}
             />
 
@@ -362,19 +369,9 @@ export default function OnboardingScreen() {
                 borderTopWidth: 1,
                 backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(31,70,144,0.03)',
             }}>
-                <View style={[styles.mobileDisclaimerBar, { borderTopWidth: 0, paddingBottom: 10 }]}>
-                    <Text style={[styles.disclaimerText, { color: isDark ? '#8B95A8' : c.textTertiary, textAlign: 'center', fontSize: 10, flex: 1 }]}>
-                        {DISCLAIMER}
-                    </Text>
+                <View style={styles.mobileDisclaimerBar}>
+                    <RegulatoryFooter compact />
                 </View>
-
-                {/* Separator Line */}
-                <View style={{
-                    height: 1,
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31,70,144,0.1)',
-                    marginHorizontal: Spacing['2xl'],
-                    marginBottom: 16
-                }} />
 
                 <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                     <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
@@ -616,13 +613,8 @@ const styles = StyleSheet.create({
 
     // ── Mobile disclaimer bar (bottom strip) ──
     mobileDisclaimerBar: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        gap: 6,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderTopWidth: 1,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+        paddingHorizontal: Spacing['2xl'],
+        paddingTop: 14,
+        paddingBottom: 4,
     },
 });
