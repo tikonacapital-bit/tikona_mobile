@@ -258,7 +258,7 @@ export const PLANS = {
         description: 'Consistent performers with long-term compounding potential',
         price: '₹24,999',
         period: '/year',
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14ed46313330572f9419a',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69b14ed46313330572f9419a',
         telegramUrl: 'https://t.me/+oW0wvTa0830xMDM1',
         features: [
             'Curated mid cap stock picks',
@@ -274,7 +274,7 @@ export const PLANS = {
         description: 'Focused ideas for aggressive growth investors',
         price: '₹28,999',
         period: '/year',
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69b14fe46313330572f95675',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69b14fe46313330572f95675',
         telegramUrl: 'https://t.me/+PVyybrFQfuhkYjA1',
         features: [
             'High-alpha smallcap ideas',
@@ -290,7 +290,7 @@ export const PLANS = {
         description: 'Scalable models from the SME platform',
         price: '₹35,999',
         period: '/year',
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69b2a7d66eea45a42e77510c',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69b2a7d66eea45a42e77510c',
         telegramUrl: 'https://t.me/+qiWl18xxG8k0YmE1',
         features: [
             'High-growth SME ideas',

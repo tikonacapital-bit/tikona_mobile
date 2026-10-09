@@ -35,7 +35,7 @@ const CREDIT_PLANS = [
         icon: 'flash-outline' as const,
         desc: 'Perfect for occasional research queries.',
         gradient: ['#6366f1', '#8b5cf6'],
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e777e2c321d96b8b252c',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69d8e777e2c321d96b8b252c',
     },
     {
         id: 'pack_999',
@@ -50,7 +50,7 @@ const CREDIT_PLANS = [
         desc: 'Most popular for active investors.',
         gradient: ['#f59e0b', '#ef4444'],
         savings: '10% Extra',
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e809e2c321d96b8b25d0',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69d8e809e2c321d96b8b25d0',
     },
     {
         id: 'pack_4999',
@@ -65,7 +65,7 @@ const CREDIT_PLANS = [
         desc: 'Best value for power users.',
         gradient: ['#10b981', '#059669'],
         savings: '25% Extra',
-        tradeboxUrl: 'https://tradeboxlive.com/view/services/69d8e87be2c321d96b8b267a',
+        tradeboxUrl: 'https://tikonacapital.tradeboxlive.com/view/services/69d8e87be2c321d96b8b267a',
     },
 ];
 
